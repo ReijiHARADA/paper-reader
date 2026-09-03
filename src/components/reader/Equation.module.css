@@ -1,0 +1,42 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background-color: var(--color-equation-bg);
+  border-radius: var(--radius-md);
+}
+
+.equation {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.latex {
+  font-family: var(--font-family-mono);
+  font-size: 1rem;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.image {
+  max-width: 100%;
+  height: auto;
+}
+
+.fallback {
+  font-family: var(--font-family-mono);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.number {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}

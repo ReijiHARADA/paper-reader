@@ -1,0 +1,130 @@
+.article {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  font-size: var(--content-font-size);
+  line-height: var(--content-line-height);
+}
+
+.header {
+  margin-bottom: var(--spacing-2xl);
+  padding-bottom: var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+  margin-bottom: var(--spacing-sm);
+}
+
+.originalTitle {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+.authors {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.publication {
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.content {
+  color: var(--color-text);
+}
+
+.section {
+  margin-bottom: var(--spacing-xl);
+  scroll-margin-top: calc(var(--header-height) + var(--spacing-lg));
+}
+
+.heading1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+  padding-top: var(--spacing-lg);
+}
+
+.heading2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+  padding-top: var(--spacing-md);
+}
+
+.heading3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+}
+
+.heading4,
+.heading5,
+.heading6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+.reference {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  padding-left: var(--spacing-lg);
+  text-indent: calc(-1 * var(--spacing-lg));
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.6;
+}
+
+.processingBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-xl);
+  font-size: 0.875rem;
+}
+
+[data-theme="dark"] .processingBanner {
+  background-color: #1e3a5f;
+  color: #93c5fd;
+}
+
+.processingSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.emptyContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+}

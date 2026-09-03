@@ -1,0 +1,163 @@
+.figure {
+  margin: var(--spacing-xl) 0;
+  padding: var(--spacing-md);
+  background-color: var(--color-figure-bg);
+  border-radius: var(--radius-md);
+}
+
+.imageWrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: white;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.missingImage {
+  width: 100%;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
+}
+
+.zoomButton {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.imageWrapper:hover .zoomButton {
+  opacity: 1;
+}
+
+.zoomButton:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.caption {
+  margin-top: var(--spacing-md);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.figureNumber {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-right: var(--spacing-xs);
+}
+
+.captionText {
+  display: inline;
+}
+
+.toggleOriginal {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--spacing-sm);
+  padding: 2px var(--spacing-xs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  transition: color var(--transition-fast);
+}
+
+.toggleOriginal:hover {
+  color: var(--color-text-secondary);
+}
+
+.originalCaption {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--color-original-bg);
+  border-left: 2px solid var(--color-original-border);
+  font-style: italic;
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+/* Zoom Modal */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-xl);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal {
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.closeButton {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  padding: var(--spacing-sm);
+  border: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.closeButton:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.zoomedImage {
+  max-width: 100%;
+  max-height: calc(90vh - 80px);
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+.zoomedCaption {
+  margin-top: var(--spacing-md);
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  font-size: 0.9375rem;
+  max-width: 600px;
+}

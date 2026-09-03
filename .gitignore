@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Python / MADLAD server
+translation-server/.venv/
+translation-server/.venv.backup.py39/
+**/__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+
+# Models and caches
+*.bin
+*.safetensors
+.cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
