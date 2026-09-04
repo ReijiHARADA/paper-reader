@@ -32,6 +32,7 @@
 ## Local data
 
 - Paper body source of truth is the Paper Package at `<AppData>/papers/<paperId>/` (`source.pdf`, `paper.json`, `original.md`, `ja.md`, `structure.json`, optional `layout.json.gz`, `assets/`). Do not store paper bodies only in IndexedDB or SQLite.
+- During MADLAD translation, persist only `ja.md` / `paper.json` / `structure.json` on a debounce. Never rewrite `source.pdf`, `assets/`, or `layout.json.gz` per block. Full atomic persist + validation stays on finalize. Do not change MADLAD 3B / MPS / bf16 / batch 24 / microbatch / concurrency 8 to “fix” Reader jank.
 - SQLite (`library.sqlite`) holds the library index, workspace tree, annotations, reading positions, glossaries, translation cache, and rebuildable FTS/LIKE search. See `DATA_ARCHITECTURE.md`.
 - Original PDFs stay in the package as `source.pdf`.
 - Annotations live in SQLite, anchored to stable block IDs. Re-anchor still uses selectedText + prefix + suffix.

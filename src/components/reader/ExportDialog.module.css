@@ -1,0 +1,130 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: var(--spacing-xl);
+}
+
+.modal {
+  background-color: var(--color-bg);
+  border-radius: var(--radius-lg);
+  max-width: 460px;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 8px 32px var(--color-shadow);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.closeButton {
+  padding: var(--spacing-xs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.closeButton:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.fieldset {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.fieldset legend {
+  padding: 0 var(--spacing-xs);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-accent);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #c5221f;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+}
+
+.primary,
+.secondary {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.primary {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+}

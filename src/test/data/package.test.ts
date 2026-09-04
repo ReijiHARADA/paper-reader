@@ -128,4 +128,45 @@ describe("Paper Package", () => {
     expect(validation.ok).toBe(false);
     expect(validation.diagnostics.some((item) => item.code === "duplicate-block-id")).toBe(true);
   });
+
+  it("translation checkpoint does not rewrite source.pdf, assets, or layout", async () => {
+    const { resetPersistMetrics, persistMetrics, persistMutablePaperFiles } = await import(
+      "../../data/package/persist"
+    );
+    const fs = createMemoryFileSystem();
+    const { paper, sections, blocks } = sample();
+    const pkg = projectionToPackage({
+      paper,
+      sections,
+      blocks,
+      sourcePdf: new Uint8Array([1, 2, 3, 4]),
+      layout: { schemaVersion: 1, pages: [{ page: 1, spans: [] }] },
+    });
+    resetPersistMetrics();
+    await persistPaperPackage(fs, pkg);
+    expect(persistMetrics.sourcePdfWrites).toBe(1);
+    expect(persistMetrics.layoutWrites).toBe(1);
+    expect(persistMetrics.assetWrites).toBeGreaterThan(0);
+    const sourceWrites = persistMetrics.sourcePdfWrites;
+    const layoutWrites = persistMetrics.layoutWrites;
+    const assetWrites = persistMetrics.assetWrites;
+    const fullWrites = persistMetrics.fullPackageWrites;
+
+    resetPersistMetrics();
+    await persistMutablePaperFiles(fs, paper.id, {
+      jaMarkdown: pkg.translatedMarkdown.replace("ウェアラブル", "ウェアラブル更新"),
+    });
+    expect(persistMetrics.fullPackageWrites).toBe(0);
+    expect(persistMetrics.sourcePdfWrites).toBe(0);
+    expect(persistMetrics.layoutWrites).toBe(0);
+    expect(persistMetrics.assetWrites).toBe(0);
+    expect(persistMetrics.mutableFileWrites).toBe(1);
+    expect(await fs.readText("papers/paper-1/ja.md")).toContain("ウェアラブル更新");
+    expect(await fs.readBytes("papers/paper-1/source.pdf")).toEqual(new Uint8Array([1, 2, 3, 4]));
+
+    expect(sourceWrites + persistMetrics.sourcePdfWrites).toBe(1);
+    expect(layoutWrites + persistMetrics.layoutWrites).toBe(1);
+    expect(fullWrites).toBe(1);
+    expect(assetWrites).toBeGreaterThan(0);
+  });
 });

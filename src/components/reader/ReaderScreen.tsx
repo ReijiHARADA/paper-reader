@@ -12,6 +12,7 @@ import {
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
 import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation, getGlossary, saveGlossary } from "../../services/database";
 import { resumeIncompleteTranslation, shouldTranslateBlock } from "../../services/importServiceV2";
+import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
 import type { ImportConfig } from "../../services/importServiceV2";
 import type { PaperBlock, Section } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
@@ -32,6 +33,7 @@ import {
   updateAnnotationNote,
 } from "../../services/annotationService";
 import { PaperContent } from "./PaperContent";
+import { ExportDialog, type ExportDialogValues } from "./ExportDialog";
 import { Outline } from "./Outline";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -56,19 +58,45 @@ import styles from "./ReaderScreen.module.css";
 const EMPTY_BLOCKS: PaperBlock[] = [];
 const EMPTY_SECTIONS: Section[] = [];
 
-function findVisibleBlockId(content: HTMLElement): { id: string; offset: number } | null {
-  const blockElements = content.querySelectorAll("[id^='block-']");
+type VisibleBlock = { id: string; offset: number };
+
+function refreshBlockElements(content: HTMLElement): HTMLElement[] {
+  return [...content.querySelectorAll<HTMLElement>("[id^='block-']")];
+}
+
+function findVisibleBlockId(
+  content: HTMLElement,
+  elements: HTMLElement[],
+  startIndex = 0
+): { visible: VisibleBlock | null; index: number } {
+  if (elements.length === 0) return { visible: null, index: 0 };
   const contentRect = content.getBoundingClientRect();
-  for (const elem of blockElements) {
-    const rect = elem.getBoundingClientRect();
-    if (rect.top >= contentRect.top && rect.top < contentRect.bottom) {
-      return {
-        id: elem.id.replace("block-", ""),
-        offset: contentRect.top - rect.top,
-      };
-    }
+  let index = Math.min(Math.max(startIndex, 0), elements.length - 1);
+  const elemAt = (i: number) => elements[i];
+
+  while (index > 0 && elemAt(index).getBoundingClientRect().top > contentRect.top + 8) {
+    index -= 1;
   }
-  return null;
+  while (
+    index < elements.length - 1 &&
+    elemAt(index).getBoundingClientRect().bottom <= contentRect.top
+  ) {
+    index += 1;
+  }
+
+  const elem = elemAt(index);
+  if (!elem) return { visible: null, index };
+  const rect = elem.getBoundingClientRect();
+  if (rect.bottom <= contentRect.top || rect.top >= contentRect.bottom) {
+    return { visible: null, index };
+  }
+  return {
+    visible: {
+      id: elem.id.replace("block-", ""),
+      offset: contentRect.top - rect.top,
+    },
+    index,
+  };
 }
 
 export function ReaderScreen() {
@@ -88,21 +116,6 @@ export function ReaderScreen() {
   const storeBlocks = usePaperDataStore((s) =>
     paperId ? s.blocks[paperId] ?? EMPTY_BLOCKS : EMPTY_BLOCKS
   );
-  const pendingCount = usePaperDataStore((s) => {
-    const list = paperId ? s.blocks[paperId] ?? EMPTY_BLOCKS : EMPTY_BLOCKS;
-    const sectionList = paperId ? s.sections[paperId] ?? EMPTY_SECTIONS : EMPTY_SECTIONS;
-    const refIds = new Set(
-      sectionList
-        .filter(
-          (sec) =>
-            sec.normalizedKind === "references" ||
-            isReferencesHeading(sec.originalTitle)
-        )
-        .map((sec) => sec.id)
-    );
-    return list.filter((b) => shouldTranslateBlock(b, refIds) && !b.translated)
-      .length;
-  });
 
   const [showOutline] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -129,11 +142,23 @@ export function ReaderScreen() {
   const [editing, setEditing] = useState<Annotation | null>(null);
   const [undo, setUndo] = useState<Annotation | null>(null);
   const [hasSourcePdf, setHasSourcePdf] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const priorityTimeoutRef = useRef<number | null>(null);
   const lastPriorityBlockRef = useRef<string | null>(null);
+  const blockElementsRef = useRef<HTMLElement[]>([]);
+  const lastVisibleIndexRef = useRef(0);
+  const storeBlocksRef = useRef(storeBlocks);
+  const blockBatcherRef = useRef(
+    createBlockUpdateBatcher((id, batch) => {
+      setBlocksInStore(id, (prev) => batch.reduce((acc, block) => upsertBlock(acc, block), prev));
+    })
+  );
   const flashTimeoutRef = useRef<number | null>(null);
   const undoTimeoutRef = useRef<number | null>(null);
 
@@ -156,6 +181,10 @@ export function ReaderScreen() {
     ? activeProject?.id ?? null
     : null;
 
+  useEffect(() => {
+    storeBlocksRef.current = storeBlocks;
+  }, [storeBlocks]);
+
   const translatableIds = useMemo(() => {
     const refIds = new Set(
       storeSections
@@ -174,9 +203,9 @@ export function ReaderScreen() {
 
   const reloadAnnotations = useCallback(async () => {
     if (!paperId) return;
-    const list = await listAnnotationsForPaper(paperId, storeBlocks);
+    const list = await listAnnotationsForPaper(paperId, storeBlocksRef.current);
     setAnnotations(list);
-  }, [paperId, storeBlocks]);
+  }, [paperId]);
 
   const handleBlockUpdated = useCallback(
     (updatedBlock: PaperBlock) => {
@@ -206,23 +235,33 @@ export function ReaderScreen() {
       window.clearTimeout(priorityTimeoutRef.current);
     }
 
-    const visible = findVisibleBlockId(contentRef.current);
-    if (visible) {
+    const found = findVisibleBlockId(
+      contentRef.current,
+      blockElementsRef.current,
+      lastVisibleIndexRef.current
+    );
+    lastVisibleIndexRef.current = found.index;
+    if (found.visible) {
       priorityTimeoutRef.current = window.setTimeout(() => {
-        prioritizeVisible(visible.id);
+        prioritizeVisible(found.visible!.id);
       }, READER_PRIORITY_DEBOUNCE_MS);
     }
 
     saveTimeoutRef.current = window.setTimeout(async () => {
       const content = contentRef.current;
       if (!content) return;
-      const next = findVisibleBlockId(content);
-      if (!next) return;
+      const next = findVisibleBlockId(
+        content,
+        blockElementsRef.current,
+        lastVisibleIndexRef.current
+      );
+      lastVisibleIndexRef.current = next.index;
+      if (!next.visible) return;
       try {
-        await saveReadingPosition(paperId, next.id, next.offset);
+        await saveReadingPosition(paperId, next.visible.id, next.visible.offset);
         updatePaper(paperId, {
-          lastReadBlockId: next.id,
-          lastReadOffset: next.offset,
+          lastReadBlockId: next.visible.id,
+          lastReadOffset: next.visible.offset,
           updatedAt: new Date().toISOString(),
         });
       } catch (e) {
@@ -280,40 +319,10 @@ export function ReaderScreen() {
   }, [paperId, isLoading, reloadAnnotations]);
 
   useEffect(() => {
-    if (!paperId || isLoading) return;
-    if (pendingCount === 0 && (paper?.processingStatus === "ready" || paper?.processingStatus === "partial" || paper?.processingStatus === "failed")) return;
-
-    const interval = window.setInterval(async () => {
-      try {
-        const [dbPaper, dbBlocks, dbSections] = await Promise.all([
-          getPaper(paperId),
-          getBlocksByPaper(paperId),
-          getSectionsByPaper(paperId),
-        ]);
-        if (dbPaper) {
-          updatePaper(paperId, dbPaper);
-        }
-        setBlocksInStore(paperId, (prev) => mergePreferTranslated(prev, dbBlocks));
-        if (dbSections.length > 0) {
-          setSectionsInStore(paperId, (prev) =>
-            mergePreferTranslatedSections(prev, dbSections)
-          );
-        }
-      } catch (e) {
-        console.error("Failed to poll translations:", e);
-      }
-    }, 1500);
-
-    return () => window.clearInterval(interval);
-  }, [
-    paperId,
-    isLoading,
-    paper?.processingStatus,
-    pendingCount,
-    updatePaper,
-    setBlocksInStore,
-    setSectionsInStore,
-  ]);
+    if (!contentRef.current) return;
+    blockElementsRef.current = refreshBlockElements(contentRef.current);
+    lastVisibleIndexRef.current = 0;
+  }, [paperId, isLoading, storeBlocks.length]);
 
   const resumeStartedFor = useRef<string | null>(null);
 
@@ -330,7 +339,7 @@ export function ReaderScreen() {
         paperId,
         {
           onBlockTranslated: (block) => {
-            setBlocksInStore(paperId, (prev) => upsertBlock(prev, block));
+            blockBatcherRef.current.push(block);
           },
           onPaperUpdated: (updated) => {
             updatePaper(updated.id, updated);
@@ -526,27 +535,57 @@ export function ReaderScreen() {
     [paperId]
   );
 
-  const handleExportMarkdown = useCallback(async () => {
-    if (!paperId) return;
-    try {
-      const { getStorage } = await import("../../data/runtime");
-      const { exportPaperMarkdown } = await import("../../data/export/markdownExport");
-      const { fs } = await getStorage();
-      const result = await exportPaperMarkdown(fs, paperId, {
-        language: "ja",
-        stripBlockIds: true,
-      });
-      const blob = new Blob([result.markdown], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${result.fileName}.md`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Failed to export markdown:", error);
-    }
-  }, [paperId]);
+  const handleExport = useCallback(
+    async (values: ExportDialogValues) => {
+      if (!paperId) return;
+      setExportBusy(true);
+      setExportError(null);
+      setExportStatus("保存先を選んでいます...");
+      try {
+        const { getStorage } = await import("../../data/runtime");
+        const { exportPaperMarkdown, exportVerificationBundle } = await import(
+          "../../data/export/markdownExport"
+        );
+        const { saveMarkdownExport, saveVerificationExport } = await import(
+          "../../data/export/saveExport"
+        );
+        const { fs } = await getStorage();
+        if (values.mode === "verification") {
+          const result = await exportVerificationBundle(fs, paperId, {
+            includeFailedTranslations: values.includeFailedTranslations,
+          });
+          setExportStatus("検証用パッケージを書き出しています...");
+          const saved = await saveVerificationExport(paperId, result);
+          if (!saved) {
+            setExportStatus("キャンセルしました");
+            return;
+          }
+          setExportStatus(`書き出しました: ${saved.path}`);
+          return;
+        }
+        const result = await exportPaperMarkdown(fs, paperId, {
+          language: "ja",
+          variant: values.variant,
+          stripBlockIds: values.variant !== "verification",
+          includeFailedTranslations: values.includeFailedTranslations,
+        });
+        setExportStatus("Markdown を書き出しています...");
+        const saved = await saveMarkdownExport(result);
+        if (!saved) {
+          setExportStatus("キャンセルしました");
+          return;
+        }
+        setExportStatus(`書き出しました: ${saved.path}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setExportError(message || "書き出しに失敗しました");
+        setExportStatus(null);
+      } finally {
+        setExportBusy(false);
+      }
+    },
+    [paperId]
+  );
 
   const handleAddMemo = useCallback((selection: TranslationSelection) => {
     setDraft({ selection, note: "" });
@@ -725,9 +764,13 @@ export function ReaderScreen() {
             <Settings2 size={20} />
           </button>
           <button
-            className={styles.iconButton}
-            title="Markdown を書き出す"
-            onClick={() => void handleExportMarkdown()}
+            className={`${styles.iconButton} ${showExport ? styles.active : ""}`}
+            title="書き出す"
+            onClick={() => {
+              setShowExport(true);
+              setExportStatus(null);
+              setExportError(null);
+            }}
           >
             <FileDown size={20} />
           </button>
@@ -833,6 +876,17 @@ export function ReaderScreen() {
           onStep={(delta) => applySearchHits({ delta, scroll: true })}
         />
       )}
+
+      <ExportDialog
+        open={showExport}
+        busy={exportBusy}
+        status={exportStatus}
+        error={exportError}
+        onClose={() => {
+          if (!exportBusy) setShowExport(false);
+        }}
+        onExport={(values) => void handleExport(values)}
+      />
     </div>
   );
 }

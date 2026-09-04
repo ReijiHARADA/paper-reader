@@ -57,8 +57,10 @@ App Data:
 `paper.json` holds bibliography, authors, affiliations, DOI, hash, timestamps.
 It does **not** duplicate body text.
 
-Writes use `tmp → write → validate → atomic rename`. Each package has
-`schemaVersion` and `revision`.
+Full-package writes use `tmp → write → validate → atomic rename`. Each
+package has `schemaVersion` and `revision`. Translation checkpoints write
+only `ja.md` / `paper.json` / `structure.json` (`*.tmp` → rename) and never
+rewrite `source.pdf`, `original.md`, `layout.json.gz`, or `assets/`.
 
 ## 4. Markdown convention
 
@@ -276,7 +278,7 @@ IndexedDB `paper-reader` v4 remains readable until a later cleanup.
 
 ## 13. Atomic writes
 
-Package persist:
+Package persist (import start, layout sidecar, and translation **finalize**):
 
 1. Write a complete tree under `papers/<id>.tmp/`.
 2. Validate Markdown ↔ structure ↔ assets ↔ original/ja alignment.
@@ -284,6 +286,16 @@ Package persist:
 4. Bump `revision`.
 
 A crash mid-write leaves either the previous package or a tmp that is ignored.
+
+Translation hot path:
+
+1. Update the in-memory document cache immediately.
+2. Debounce (~1.5s) a checkpoint of `ja.md` + `paper.json` + `structure.json`.
+3. Do **not** load or rewrite `source.pdf`, `assets/`, or `layout.json.gz`.
+4. Skip FTS rebuild until the next full persist.
+5. On finalize (`ready` / `partial`), run one atomic full-package persist + validation.
+
+SQLite `library.sqlite` file export is debounced (~3s), not 50ms.
 
 ## 14. Export architecture
 
@@ -294,11 +306,16 @@ Document AST  →  serializeMarkdown()  →  Reader
 
 There is no second “export-only” generator.
 
-Default export:
+Reader export (Tauri save dialog; browser `npm run dev` keeps a download fallback):
+
+- Clean Markdown, or verification Markdown that keeps `<!-- pr:block id page status -->`
+- Optional **翻訳失敗箇所を含める**. OFF omits `translationStatus === "failed"` body. ON keeps the slot with a warning callout and the original; it does not invent a translation. `skipped` / `pending` / `processing` are not treated as failed.
+- Verification package: `source.pdf` + `translated.md` + `assets/` from the existing Paper Package (folder on macOS, zip in the browser)
 
 ```text
 paper-title/
-├── paper.md      # usually ja.md structure
+├── translated.md
+├── source.pdf
 └── assets/
 ```
 

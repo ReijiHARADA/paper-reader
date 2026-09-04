@@ -203,8 +203,10 @@ async function persistUntranslatableAsSkipped(
     }
     if (shouldTranslateBlock(block, refSectionIds)) continue;
     block.translationStatus = "skipped";
-    await updateBlock(block);
     changed.push(block);
+  }
+  if (changed.length > 0) {
+    await saveBlocks(blocks);
   }
   return changed;
 }
@@ -419,11 +421,15 @@ export async function importPDFV2(
             section.translatedTitle = applyGlossary(section.translatedTitle, glossary);
           }
           await saveSections(sections);
+          let glossaryTouched = false;
           for (const block of blocks) {
             if (!block.translated) continue;
             assignBlockTranslation(block, applyGlossary(block.translated, glossary));
-            await updateBlock(block);
+            glossaryTouched = true;
             callbacks.onBlockTranslated?.(block);
+          }
+          if (glossaryTouched) {
+            await saveBlocks(blocks);
           }
         } catch (e) {
           console.error("Failed to generate glossary:", e);

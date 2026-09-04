@@ -16,11 +16,12 @@ import {
   upsertPaperIndex,
 } from "../data/repositories/paperRepository";
 import {
+  flushDocumentPersist,
   forgetDocument,
   getDocumentBlocks,
   getDocumentSections,
   peekDocument,
-  persistDocumentPackage,
+  persistAfterMutation,
   rememberDocument,
   saveDocumentBlocks,
   saveDocumentSections,
@@ -94,8 +95,13 @@ export async function savePaper(paper: Paper): Promise<void> {
   const cached = peekDocument(paper.id);
   rememberDocument(paper, cached?.sections, cached?.blocks);
   if (cached?.blocks.length) {
-    await persistDocumentPackage(fs, db, paper.id);
+    await persistAfterMutation(fs, db, paper.id);
   }
+}
+
+export async function flushPaperPersist(paperId?: string): Promise<void> {
+  const { fs, db } = await ready();
+  await flushDocumentPersist(fs, db, paperId);
 }
 
 export async function getPaper(id: string): Promise<Paper | undefined> {

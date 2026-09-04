@@ -85,6 +85,88 @@ pub fn rename_app_file(app: AppHandle, from: String, to: String) -> Result<(), S
     fs::rename(&source, &dest).map_err(|e| e.to_string())
 }
 
+fn escape_applescript(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn run_osascript(script: &str) -> Result<String, String> {
+    let output = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        if err.contains("-128") || err.to_lowercase().contains("user canceled") {
+            return Ok(String::new());
+        }
+        return Err(err.trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn require_absolute_user_path(path: &str) -> Result<PathBuf, String> {
+    let dest = PathBuf::from(path);
+    if !dest.is_absolute() {
+        return Err("絶対パスが必要です".into());
+    }
+    Ok(dest)
+}
+
+#[tauri::command]
+pub fn pick_save_path(default_name: String) -> Result<Option<String>, String> {
+    let name = escape_applescript(&default_name);
+    let path = run_osascript(&format!(
+        r#"try
+set thePath to POSIX path of (choose file name with prompt "書き出し先を選択" default name "{name}")
+return thePath
+on error number -128
+return ""
+end try"#
+    ))?;
+    Ok(if path.is_empty() { None } else { Some(path) })
+}
+
+#[tauri::command]
+pub fn pick_directory() -> Result<Option<String>, String> {
+    let path = run_osascript(
+        r#"try
+set thePath to POSIX path of (choose folder with prompt "保存先フォルダを選択")
+return thePath
+on error number -128
+return ""
+end try"#,
+    )?;
+    Ok(if path.is_empty() { None } else { Some(path) })
+}
+
+#[tauri::command]
+pub fn write_user_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    let dest = require_absolute_user_path(&path)?;
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(dest, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn copy_app_file_to_user(
+    app: AppHandle,
+    relative_path: String,
+    dest_path: String,
+) -> Result<(), String> {
+    let src = resolve(&app, &relative_path)?;
+    if !src.is_file() {
+        return Err("コピー元ファイルがありません".into());
+    }
+    let dest = require_absolute_user_path(&dest_path)?;
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::copy(src, dest).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn list_app_files(app: AppHandle, prefix: String) -> Result<Vec<String>, String> {
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;

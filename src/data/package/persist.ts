@@ -5,8 +5,32 @@ import type { StructureFile } from "../types/structure";
 import { gunzipJson, gzipJson } from "./gzip";
 import { validatePaperPackage } from "./validate";
 
+export const persistMetrics = {
+  fullPackageWrites: 0,
+  mutableFileWrites: 0,
+  sourcePdfWrites: 0,
+  assetWrites: 0,
+  layoutWrites: 0,
+  sqliteExports: 0,
+};
+
+export function resetPersistMetrics(): void {
+  persistMetrics.fullPackageWrites = 0;
+  persistMetrics.mutableFileWrites = 0;
+  persistMetrics.sourcePdfWrites = 0;
+  persistMetrics.assetWrites = 0;
+  persistMetrics.layoutWrites = 0;
+  persistMetrics.sqliteExports = 0;
+}
+
 export function paperDir(paperId: string): string {
   return `papers/${paperId}`;
+}
+
+async function writeTextAtomic(fs: FileSystem, path: string, text: string): Promise<void> {
+  const tmp = `${path}.tmp`;
+  await fs.writeText(tmp, text);
+  await fs.rename(tmp, path);
 }
 
 async function writeTree(fs: FileSystem, root: string, pkg: PaperPackage): Promise<void> {
@@ -15,16 +39,41 @@ async function writeTree(fs: FileSystem, root: string, pkg: PaperPackage): Promi
   await fs.writeText(`${root}/ja.md`, pkg.translatedMarkdown);
   await fs.writeText(`${root}/structure.json`, JSON.stringify(pkg.structure, null, 2));
   if (pkg.layout) {
+    persistMetrics.layoutWrites += 1;
     await fs.writeBytes(`${root}/layout.json.gz`, gzipJson(pkg.layout));
   }
   for (const asset of pkg.assets) {
+    persistMetrics.assetWrites += 1;
     const path = asset.path.startsWith("assets/")
       ? `${root}/${asset.path}`
       : `${root}/assets/${asset.path}`;
     await fs.writeBytes(path, asset.bytes);
   }
   if (pkg.sourcePdf) {
+    persistMetrics.sourcePdfWrites += 1;
     await fs.writeBytes(`${root}/source.pdf`, pkg.sourcePdf);
+  }
+}
+
+export async function persistMutablePaperFiles(
+  fs: FileSystem,
+  paperId: string,
+  files: {
+    jaMarkdown?: string;
+    paperJson?: PaperJson;
+    structure?: StructureFile;
+  }
+): Promise<void> {
+  const root = paperDir(paperId);
+  persistMetrics.mutableFileWrites += 1;
+  if (files.jaMarkdown != null) {
+    await writeTextAtomic(fs, `${root}/ja.md`, files.jaMarkdown);
+  }
+  if (files.paperJson) {
+    await writeTextAtomic(fs, `${root}/paper.json`, JSON.stringify(files.paperJson, null, 2));
+  }
+  if (files.structure) {
+    await writeTextAtomic(fs, `${root}/structure.json`, JSON.stringify(files.structure, null, 2));
   }
 }
 
@@ -51,6 +100,7 @@ export async function persistPaperPackage(
     paper: { ...pkg.paper, revision: (pkg.paper.revision ?? 0) + 1 },
   };
 
+  persistMetrics.fullPackageWrites += 1;
   await fs.remove(tmp);
   await writeTree(fs, tmp, next);
 
@@ -117,8 +167,5 @@ export async function updateTranslatedMarkdown(
   paperId: string,
   translatedMarkdown: string
 ): Promise<void> {
-  const pkg = await loadPaperPackage(fs, paperId);
-  pkg.translatedMarkdown = translatedMarkdown;
-  pkg.paper.updatedAt = new Date().toISOString();
-  await persistPaperPackage(fs, pkg);
+  await persistMutablePaperFiles(fs, paperId, { jaMarkdown: translatedMarkdown });
 }

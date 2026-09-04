@@ -1,5 +1,6 @@
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import type { FileSystem } from "../fs/types";
+import { persistMetrics } from "../package/persist";
 import {
   SQLITE_FTS5_SQL,
   SQLITE_FTS_FALLBACK_SQL,
@@ -70,6 +71,7 @@ export async function openSqlite(fs: FileSystem): Promise<SqliteClient> {
 
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   const persistNow = async () => {
+    persistMetrics.sqliteExports += 1;
     await fs.writeBytes(SQLITE_PATH, db.export());
   };
 
@@ -79,7 +81,7 @@ export async function openSqlite(fs: FileSystem): Promise<SqliteClient> {
       if (persistTimer) clearTimeout(persistTimer);
       persistTimer = setTimeout(() => {
         void persistNow();
-      }, 50);
+      }, 3000);
     },
     query<T extends SqlRow = SqlRow>(sql: string, params: unknown[] = []) {
       const stmt = db.prepare(sql);

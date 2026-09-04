@@ -161,6 +161,10 @@ pub fn run() {
             paper_fs::remove_app_file,
             paper_fs::rename_app_file,
             paper_fs::list_app_files,
+            paper_fs::pick_save_path,
+            paper_fs::pick_directory,
+            paper_fs::write_user_file,
+            paper_fs::copy_app_file_to_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

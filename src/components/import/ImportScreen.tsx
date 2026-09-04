@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import { getSetting } from "../../services/database";
 import type { ImportConfig } from "../../services/importServiceV2";
 import { upsertBlock, upsertSection } from "../../utils/mergePaperData";
+import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
 import {
   addPaperToProject,
   DuplicateProjectPaperError,
@@ -67,6 +68,11 @@ export function ImportScreen() {
   const { addPaper, updatePaper } = useAppStore();
   const { setSections, setBlocks } = usePaperDataStore();
   const upsertMembership = useProjectStore((s) => s.upsertMembership);
+  const blockBatcherRef = useRef(
+    createBlockUpdateBatcher((id, batch) => {
+      setBlocks(id, (prev) => batch.reduce((acc, block) => upsertBlock(acc, block), prev));
+    })
+  );
 
   const [progress, setProgress] = useState<ImportProgress>({
     stage: "idle",
@@ -136,9 +142,7 @@ export function ImportScreen() {
             void attachToProject(paper.id);
           },
           onBlockTranslated: (block) => {
-            if (block.paperId) {
-              setBlocks(block.paperId, (prev) => upsertBlock(prev, block));
-            }
+            blockBatcherRef.current.push(block);
           },
           onPaperUpdated: (paper) => {
             updatePaper(paper.id, paper);
