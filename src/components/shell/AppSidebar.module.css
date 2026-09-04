@@ -22,18 +22,24 @@
   /* ホバーで展開 */
 }
 
+.search,
+.newProject,
+.item {
+  transition:
+    width var(--transition-normal),
+    min-width var(--transition-normal),
+    padding var(--transition-normal),
+    gap var(--transition-normal),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
 .sidebar:hover {
   width: var(--sidebar-expanded-w);
 }
 
 .sidebarDropReady {
   width: var(--sidebar-expanded-w);
-  transition: none;
-}
-
-:global(body.paper-dragging) .sidebar {
-  width: var(--sidebar-expanded-w);
-  transition: none;
 }
 
 /* ────────────────────────────────────────────────
@@ -322,4 +328,5 @@
   background: transparent;
   cursor: pointer;
   font: inherit;
+  text-decoration: none;
 }

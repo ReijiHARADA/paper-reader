@@ -8,6 +8,7 @@ import { FavoritesScreen } from "./components/library/FavoritesScreen";
 import { RecentScreen } from "./components/library/RecentScreen";
 import { ReaderScreen } from "./components/reader/ReaderScreen";
 import { ImportScreen } from "./components/import/ImportScreen";
+import { SettingsScreen } from "./components/settings/SettingsScreen";
 import { useAppStore } from "./stores/appStore";
 import { isTauriApp, waitForServer } from "./utils/serverReady";
 
@@ -114,6 +115,7 @@ function App() {
           <Route path="/favorites" element={<FavoritesScreen />} />
           <Route path="/recent" element={<RecentScreen />} />
           <Route path="/project/:projectId" element={<ProjectScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/reader/:paperId" element={<ReaderScreen />} />
         </Route>
 

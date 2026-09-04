@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Clock,
@@ -21,8 +22,6 @@ type AppSidebarProps = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNewProject: () => void;
-  onOpenSettings: () => void;
-  settingsOpen?: boolean;
   activeProjectId?: string | null;
   inboxCount: number;
 };
@@ -32,15 +31,33 @@ export function AppSidebar({
   searchQuery,
   onSearchChange,
   onNewProject,
-  onOpenSettings,
-  settingsOpen = false,
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const sidebarRef = useRef<HTMLElement>(null);
   const draggingPaperId = usePaperDragStore((state) => state.draggingPaperId);
   const dropTargetId = usePaperDragStore((state) => state.dropTargetId);
+  const pointerX = usePaperDragStore((state) => state.pointerX);
+  const pointerY = usePaperDragStore((state) => state.pointerY);
+  const [pointerOverSidebar, setPointerOverSidebar] = useState(false);
+
+  useEffect(() => {
+    if (!draggingPaperId) {
+      setPointerOverSidebar(false);
+      return;
+    }
+    const el = sidebarRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setPointerOverSidebar(
+      pointerX >= rect.left &&
+        pointerX <= rect.right &&
+        pointerY >= rect.top &&
+        pointerY <= rect.bottom
+    );
+  }, [draggingPaperId, pointerX, pointerY]);
 
   const handleSearchFocus = () => {
     if (location.pathname.startsWith("/reader")) {
@@ -49,7 +66,10 @@ export function AppSidebar({
   };
 
   return (
-    <aside className={`${styles.sidebar} ${draggingPaperId ? styles.sidebarDropReady : ""}`}>
+    <aside
+      ref={sidebarRef}
+      className={`${styles.sidebar} ${pointerOverSidebar ? styles.sidebarDropReady : ""}`}
+    >
       <label className={styles.search} title="Search">
         <Search size={16} className={styles.searchIcon} />
         <input
@@ -123,17 +143,21 @@ export function AppSidebar({
       </div>
 
       <div className={styles.footer}>
-        <button
-          type="button"
-          className={`${styles.item} ${styles.footerButton} ${settingsOpen ? styles.active : ""}`}
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `${styles.item} ${styles.footerButton} ${isActive ? styles.active : ""}`
+          }
           title="設定"
-          onClick={onOpenSettings}
+          onClick={(event) => {
+            if (draggingPaperId) event.preventDefault();
+          }}
         >
           <span className={styles.icon}>
             <Settings size={16} />
           </span>
           <span className={styles.itemLabel}>設定</span>
-        </button>
+        </NavLink>
       </div>
     </aside>
   );

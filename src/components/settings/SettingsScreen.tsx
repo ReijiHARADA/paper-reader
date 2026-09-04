@@ -1,17 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, AlertCircle, CheckCircle, Loader2, RefreshCw, Server, Brain, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, RefreshCw, Server, Brain, FileText, Settings } from "lucide-react";
 import { getSetting, saveSetting } from "../../services/database";
 import { checkMADLADServer } from "../../services/translation/madladEngine";
 import { checkOllamaAvailability } from "../../services/llm/ollamaProvider";
 import { addSamplePaper } from "../../services/samplePaper";
 import { useAppStore } from "../../stores/appStore";
 import { samplePaper } from "../../data/samplePaper";
-import styles from "./SettingsModal.module.css";
-
-type SettingsModalProps = {
-  onClose: () => void;
-};
+import styles from "./SettingsScreen.module.css";
 
 type ServiceStatus = {
   checking: boolean;
@@ -39,7 +35,7 @@ const DEFAULT_SETTINGS: TranslationSettings = {
   useCache: true,
 };
 
-export function SettingsModal({ onClose }: SettingsModalProps) {
+export function SettingsScreen() {
   const navigate = useNavigate();
   const sampleAlreadyAdded = useAppStore((state) =>
     state.papers.some((paper) => paper.id === samplePaper.id)
@@ -102,7 +98,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       error: status.error,
     });
 
-    // Auto-select first model if current is not available
     if (status.available && status.models.length > 0 && !status.models.includes(settings.ollamaModel)) {
       setSettings((prev) => ({ ...prev, ollamaModel: status.models[0] }));
     }
@@ -115,12 +110,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     try {
       await saveSetting("translationSettingsV2", settings);
       setMessage({ type: "success", text: "設定を保存しました" });
-      setTimeout(() => onClose(), 1000);
-    } catch (e) {
+    } catch {
       setMessage({ type: "error", text: "保存に失敗しました" });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/");
   };
 
   const handleAddSample = async () => {
@@ -133,7 +135,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setSampleMessage("すでにライブラリにあります");
         return;
       }
-      onClose();
       navigate("/");
     } catch (error) {
       console.error("Failed to add sample paper:", error);
@@ -144,17 +145,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>設定</h2>
-          <button className={styles.closeButton} onClick={onClose}>
-            <X size={20} />
-          </button>
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <Settings size={20} className={styles.logo} />
+          <h1 className={styles.title}>設定</h1>
         </div>
+      </header>
 
-        <div className={styles.content}>
-          {/* MADLAD Translation Engine */}
+      <div className={styles.content}>
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>
               <Server size={16} />
@@ -231,14 +230,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             )}
           </section>
 
-          {/* Ollama LLM */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>
               <Brain size={16} />
               LLM分析（Ollama）
             </h3>
             <p className={styles.sectionDescription}>
-              論文の要約、用語集生成、質問応答に使用します。翻訳には使用しません。
+              用語集の生成に使用します。翻訳には使用しません。
             </p>
 
             <div className={styles.field}>
@@ -317,7 +315,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </div>
           </section>
 
-          {/* Advanced Settings */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>詳細設定</h3>
 
@@ -381,26 +378,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <p className={styles.sectionStatus}>{sampleMessage}</p>
             )}
           </section>
-        </div>
+      </div>
 
-        <div className={styles.footer}>
-          {message && (
-            <p className={`${styles.message} ${styles[message.type]}`}>
-              {message.text}
-            </p>
-          )}
-          <div className={styles.actions}>
-            <button className={styles.cancelButton} onClick={onClose}>
-              キャンセル
-            </button>
-            <button
-              className={styles.saveButton}
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? "保存中..." : "保存"}
-            </button>
-          </div>
+      <div className={styles.footer}>
+        {message && (
+          <p className={`${styles.message} ${styles[message.type]}`}>
+            {message.text}
+          </p>
+        )}
+        <div className={styles.actions}>
+          <button className={styles.cancelButton} onClick={handleCancel}>
+            キャンセル
+          </button>
+          <button
+            className={styles.saveButton}
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+          >
+            {isSaving ? "保存中..." : "保存"}
+          </button>
         </div>
       </div>
     </div>
