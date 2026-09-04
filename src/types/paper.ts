@@ -84,6 +84,8 @@ export type Paper = {
   processingStatus: ProcessingStatus;
   lastReadBlockId: string | null;
   lastReadOffset: number | null;
+  favorite?: boolean;
+  lastOpenedAt?: string;
   createdAt: string;
   updatedAt: string;
 };

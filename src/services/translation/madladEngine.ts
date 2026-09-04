@@ -5,6 +5,7 @@
  */
 
 import { isPlausibleJaTranslation } from "./quality";
+import type { TranslationEngine, TranslationResult, EngineStatus } from "./types";
 
 export const MADLAD_MODEL_VERSION = "3b-mt-v4";
 

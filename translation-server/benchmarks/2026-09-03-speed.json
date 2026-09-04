@@ -1,0 +1,50 @@
+{
+  "hardware": "M4 MacBook Pro 24GB, macOS 26",
+  "model": "google/madlad400-3b-mt",
+  "notes": "See ../SPEED_BENCH.md",
+  "mps_raw_generate": {
+    "source": "/tmp/madlad-mps-bench.json",
+    "short": {"wall_s": 1.2847500839852728, "tps": 20.307723019784834, "in_tok": 20, "out_tok": 26},
+    "walkman": {"wall_s": 1.4885057920473628, "tps": 22.85385417292676, "in_tok": 30, "out_tok": 34},
+    "intro": {"wall_s": 10.460822208027821, "tps": 22.562173807985744, "in_tok": 188, "out_tok": 236},
+    "title": {"wall_s": 0.8403372499742545, "tps": 23.825411134646988, "in_tok": 16, "out_tok": 20}
+  },
+  "mlx_int8": {
+    "source": "/tmp/madlad-mlx-int8-bench.json",
+    "adopted": false,
+    "reason": "early EOS on long academic paragraphs and titles",
+    "load_s": 1.5868472089641728,
+    "short": {"wall_s": 0.6958689999883063, "tps": 34.4892501324291, "in_tok": 20, "out_tok": 24},
+    "walkman": {"wall_s": 0.9484603329910897, "tps": 33.73889121865956, "in_tok": 30, "out_tok": 32},
+    "intro": {"wall_s": 3.76089812500868, "tps": 22.600984439003867, "in_tok": 173, "out_tok": 85},
+    "title": {"wall_s": 0.2869027919950895, "tps": 31.369509991223925, "in_tok": 13, "out_tok": 9}
+  },
+  "mps_production_path": {
+    "source": "/tmp/madlad-mps-batch-bench.json",
+    "sequential": {
+      "short": {"wall_s": 1.120824207959231, "chunks": 1},
+      "walkman": {"wall_s": 1.4672036669799127, "chunks": 1},
+      "intro": {"wall_s": 11.14366570796119, "chunks": 6},
+      "title": {"wall_s": 0.8647996250074357, "chunks": 2}
+    },
+    "batched_8": {
+      "short": {"wall_s": 1.507870167028159, "chunks": 1},
+      "walkman": {"wall_s": 1.6112041670130566, "chunks": 1},
+      "intro": {"wall_s": 3.3536579159554094, "chunks": 6},
+      "title": {"wall_s": 0.5771195830311626, "chunks": 2}
+    },
+    "intro_followup_warm": {
+      "sequential": 9.449,
+      "batched_4": 4.065,
+      "batched_8": 2.753
+    }
+  },
+  "older_dtype_sweep": {
+    "source": "MPS_OPTIMIZATION_REPORT.md",
+    "note": "max_new_tokens=512; non-bf16 ran to 513 tokens without EOS",
+    "cpu_fp32_s": 67.57,
+    "mps_bf16_s": 3.16,
+    "mps_fp16_s": 27.67,
+    "mps_fp32_s": 51.30
+  }
+}

@@ -1,0 +1,251 @@
+/* ────────────────────────────────────────────────
+   Collapsed (icon-only) width & expanded width
+──────────────────────────────────────────────── */
+:root {
+  --sidebar-collapsed-w: 48px;
+  --sidebar-expanded-w: 220px;
+}
+
+.sidebar {
+  width: var(--sidebar-collapsed-w);
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--spacing-md) var(--spacing-sm);
+  background-color: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-light);
+  overflow: hidden;
+  transition: width var(--transition-normal);
+  /* ホバーで展開 */
+}
+
+.sidebar:hover {
+  width: var(--sidebar-expanded-w);
+}
+
+/* ────────────────────────────────────────────────
+   ラベル類：通常は非表示・ホバー時にフェードイン
+──────────────────────────────────────────────── */
+.label,
+.itemLabel,
+.searchInput,
+.sectionTitle,
+.empty {
+  opacity: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--transition-normal);
+  pointer-events: none;
+}
+
+.sidebar:hover .label,
+.sidebar:hover .itemLabel,
+.sidebar:hover .searchInput,
+.sidebar:hover .sectionTitle,
+.sidebar:hover .empty {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ────────────────────────────────────────────────
+   検索フィールド
+──────────────────────────────────────────────── */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-sm);
+  color: var(--color-text-tertiary);
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0;
+  width: 0;
+}
+
+.sidebar:hover .searchInput {
+  width: auto;
+}
+
+.searchInput:focus {
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* ────────────────────────────────────────────────
+   New Project ボタン
+──────────────────────────────────────────────── */
+.newProject {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: 8px var(--spacing-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.newProject:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+/* ────────────────────────────────────────────────
+   Section
+──────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--spacing-sm);
+}
+
+.sectionTitle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: 4px var(--spacing-sm);
+  height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.empty {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  padding: 4px var(--spacing-sm);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ────────────────────────────────────────────────
+   Nav アイテム
+──────────────────────────────────────────────── */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px var(--spacing-sm);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-decoration: none;
+  min-width: 0;
+  height: 36px;
+}
+
+.item:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.item.active {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  font-size: 0.6875rem;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  min-width: 1.25rem;
+  text-align: center;
+  padding: 0 6px;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.sidebar:hover .badge {
+  opacity: 1;
+}
+
+.item.active .badge {
+  background: var(--color-bg);
+}
+
+/* ────────────────────────────────────────────────
+   Project 行（削除ボタン付き）
+──────────────────────────────────────────────── */
+.projectRow {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+
+.projectRow .item {
+  flex: 1;
+}
+
+.delete {
+  flex-shrink: 0;
+  opacity: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--transition-fast);
+}
+
+.sidebar:hover .projectRow:hover .delete {
+  opacity: 1;
+}
+
+.delete:hover {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+[data-theme="dark"] .delete:hover {
+  background-color: #3c1f1e;
+  color: #f28b82;
+}

@@ -14,6 +14,7 @@ dist-ssr
 
 # Python / MADLAD server
 translation-server/.venv/
+translation-server/.venv-mlx/
 translation-server/.venv.backup.py39/
 **/__pycache__/
 *.py[cod]

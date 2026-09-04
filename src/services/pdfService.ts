@@ -1,14 +1,11 @@
-import * as pdfjsLib from "pdfjs-dist";
 import type { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
+import { openPdfDocument, pdfjsLib } from "./pdfjsRuntime";
 import {
   figureImageRect,
   figureLookupKey,
   type LayoutBlock,
   type PageColumnLayout,
 } from "./pdfLayout";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export type ExtractedTextItem = {
   text: string;
@@ -46,7 +43,7 @@ export async function extractPDFContent(
   onProgress?: (page: number, total: number) => void
 ): Promise<PDFExtractionResult> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await openPdfDocument(arrayBuffer).promise;
 
   const metadata = await pdf.getMetadata();
   const info = metadata.info as Record<string, unknown> | undefined;
@@ -315,7 +312,7 @@ export async function extractFigureImages(
   }
 
   const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const loadingTask = openPdfDocument(arrayBuffer);
   const pdf = await loadingTask.promise;
   const byPage = new Map<number, LayoutBlock[]>();
   for (const caption of captions) {
@@ -346,7 +343,6 @@ export async function extractFigureImages(
       if (!pageContext) continue;
 
       await page.render({
-        canvas: pageCanvas,
         canvasContext: pageContext,
         viewport: renderViewport,
         annotationMode: pdfjsLib.AnnotationMode.DISABLE,

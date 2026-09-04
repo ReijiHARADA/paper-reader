@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ImportProgress, ImportStage } from "../../services/importServiceV2";
 import { importPDFV2 } from "../../services/importServiceV2";
+import { takePendingImportFile } from "../../services/pendingImport";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
 import { getSetting } from "../../services/database";
 import type { ImportConfig } from "../../services/importServiceV2";
@@ -72,13 +73,13 @@ export function ImportScreen() {
 
   useEffect(() => {
     const state = location.state as { file?: File } | null;
-    if (!state?.file) {
+    const file = takePendingImportFile() ?? state?.file;
+    if (!file) {
       navigate("/");
       return;
     }
-
-    const { file } = state;
-    const importKey = `${file.name}:${file.size}:${file.lastModified}`;
+    const selectedFile = file;
+    const importKey = `${selectedFile.name}:${selectedFile.size}:${selectedFile.lastModified}`;
     if (startedImportKeys.has(importKey)) {
       return;
     }
@@ -89,7 +90,7 @@ export function ImportScreen() {
       const config: ImportConfig = settings || {};
 
       importPDFV2(
-        file,
+        selectedFile,
         {
           onProgress: setProgress,
           onStageChange: (stage) => {

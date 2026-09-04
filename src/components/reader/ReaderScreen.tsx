@@ -1,11 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Search,
   Settings2,
-  PanelLeftClose,
-  PanelLeft,
   ExternalLink,
 } from "lucide-react";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
@@ -20,6 +18,7 @@ import {
   upsertSection,
 } from "../../utils/mergePaperData";
 import { displayPaperTitle, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
+import { useProjectStore } from "../../stores/projectStore";
 import { PaperContent } from "./PaperContent";
 import { Outline } from "./Outline";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel";
@@ -32,7 +31,9 @@ const EMPTY_SECTIONS: Section[] = [];
 export function ReaderScreen() {
   const navigate = useNavigate();
   const { paperId } = useParams<{ paperId: string }>();
+  const [searchParams] = useSearchParams();
   const papers = useAppStore((s) => s.papers);
+  const { projects, memberships } = useProjectStore();
   const displaySettings = useAppStore((s) => s.displaySettings);
   const updatePaper = useAppStore((s) => s.updatePaper);
   const setSectionsInStore = usePaperDataStore((s) => s.setSections);
@@ -63,7 +64,6 @@ export function ReaderScreen() {
         b.translationStatus !== "skipped" &&
         b.translationStatus !== "failed" &&
         (b.type === "paragraph" || b.type === "heading") &&
-        b.type !== "reference" &&
         !(b.sectionId && refIds.has(b.sectionId)) &&
         !looksLikeBibliographyEntry(b.original) &&
         !isReferencesHeading(b.original) &&
@@ -72,7 +72,7 @@ export function ReaderScreen() {
     ).length;
   });
 
-  const [showOutline, setShowOutline] = useState(true);
+  const [showOutline] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -83,6 +83,16 @@ export function ReaderScreen() {
   const saveTimeoutRef = useRef<number | null>(null);
 
   const paper = papers.find((p) => p.id === paperId);
+
+  // Determine which project we navigated from (for breadcrumb)
+  const activeProject = useMemo(() => {
+    const qid = searchParams.get("project");
+    if (qid) return projects.find((p) => p.id === qid) ?? null;
+    if (!paperId) return null;
+    const links = memberships.filter((m) => m.paperId === paperId);
+    if (links.length === 1) return projects.find((p) => p.id === links[0].projectId) ?? null;
+    return null;
+  }, [searchParams, projects, memberships, paperId]);
 
   // All hooks must be called before any conditional returns
   const handleBlockUpdated = useCallback(
@@ -361,16 +371,21 @@ export function ReaderScreen() {
           >
             <ArrowLeft size={20} />
           </button>
-          <button
-            className={styles.iconButton}
-            onClick={() => setShowOutline(!showOutline)}
-            title={showOutline ? "アウトラインを隠す" : "アウトラインを表示"}
-          >
-            {showOutline ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
-          </button>
-          <h1 className={styles.title}>
-            {displayPaperTitle(paper)}
-          </h1>
+          <div className={styles.titleArea}>
+            {activeProject && (
+              <Link
+                to={`/project/${activeProject.id}`}
+                className={styles.breadcrumb}
+                title={activeProject.name}
+              >
+                {activeProject.name}
+              </Link>
+            )}
+            {activeProject && <span className={styles.breadcrumbSep}>/</span>}
+            <h1 className={styles.title}>
+              {displayPaperTitle(paper)}
+            </h1>
+          </div>
         </div>
         <div className={styles.headerRight}>
           <button

@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Paper, Section, PaperBlock } from "../types/paper";
+import type { Project, ProjectPaper } from "../types/project";
 import type { GlossaryEntry } from "./llm/types";
 import type { TranslationCacheEntry } from "./translation/types";
 
@@ -72,10 +73,25 @@ interface PaperReaderDB extends DBSchema {
       "by-timestamp": string;
     };
   };
+  projects: {
+    key: string;
+    value: Project;
+    indexes: {
+      "by-updated": string;
+    };
+  };
+  projectPapers: {
+    key: [string, string];
+    value: ProjectPaper;
+    indexes: {
+      "by-project": string;
+      "by-paper": string;
+    };
+  };
 }
 
 const DB_NAME = "paper-reader";
-const DB_VERSION = 2; // Incremented for new stores
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<PaperReaderDB>> | null = null;
 
@@ -126,6 +142,20 @@ function getDB(): Promise<IDBPDatabase<PaperReaderDB>> {
             benchmarkStore.createIndex("by-timestamp", "timestamp");
           }
         }
+
+        if (oldVersion < 3) {
+          if (!db.objectStoreNames.contains("projects")) {
+            const projectStore = db.createObjectStore("projects", { keyPath: "id" });
+            projectStore.createIndex("by-updated", "updatedAt");
+          }
+          if (!db.objectStoreNames.contains("projectPapers")) {
+            const linkStore = db.createObjectStore("projectPapers", {
+              keyPath: ["projectId", "paperId"],
+            });
+            linkStore.createIndex("by-project", "projectId");
+            linkStore.createIndex("by-paper", "paperId");
+          }
+        }
       },
     });
   }
@@ -158,7 +188,10 @@ export async function getPaperByHash(hash: string): Promise<Paper | undefined> {
 
 export async function deletePaper(id: string): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(["papers", "sections", "blocks", "glossaries"], "readwrite");
+  const tx = db.transaction(
+    ["papers", "sections", "blocks", "glossaries", "projectPapers"],
+    "readwrite"
+  );
 
   // Delete all related sections and blocks
   const sections = await tx.objectStore("sections").index("by-paper").getAllKeys(id);
@@ -173,6 +206,11 @@ export async function deletePaper(id: string): Promise<void> {
 
   // Delete glossary
   await tx.objectStore("glossaries").delete(id);
+
+  const links = await tx.objectStore("projectPapers").index("by-paper").getAllKeys(id);
+  for (const key of links) {
+    await tx.objectStore("projectPapers").delete(key);
+  }
 
   await tx.objectStore("papers").delete(id);
   await tx.done;
@@ -420,4 +458,68 @@ export async function getBenchmarksByModel(model: string): Promise<BenchmarkEntr
 export async function getAllBenchmarks(): Promise<BenchmarkEntry[]> {
   const db = await getDB();
   return db.getAllFromIndex("benchmarks", "by-timestamp");
+}
+
+// ============================================================
+// Project operations
+// ============================================================
+
+export async function saveProject(project: Project): Promise<void> {
+  const db = await getDB();
+  await db.put("projects", project);
+}
+
+export async function getProject(id: string): Promise<Project | undefined> {
+  const db = await getDB();
+  return db.get("projects", id);
+}
+
+export async function getAllProjects(): Promise<Project[]> {
+  const db = await getDB();
+  const projects = await db.getAll("projects");
+  return projects.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) * -1);
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(["projects", "projectPapers"], "readwrite");
+  const links = await tx.objectStore("projectPapers").index("by-project").getAllKeys(id);
+  for (const key of links) {
+    await tx.objectStore("projectPapers").delete(key);
+  }
+  await tx.objectStore("projects").delete(id);
+  await tx.done;
+}
+
+export async function saveProjectPaper(link: ProjectPaper): Promise<void> {
+  const db = await getDB();
+  await db.put("projectPapers", link);
+}
+
+export async function getProjectPaper(
+  projectId: string,
+  paperId: string
+): Promise<ProjectPaper | undefined> {
+  const db = await getDB();
+  return db.get("projectPapers", [projectId, paperId]);
+}
+
+export async function getProjectPapersByProject(projectId: string): Promise<ProjectPaper[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("projectPapers", "by-project", projectId);
+}
+
+export async function getProjectPapersByPaper(paperId: string): Promise<ProjectPaper[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("projectPapers", "by-paper", paperId);
+}
+
+export async function getAllProjectPapers(): Promise<ProjectPaper[]> {
+  const db = await getDB();
+  return db.getAll("projectPapers");
+}
+
+export async function deleteProjectPaper(projectId: string, paperId: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("projectPapers", [projectId, paperId]);
 }

@@ -44,6 +44,11 @@ class MADLADEngine(TranslationEngine):
         # MPS is not safe for concurrent generate() — the original SIGSEGV
         # happened with two /translate requests on Metal at once.
         self._lock = threading.Lock()
+        # Independent sentence chunks in one generate() call. 1 disables batching.
+        # Independent sentence chunks in one generate() call. 4 and 8 produce
+        # the same wording on the intro paragraph; 8 is faster. 1 restores
+        # one generate() per chunk (bit-closer to unpadded greedy).
+        self._batch_size = max(1, int(os.environ.get("MADLAD_BATCH_SIZE", "8")))
         
         # Enable MPS fallback for unsupported operations
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
@@ -151,6 +156,7 @@ class MADLADEngine(TranslationEngine):
                 self.MODEL_ID,
                 use_fast=False,
             )
+            self._tokenizer.padding_side = "right"
             print("[LOADING] ✓ Tokenizer loaded")
             
             # Load model with selected dtype
@@ -272,16 +278,9 @@ class MADLADEngine(TranslationEngine):
                     flush=True,
                 )
 
-                pieces: list[str] = []
-                input_tokens = 0
-                output_tokens = 0
-                for chunk in chunks:
-                    piece, in_tok, out_tok = self._translate_chunk(
-                        chunk, target_language
-                    )
-                    pieces.append(piece)
-                    input_tokens += in_tok
-                    output_tokens += out_tok
+                pieces, input_tokens, output_tokens = self._translate_chunks(
+                    chunks, target_language
+                )
 
                 translated_text = self._join_translated_chunks(
                     chunks, pieces, target_language
@@ -303,6 +302,7 @@ class MADLADEngine(TranslationEngine):
                 print(f"  device: {self._device}")
                 print(f"  dtype: {self._dtype}")
                 print(f"  chunks: {len(chunks)}")
+                print(f"  batch_size: {self._batch_size}")
                 print(f"  input_chars: {len(text)}")
                 print(f"  input_tokens: {input_tokens}")
                 print(f"  output_tokens: {output_tokens}")
@@ -450,6 +450,104 @@ class MADLADEngine(TranslationEngine):
         joined = "".join(out).strip()
         joined = re.sub(r"[:：]+", ":", joined)
         return MADLADEngine._to_halfwidth_ascii(joined)
+
+    def _translate_chunks(
+        self, chunks: list[str], target_language: str
+    ) -> tuple[list[str], int, int]:
+        if self._batch_size <= 1 or len(chunks) <= 1:
+            pieces: list[str] = []
+            input_tokens = 0
+            output_tokens = 0
+            for chunk in chunks:
+                piece, in_tok, out_tok = self._translate_chunk(chunk, target_language)
+                pieces.append(piece)
+                input_tokens += in_tok
+                output_tokens += out_tok
+            return pieces, input_tokens, output_tokens
+
+        pieces = []
+        input_tokens = 0
+        output_tokens = 0
+        for start in range(0, len(chunks), self._batch_size):
+            group = chunks[start : start + self._batch_size]
+            try:
+                group_pieces, in_tok, out_tok = self._translate_chunk_batch(
+                    group, target_language
+                )
+            except Exception as exc:
+                print(
+                    f"[TRANSLATE] Batch of {len(group)} failed ({exc!r}); "
+                    "retrying sequentially",
+                    flush=True,
+                )
+                group_pieces = []
+                in_tok = 0
+                out_tok = 0
+                for chunk in group:
+                    piece, one_in, one_out = self._translate_chunk(
+                        chunk, target_language
+                    )
+                    group_pieces.append(piece)
+                    in_tok += one_in
+                    out_tok += one_out
+            pieces.extend(group_pieces)
+            input_tokens += in_tok
+            output_tokens += out_tok
+        return pieces, input_tokens, output_tokens
+
+    def _translate_chunk_batch(
+        self, chunks: list[str], target_language: str
+    ) -> tuple[list[str], int, int]:
+        lang_token = f"<2{target_language}>"
+        if self._tokenizer.convert_tokens_to_ids(lang_token) == self._tokenizer.unk_token_id:
+            raise ValueError(f"Unknown MADLAD language tag: {lang_token}")
+
+        encoded = self._tokenizer(
+            [f"{lang_token} {chunk}" for chunk in chunks],
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            add_special_tokens=True,
+            padding=True,
+        )
+        encoded = {key: value.to(self._device) for key, value in encoded.items()}
+        in_toks = [int(n) for n in encoded["attention_mask"].sum(dim=1).tolist()]
+        max_new_tokens = max(
+            min(max(token_count * 3 + 24, 48), 256) for token_count in in_toks
+        )
+        decoder_start = self._model.config.decoder_start_token_id
+        pad_id = self._tokenizer.pad_token_id
+
+        with torch.inference_mode():
+            outputs = self._model.generate(
+                input_ids=encoded["input_ids"],
+                attention_mask=encoded["attention_mask"],
+                max_new_tokens=max_new_tokens,
+                num_beams=1,
+                do_sample=False,
+                decoder_start_token_id=decoder_start,
+                pad_token_id=pad_id,
+                eos_token_id=self._tokenizer.eos_token_id,
+            )
+
+        pieces: list[str] = []
+        output_tokens = 0
+        for i, chunk in enumerate(chunks):
+            seq = outputs[i]
+            piece = self._tokenizer.decode(seq, skip_special_tokens=True).strip()
+            if self._is_degenerate(piece, chunk, target_language):
+                print(f"[TRANSLATE] Rejected batch chunk: {piece[:120]!r}", flush=True)
+                raise ValueError("degenerate translation output")
+            print(
+                f"[TRANSLATE] batch {in_toks[i]}->{int(seq.shape[0])}: {piece[:120]!r}",
+                flush=True,
+            )
+            pieces.append(piece)
+            if pad_id is None:
+                output_tokens += int(seq.shape[0])
+            else:
+                output_tokens += int((seq != pad_id).sum().item())
+        return pieces, sum(in_toks), output_tokens
 
     def _translate_chunk(
         self, text: str, target_language: str

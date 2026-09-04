@@ -78,7 +78,7 @@ stable            yes         yes         yes         yes
     段落単位なら可。93文字で約 3.2s、1ページを 10〜20 段落とすると約 30〜60s。モデルは起動時に 1 回だけロード。並列推論はしない。
 
 12. **PyTorch MPS を継続するか MLX か**  
-    **PyTorch MPS を継続。** bf16 が安定かつ最速。MLX は今は不要。
+    **PyTorch MPS + bfloat16 を継続。** その後の文バッチと MLX INT8 の実測は `SPEED_BENCH.md`。コミュニティ INT8 は段落欠落のため不採用。
 
 ---
 
@@ -87,5 +87,6 @@ stable            yes         yes         yes         yes
 - device: mps  
 - dtype: bfloat16  
 - モデル: 起動時に 1 回ロード  
-- 推論: プロセス内ロックで直列  
+- 推論: プロセス内ロックで直列。文チャンクは最大 8 件を 1 回の generate に載せる (`MADLAD_BATCH_SIZE`)  
 - CPU: MPS 失敗時のみ  
+- 速度の継続ログ: `SPEED_BENCH.md`  

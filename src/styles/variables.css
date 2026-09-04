@@ -33,6 +33,7 @@
   --spacing-2xl: 48px;
 
   /* Layout */
+  --nav-sidebar-width: 220px;
   --sidebar-width: 280px;
   --header-height: 56px;
   --content-max-width: 720px;

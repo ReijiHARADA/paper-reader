@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    target: ["es2020", "safari15"],
+  },
   server: {
     proxy: {
       "/api/madlad": {

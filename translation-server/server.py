@@ -244,10 +244,14 @@ async def translate_batch(request: BatchTranslateRequest):
 
 
 if __name__ == "__main__":
+    import os
+
+    host = os.environ.get("MADLAD_SERVER_HOST", "127.0.0.1")
+    port = int(os.environ.get("MADLAD_SERVER_PORT", os.environ.get("UVICORN_PORT", "8765")))
     uvicorn.run(
         "server:app",
-        host="127.0.0.1",
-        port=8765,
+        host=host,
+        port=port,
         reload=False,
         log_level="info",
     )

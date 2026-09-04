@@ -35,6 +35,35 @@
   flex-shrink: 0;
 }
 
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  margin-left: var(--spacing-sm);
+}
+
+.breadcrumb {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.breadcrumb:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.breadcrumbSep {
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
 .title {
   font-size: 0.9375rem;
   font-weight: 500;
@@ -42,7 +71,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-left: var(--spacing-sm);
 }
 
 .iconButton {

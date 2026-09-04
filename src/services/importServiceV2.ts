@@ -7,6 +7,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { extractPDFContent, computeFileHash, extractFigureImages } from "./pdfService";
+import { isScannedPdf, ocrDocument } from "./ocrService";
 import { analyzeStructure } from "./structureService";
 import { figureLookupKey } from "./pdfLayout";
 import {
@@ -210,6 +211,51 @@ export async function importPDFV2(
         message: `テキストを抽出しています... (${page}/${total}ページ)`,
       });
     });
+
+    // スキャン PDF 判定: テキストアイテムが少なければ OCR を実行
+    const totalTextItems = pdfResult.pages.reduce(
+      (sum, p) => sum + p.textItems.length,
+      0
+    );
+    if (isScannedPdf(totalTextItems, pdfResult.pages.length)) {
+      callbacks.onProgress({
+        stage: "extracting",
+        stageProgress: 0,
+        stageTotal: pdfResult.pages.length,
+        message: "スキャンPDFを検出しました。OCR処理中...",
+      });
+      try {
+        const { openPdfDocument } = await import("./pdfjsRuntime");
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await openPdfDocument(arrayBuffer).promise;
+        const ocrResults = await ocrDocument(pdfDoc, ["en-US", "ja-JP"], (page, total) => {
+          callbacks.onProgress({
+            stage: "extracting",
+            stageProgress: page,
+            stageTotal: total,
+            message: `OCR処理中... (${page}/${total}ページ)`,
+          });
+        });
+        // OCR 結果を pdfResult のテキストアイテムに上書きマージ
+        for (const ocrPage of ocrResults) {
+          const pdfPage = pdfResult.pages.find((p) => p.pageNumber === ocrPage.pageNumber);
+          if (!pdfPage || ocrPage.lines.length === 0) continue;
+          // OCR テキストを疑似テキストアイテムとして追加（y 座標を行番号で割り当て）
+          pdfPage.textItems = ocrPage.lines.map((line, idx) => ({
+            text: line.text,
+            x: 0,
+            y: idx * 20,
+            width: 500,
+            height: 14,
+            fontSize: 12,
+            fontName: "ocr",
+            page: ocrPage.pageNumber,
+          }));
+        }
+      } catch (ocrErr) {
+        console.warn("OCR failed, proceeding with empty text:", ocrErr);
+      }
+    }
 
     // Stage 3: Analyzing structure
     callbacks.onStageChange("structuring");

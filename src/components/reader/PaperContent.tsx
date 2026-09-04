@@ -158,7 +158,6 @@ export function PaperContent({
       b.original &&
       (b.type === "paragraph" || b.type === "heading") &&
       b.translationStatus !== "skipped" &&
-      b.type !== "reference" &&
       String(b.metadata?.role ?? "") !== "author" &&
       String(b.metadata?.role ?? "") !== "affiliation" &&
       !looksLikeBibliographyEntry(b.original)
