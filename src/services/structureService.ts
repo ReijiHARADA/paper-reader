@@ -13,6 +13,7 @@ import {
   reconstructDocument,
   formatReadingOrderLog,
   figureLookupKey,
+  displayHeadingText,
   type LayoutBlock,
   type PageColumnLayout,
 } from "./pdfLayout";
@@ -22,19 +23,56 @@ import { scoreLayoutBlock } from "./extractionConfidence";
 function normalizeSection(title: string): NormalizedSectionKind {
   const lower = title.toLowerCase();
   if (/abstract/i.test(lower)) return "abstract";
-  if (/introduction/i.test(lower)) return "introduction";
-  if (/related\s*work|background|literature|prior/i.test(lower)) {
+  if (/introduction|はじめに|序論|序言|まえがき/i.test(lower)) {
+    return "introduction";
+  }
+  if (
+    /related\s*work|background|literature|prior|関連研究|先行研究|背景/i.test(
+      lower
+    )
+  ) {
     return "related_work";
   }
   if (/method|approach|model|architecture|system|design/i.test(lower)) {
     return "method";
   }
-  if (/result|experiment|evaluation|finding/i.test(lower)) return "results";
-  if (/discussion/i.test(lower)) return "discussion";
-  if (/conclusion|summary|future/i.test(lower)) return "conclusion";
-  if (/reference|bibliography/i.test(lower)) return "references";
-  if (/acknowledge/i.test(lower)) return "other";
+  if (/result|experiment|evaluation|finding|分析結果/i.test(lower)) {
+    return "results";
+  }
+  if (/discussion|考察/i.test(lower)) return "discussion";
+  if (/conclusion|summary|future|まとめ|結論|おわりに/i.test(lower)) {
+    return "conclusion";
+  }
+  if (/reference|bibliography|参考文献|引用文献/i.test(lower)) {
+    return "references";
+  }
+  if (/acknowledge|謝辞/i.test(lower)) return "other";
   return "other";
+}
+
+function expandAuthorLine(text: string): string[] {
+  const cleaned = text
+    .replace(/[*,†‡§]/g, " ")
+    .replace(/(\p{L})\d+/gu, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return [];
+
+  const cjkTokens = cleaned.match(/[\u3040-\u30ff\u4e00-\u9fff]{1,4}/g) ?? [];
+  const latin = cleaned
+    .replace(/[\u3040-\u30ff\u4e00-\u9fff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const names: string[] = [];
+  if (cjkTokens.length >= 2 && cjkTokens.length % 2 === 0) {
+    for (let i = 0; i < cjkTokens.length; i += 2) {
+      names.push(`${cjkTokens[i]} ${cjkTokens[i + 1]}`);
+    }
+  } else if (cjkTokens.length > 0 && !latin) {
+    names.push(cjkTokens.join(" "));
+  }
+  if (latin) names.push(latin);
+  return names.length > 0 ? names : [cleaned];
 }
 
 function detectHeadingLevel(text: string, fontSize: number, baseFontSize: number): number {
@@ -78,12 +116,7 @@ export function analyzeStructure(
   const titleBlock = layoutBlocks.find((b) => b.role === "title");
   const authorNames = layoutBlocks
     .filter((b) => b.role === "author" && !/@/.test(b.text))
-    .map((b) =>
-      b.text
-        .replace(/(\p{L})\d+/gu, "$1")
-        .replace(/\s+/g, " ")
-        .trim()
-    )
+    .flatMap((b) => expandAuthorLine(b.text))
     .filter(Boolean);
 
   const sections: Section[] = [];
@@ -139,20 +172,21 @@ export function analyzeStructure(
         });
         continue;
       }
+      const headingText = displayHeadingText(layout.text);
       const level = detectHeadingLevel(
-        layout.text,
+        headingText,
         layout.lines[0]?.fontSize ?? baseFontSize,
         baseFontSize
       );
       const sectionId = uuidv4();
-      const kind = normalizeSection(layout.text);
+      const kind = normalizeSection(headingText);
       const section: Section = {
         id: sectionId,
         paperId,
         parentSectionId: null,
         order: sectionOrder++,
         level,
-        originalTitle: layout.text,
+        originalTitle: headingText,
         translatedTitle: null,
         normalizedKind: kind,
       };
@@ -175,8 +209,12 @@ export function analyzeStructure(
     }
 
     if (layout.role === "figure_caption") {
-      const match = layout.text.match(/^(figure|fig\.?)\s*(\d+)/i);
-      const figureNumber = match ? `Figure ${match[2]}` : "Figure";
+      const match = layout.text.match(/^(figure|fig\.?|図)\s*(\d+)/i);
+      const figureNumber = match
+        ? /図/.test(match[1])
+          ? `図 ${match[2]}`
+          : `Figure ${match[2]}`
+        : "Figure";
       pushBlock(layout, {
         sectionId: currentSectionId,
         type: "figure",
@@ -200,8 +238,12 @@ export function analyzeStructure(
     }
 
     if (layout.role === "table_caption") {
-      const match = layout.text.match(/^(table)\s*(\S+)/i);
-      const tableNumber = match ? `Table ${match[2]}` : "Table";
+      const match = layout.text.match(/^(table|表)\s*(\S+)/i);
+      const tableNumber = match
+        ? /表/.test(match[1])
+          ? `表 ${match[2]}`
+          : `Table ${match[2]}`
+        : "Table";
       pushBlock(layout, {
         sectionId: currentSectionId,
         type: "table",

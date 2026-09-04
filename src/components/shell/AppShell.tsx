@@ -83,7 +83,7 @@ export function AppShell() {
           const nextStatus = displayProcessingStatus(
             paper.processingStatus,
             blocks,
-            isRetryableTranslationFailure
+            (block) => isRetryableTranslationFailure(block)
           );
           if (nextStatus !== paper.processingStatus) {
             await savePaper({ ...paper, processingStatus: nextStatus });

@@ -35,7 +35,7 @@ export function finalizedTranslationStatus(
   blocks: PaperBlock[],
   isRetryableFailure: (block: PaperBlock) => boolean
 ): "ready" | "partial" {
-  return blocks.some(isRetryableFailure) ? "partial" : "ready";
+  return blocks.some((block) => isRetryableFailure(block)) ? "partial" : "ready";
 }
 
 /**

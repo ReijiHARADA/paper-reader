@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconstructDocument, type LayoutBlock, isEquationLine } from "../../services/pdfLayout";
+import { reconstructDocument, type LayoutBlock, isEquationLine, isFigureCaption, isTableCaption } from "../../services/pdfLayout";
 import { FIXTURES } from "./builders";
 
 function tokensInOrder(haystack: string, tokens: string[]): void {
@@ -39,6 +39,19 @@ function assertNoLineInterleave(runs: string[]): void {
     `column sequence ${runs.join(",")} looks interleaved`
   ).toBeLessThanOrEqual(4);
 }
+
+describe("Japanese figure and table captions", () => {
+  it("recognizes 図 and 表 captions but not in-sentence 図 N の", () => {
+    expect(isFigureCaption("図 1: 視聴覚情報処理過程と記憶に関する認知モデル")).toBe(
+      true
+    );
+    expect(isFigureCaption("図1：先行研究で利用された映像の一例")).toBe(true);
+    expect(isFigureCaption("Figure 2. A workshop layout.")).toBe(true);
+    expect(isFigureCaption("図 3 の1行目に示す応答")).toBe(false);
+    expect(isTableCaption("表 1: 被験者の内訳")).toBe(true);
+    expect(isTableCaption("Table 1. Participant demographics")).toBe(true);
+  });
+});
 
 describe("isEquationLine", () => {
   it("keeps a numbered displayed equation", () => {
@@ -314,6 +327,44 @@ describe("PDF reading order regression", () => {
     ).toBe(true);
     const prose = blocks.find((b) => /CLASSIFIX_INTRO/.test(b.text));
     expect(prose?.role).toBe("paragraph");
+  });
+
+  it("Japanese conference papers get numbered headings, 図 captions, and authors", () => {
+    const { blocks } = reconstructDocument(FIXTURES["japanese-conference"]());
+    const headings = blocks.filter((b) => b.role === "heading").map((b) => b.text);
+    expect(headings.some((t) => /1 はじめに/.test(t))).toBe(true);
+    expect(headings.some((t) => /2\.1 視聴覚情報処理と記憶/.test(t))).toBe(true);
+    expect(headings.some((t) => /2\.2 関連研究/.test(t))).toBe(true);
+    expect(headings.some((t) => /^参考文献$/.test(t.trim()))).toBe(true);
+    expect(
+      headings.some((t) => /Acquisition process of visual-auditory/.test(t))
+    ).toBe(false);
+    expect(headings.some((t) => /Kurihara Yuta/.test(t))).toBe(false);
+    expect(headings.some((t) => /視線誘導部から情報付加部/.test(t))).toBe(false);
+
+    const caption = blocks.find((b) => b.role === "figure_caption");
+    expect(caption?.text).toContain("JACAPTION");
+    expect(blocks.some((b) => b.role === "table_caption" && /JATABLE/.test(b.text))).toBe(
+      true
+    );
+    expect(
+      blocks.some(
+        (b) => b.role === "figure_caption" && /図 3 の1行目/.test(b.text)
+      )
+    ).toBe(false);
+
+    expect(blocks.some((b) => b.role === "author" && /栗原 勇太/.test(b.text))).toBe(
+      true
+    );
+    expect(blocks.some((b) => b.role === "title" && /情報採餌理論/.test(b.text))).toBe(
+      true
+    );
+    expect(
+      blocks.some(
+        (b) =>
+          (b.role === "paragraph" || b.role === "heading") && /^J-040$/.test(b.text.trim())
+      )
+    ).toBe(false);
   });
 
   it("every named fixture produces at least one block", () => {

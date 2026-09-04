@@ -52,6 +52,7 @@ import { OllamaProvider, generateGlossary } from "./llm";
 import type { GlossaryEntry } from "./llm/types";
 import { resolveMadladServerUrl, MADLAD_MODEL_VERSION } from "./translation/madladEngine";
 import { finalizedTranslationStatus } from "./paperStatus";
+import { isJapaneseSourcePaper } from "./sourceLanguage";
 
 // ============================================================
 // Types
@@ -128,6 +129,16 @@ function assignBlockTranslation(block: PaperBlock, translated: string): void {
   }
 }
 
+function asSectionIdSet(value: unknown): Set<string> {
+  if (value instanceof Set) {
+    return value as Set<string>;
+  }
+  if (Array.isArray(value)) {
+    return new Set(value.filter((id): id is string => typeof id === "string"));
+  }
+  return new Set();
+}
+
 function referenceSectionIds(sections: Section[]): Set<string> {
   return new Set(
     sections
@@ -149,10 +160,11 @@ export function shouldTranslateBlock(
   block: PaperBlock,
   refSectionIds: Set<string> = new Set()
 ): boolean {
+  const ids = asSectionIdSet(refSectionIds);
   if (!block.original) return false;
   if (block.translationStatus === "skipped") return false;
   if (block.type === "reference") return false;
-  if (block.sectionId && refSectionIds.has(block.sectionId)) return false;
+  if (block.sectionId && ids.has(block.sectionId)) return false;
   if (isReferencesHeading(block.original)) return false;
   if (looksLikeBibliographyEntry(block.original)) return false;
   const role = String(block.metadata?.role ?? "");
@@ -176,7 +188,7 @@ export function isRetryableTranslationFailure(
 ): boolean {
   if (block.type !== "paragraph") return false;
   if (block.translationStatus !== "failed") return false;
-  return shouldTranslateBlock(block, refSectionIds);
+  return shouldTranslateBlock(block, asSectionIdSet(refSectionIds));
 }
 
 async function persistUntranslatableAsSkipped(
@@ -197,6 +209,34 @@ async function persistUntranslatableAsSkipped(
     changed.push(block);
   }
   return changed;
+}
+
+function isJapaneseLayoutOnlyPaper(
+  title: string | null,
+  blocks: PaperBlock[]
+): boolean {
+  return isJapaneseSourcePaper({
+    title,
+    paragraphs: blocks
+      .filter((block) => block.type === "paragraph")
+      .map((block) => block.original),
+  });
+}
+
+async function finalizeJapaneseLayoutOnly(
+  paper: Paper,
+  sections: Section[],
+  blocks: PaperBlock[]
+): Promise<void> {
+  for (const block of blocks) {
+    if (block.translationStatus === "completed") continue;
+    block.translationStatus = "skipped";
+  }
+  paper.processingStatus = "ready";
+  paper.updatedAt = new Date().toISOString();
+  await saveBlocks(blocks);
+  await saveSections(sections);
+  await savePaper(paper);
 }
 
 function resolveConfig(config: ImportConfig): Required<ImportConfig> {
@@ -388,6 +428,25 @@ export async function importPDFV2(
 
     // Notify that partial data is ready (can start viewing)
     callbacks.onPartialReady(paper, sections, blocks);
+
+    if (isJapaneseLayoutOnlyPaper(paper.titleOriginal, blocks)) {
+      await finalizeJapaneseLayoutOnly(paper, sections, blocks);
+      callbacks.onPaperUpdated?.(paper);
+      for (const block of blocks) {
+        callbacks.onBlockTranslated?.(block);
+      }
+      callbacks.onStageChange("completed");
+      callbacks.onProgress({
+        stage: "completed",
+        stageProgress: 1,
+        stageTotal: 1,
+        message: "日本語論文のため翻訳をスキップし、レイアウトのみ作成しました",
+        paper,
+        sections,
+        blocks,
+      });
+      return { paper, sections, blocks };
+    }
 
     let glossaryEntries: GlossaryEntry[] = await getGlossary(paperId);
 
@@ -761,6 +820,16 @@ export async function resumeIncompleteTranslation(
     const blocks = await getBlocksByPaper(paperId);
     const sections = await getSectionsByPaper(paperId);
     const refSectionIds = referenceSectionIds(sections);
+
+    if (isJapaneseLayoutOnlyPaper(paper.titleOriginal, blocks)) {
+      await finalizeJapaneseLayoutOnly(paper, sections, blocks);
+      callbacks.onPaperUpdated?.(paper);
+      for (const block of blocks) {
+        callbacks.onBlockTranslated?.(block);
+      }
+      return;
+    }
+
     const skipped = await persistUntranslatableAsSkipped(blocks, refSectionIds);
     for (const block of skipped) {
       callbacks.onBlockTranslated?.(block);

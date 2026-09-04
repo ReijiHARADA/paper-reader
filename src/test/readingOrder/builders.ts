@@ -338,6 +338,126 @@ export function fullWidthFigurePages(): ExtractedPage[] {
   return [page(1, [...topLeft, ...topRight, ...figure, ...bottomLeft, ...bottomRight])];
 }
 
+export function japaneseConferencePages(): ExtractedPage[] {
+  const masthead = [
+    item("J-040", 41, 56, { width: 50, fontSize: 14 }),
+    item("情報採餌理論に基づく視聴覚情報獲得過程とコンテンツ記憶", 80, 90, {
+      width: 460,
+      fontSize: 16,
+    }),
+    item(
+      "Acquisition process of visual-auditory information and content memory",
+      90,
+      108,
+      { width: 420, fontSize: 11 }
+    ),
+    item("based on information foraging theory", 180, 122, {
+      width: 260,
+      fontSize: 11,
+    }),
+    item("栗原 勇太 小竹 元基", LEFT_X, 145, { width: 180, fontSize: 10 }),
+    item("Kurihara Yuta Shino Motoki", LEFT_X, 158, {
+      width: 220,
+      fontSize: 10,
+    }),
+    item("中平 勝子 北島 宗雄", RIGHT_X, 145, { width: 180, fontSize: 10 }),
+    item("Nakahira T. Katsuko Kitajima Muneo", RIGHT_X, 158, {
+      width: 240,
+      fontSize: 10,
+    }),
+  ];
+  const left = [
+    colLine("1 はじめに", LEFT_X, 200, 1, 12),
+    colLine(
+      "JaL1 人間は生活の中で様々な情報を獲得し学習しながら生きていく過程を説明する本文であり見出しにはしない。",
+      LEFT_X,
+      230
+    ),
+    colLine(
+      "JaL2 曖昧で膨大な情報があふれる現代の社会の中で効果的に学習を進める必要があり本文として続く。",
+      LEFT_X,
+      260
+    ),
+    colLine(
+      "JaL3 視覚情報処理が行われる鑑賞学習において情報処理を円滑に行わせることが必要であると考えられる。",
+      LEFT_X,
+      290
+    ),
+    colLine("2.1 視聴覚情報処理と記憶", LEFT_X, 320, 1, 12),
+    colLine(
+      "JaL4 視聴覚情報を取得し記憶に残る過程を表す認知モデルの一つについて述べる本文である。",
+      LEFT_X,
+      350
+    ),
+    colLine("図 1: JACAPTION 視聴覚情報処理過程と記憶に関する認知モデル", LEFT_X, 390, 1, 9),
+    colLine(
+      "JaL5 図の後に続く左列の本文であり右列と混ざってはならないことを確認するための行である。",
+      LEFT_X,
+      430
+    ),
+    colLine(
+      "JaL6 その例を図 3 の1行目に示す応答でありこれはキャプションではない本文である。",
+      LEFT_X,
+      460
+    ),
+    colLine(
+      "JaL7 左列の密度を保つための本文行であり見出しにはしないことを確認する。",
+      LEFT_X,
+      490
+    ),
+  ];
+  const right = [
+    colLine("2.2 関連研究", RIGHT_X, 200, 1, 12),
+    colLine(
+      "JaR1 本研究では視覚情報として映像を鑑賞する際に聴覚情報が付与される場面を対象とする本文である。",
+      RIGHT_X,
+      230
+    ),
+    colLine(
+      "JaR2 同様の鑑賞場面を対象とした先行研究は付与タイミングの間隔が記憶に与える影響を調べた。",
+      RIGHT_X,
+      260
+    ),
+    colLine(
+      "1. 視線誘導部から情報付加部の時間において解説対象を中心視で捉えた後に再び捉える必要がある．",
+      RIGHT_X,
+      290
+    ),
+    colLine(
+      "JaR3 右列は左列の見出しやキャプションを飲み込んではならないことを確認するための本文である。",
+      RIGHT_X,
+      320
+    ),
+    colLine(
+      "表 1: JATABLE 被験者の内訳を示す表キャプションである。",
+      RIGHT_X,
+      350,
+      1,
+      9
+    ),
+    colLine(
+      "JaR5 右列の続きであり段組検出のための十分な長さを持つ本文行である。",
+      RIGHT_X,
+      390
+    ),
+    colLine("参考文献", RIGHT_X, 430, 1, 12),
+    colLine(
+      "JaR6 [1] 近藤智嗣，有田寛之，博物館教育における活用に関する文献である。",
+      RIGHT_X,
+      460
+    ),
+    colLine(
+      "JaR7 右列末尾の参考文献本文であり見出しに吸収されないことを確認する。",
+      RIGHT_X,
+      490
+    ),
+  ];
+  const affiliation = [
+    item("† 東京大学", 54, 740, { width: 120, fontSize: 7 }),
+  ];
+  return [page(1, [...masthead, ...left, ...right, ...affiliation])];
+}
+
 export function figureInsideColumnPages(): ExtractedPage[] {
   const left = [
     colLine("Method", LEFT_X, 80, 1, 12),
@@ -694,5 +814,6 @@ export const FIXTURES: Record<string, () => ExtractedPage[]> = {
   "false-caption-sentence": falseCaptionSentencePages,
   "hyphenated-prose": hyphenatedProsePages,
   "classification-index": classificationIndexPages,
+  "japanese-conference": japaneseConferencePages,
 };
 

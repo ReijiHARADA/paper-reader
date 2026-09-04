@@ -9,7 +9,11 @@
 
 import type { BoundingBox } from "../types/paper";
 import type { ExtractedPage, ExtractedTextItem } from "./pdfService";
-import { isReferencesHeading, looksLikeSubjectClassification } from "./translation/quality";
+import {
+  isReferencesHeading,
+  looksLikeSubjectClassification,
+  toHalfwidthAscii,
+} from "./translation/quality";
 
 export type LayoutColumn = "left" | "right" | "spanning" | "single";
 
@@ -387,15 +391,31 @@ function isEdgeChrome(
   return false;
 }
 
+function layoutPlain(text: string): string {
+  return toHalfwidthAscii(text).replace(/．/g, ".").trim();
+}
+
+export function displayHeadingText(text: string): string {
+  const cleaned = layoutPlain(text).replace(
+    /^\d{1,3}\s+(?=\d{1,2}(?:\.\d{1,2})+\.?\s+\S)/,
+    ""
+  );
+  return cleaned || text.trim();
+}
+
+function cjkCount(text: string): number {
+  return (text.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+}
+
 export function isFigureCaption(text: string): boolean {
-  return /^(?:figure|fig\.?)\s*\d+[a-z]?(?:\s*,\s*[a-z]\b)*(?:\s*[:.–—-]|\s*$)/i.test(
-    text.trim()
+  return /^(?:figure|fig\.?|図)\s*\d+[a-z]?(?:\s*,\s*[a-z]\b)*(?:\s*[:.：–—-]|\s*$)/i.test(
+    layoutPlain(text)
   );
 }
 
 export function isTableCaption(text: string): boolean {
-  return /^tables?\s+(?:\d+[a-z]?|[ivxlcdm]+)(?:\s*[:.–—-]|\s*$)/i.test(
-    text.trim()
+  return /^(?:tables?|表)\s*(?:\d+[a-z]?|[ivxlcdm]+)(?:\s*[:.：–—-]|\s*$)/i.test(
+    layoutPlain(text)
   );
 }
 
@@ -409,18 +429,26 @@ function isFootnoteLine(
   pageHeight: number,
   baseFont: number
 ): boolean {
-  const t = line.text.trim();
+  const t = layoutPlain(line.text);
   if (!t) return false;
   if (line.fontSize > baseFont * 0.9 && line.fontSize > 9.2) return false;
   if (line.y < pageHeight * 0.7) return false;
-  return /^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+\S/.test(t);
+  if (!/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+\S/.test(t)) return false;
+  const afterMark = t.replace(/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+/, "");
+  if (looksLikeSectionNumberedHeading(t) || looksLikeSectionNumberedHeading(afterMark)) {
+    return false;
+  }
+  if (NAMED_HEADINGS.some((re) => re.test(afterMark))) return false;
+  return true;
 }
 
 const BODY_START_HEADING =
-  /^(?:(?:\d+\.)\s*)?(abstract|introduction|author keywords?|ccs concepts|index terms|keywords)\s*$/i;
+  /^(?:(?:\d+\.)\s*)?(abstract|introduction|author keywords?|ccs concepts|index terms|keywords|はじめに|序論|序言|まえがき)\s*$/i;
 
 function isBodyStartHeading(text: string): boolean {
-  return BODY_START_HEADING.test(text.trim());
+  const t = layoutPlain(text);
+  if (BODY_START_HEADING.test(t)) return true;
+  return looksLikeSectionNumberedHeading(t);
 }
 
 export function looksLikeUrl(text: string): boolean {
@@ -503,6 +531,16 @@ const NAMED_HEADINGS = [
   /^acknowledgements?$/i,
   /^method(s|ology)?$/i,
   /^results?$/i,
+  /^はじめに$/,
+  /^関連研究$/,
+  /^背景$/,
+  /^まとめ$/,
+  /^おわりに$/,
+  /^結論$/,
+  /^考察$/,
+  /^謝辞$/,
+  /^参考文献$/,
+  /^引用文献$/,
 ];
 
 function looksLikeGrantIdentifier(text: string): boolean {
@@ -521,17 +559,39 @@ function startsWithGrantIdentifier(text: string): boolean {
 }
 
 function looksLikeSectionNumberedHeading(text: string): boolean {
-  const match = text
-    .trim()
-    .match(/^(\d{1,2})(?:\.\d{1,2}){1,3}\.?\s+([A-Za-z].+)$/);
+  const t = layoutPlain(text).replace(
+    /^\d{1,3}\s+(?=\d{1,2}(?:\.\d{1,2})+\.?\s+\S)/,
+    ""
+  );
+  const match = t.match(/^(\d{1,2})((?:\.\d{1,2}){0,3})\.?\s+(.+)$/);
   if (!match) return false;
   if (/^0/.test(match[1])) return false;
-  const rest = match[2].trim();
+  const rest = match[3].trim();
+  if (!rest || rest.length > 70) return false;
+  if (/[。．]/.test(rest)) return false;
   const first = rest.split(/\s+/)[0] ?? "";
   if (looksLikeGrantIdentifier(first) || looksLikeGrantIdentifier(rest)) {
     return false;
   }
-  return rest.length < 70 && rest.split(/\s+/).length <= 10;
+  if (cjkCount(rest) >= 2) {
+    const hadSinglePeriod = match[2] === "" && /^\d+\.\s+/.test(t);
+    if (hadSinglePeriod && (rest.length > 20 || /[，,]/.test(rest))) {
+      return false;
+    }
+    if (rest.length > 40 || /^[(（]/.test(rest)) return false;
+    if (/[。．.]$/.test(rest) || /[，,]/.test(rest)) return false;
+    return true;
+  }
+  if (!/^[A-Z(]/.test(rest)) return false;
+  if (/[。.]$/.test(rest) && rest.length > 24) return false;
+  if (match[2] === "" && /^\d+\.\s+/.test(t)) {
+    // "6. Martin A. Conway..." is a bibliography item, not "6. Results"
+    if (/\b(19|20)\d{2}\b/.test(rest) || /\b[A-Z]\.\s+[A-Z]/.test(rest)) {
+      return false;
+    }
+    if (/\band\b/.test(rest) && /[A-Z][a-z]+\s+[A-Z]/.test(rest)) return false;
+  }
+  return rest.split(/\s+/).length <= 10;
 }
 
 function isGrantNumberContinuation(previous: string, next: string): boolean {
@@ -566,11 +626,12 @@ function isGrantNumberContinuation(previous: string, next: string): boolean {
 }
 
 function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
-  const text = line.text.trim();
+  const text = layoutPlain(line.text);
   if (!text || text.length > 90) return false;
   if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
     return false;
   }
+  if (looksLikePaperCode(text)) return false;
   if (looksLikeSubjectClassification(text)) return false;
   if (isFigureCaption(text) || isTableCaption(text)) return false;
   if (looksLikeEmail(text) || looksLikeUrl(text) || looksLikeAffiliation(text)) {
@@ -597,7 +658,7 @@ function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
   if (letters.length >= 6 && upper.length / letters.length > 0.72) return true;
   if (line.fontSize > baseFont * 1.28 && text.length < 80 && text.split(/\s+/).length <= 12) {
     if (!/[A-Za-z]{3,}/.test(text)) return false;
-    if (/[.!?]$/.test(text) && text.split(/\s+/).length > 6) return false;
+    if (/[.!?。．]$/.test(text) && text.split(/\s+/).length > 6) return false;
     if (looksLikePersonName(text)) return false;
     return true;
   }
@@ -609,33 +670,80 @@ function looksLikeEmail(text: string): boolean {
 }
 
 function looksLikeAffiliation(text: string): boolean {
-  return /(university|department|institute|college|faculty|laboratory|\blab\b|research (center|centre)|school of|architecture|industrial design|centre of excellence|faculty of|department of|\b(?:the )?(netherlands|australia|germany|france|japan|china|canada|sweden|denmark|finland|norway|italy|spain|switzerland|austria|belgium|ireland|scotland|england|wales)\b|\b(?:sydney|london|dundee|eindhoven|cambridge|oxford|toronto|melbourne|macquarie)\b)/i.test(
+  return /(university|department|institute|college|faculty|laboratory|\blab\b|research (center|centre)|school of|architecture|industrial design|centre of excellence|faculty of|department of|\b(?:the )?(netherlands|australia|germany|france|japan|china|canada|sweden|denmark|finland|norway|italy|spain|switzerland|austria|belgium|ireland|scotland|england|wales)\b|\b(?:sydney|london|dundee|eindhoven|cambridge|oxford|toronto|melbourne|macquarie)\b|大学|大学院|研究所|学院|学部|学科|機構|高専)/i.test(
     text
   );
+}
+
+function looksLikePaperCode(text: string): boolean {
+  return /^[A-Z]{1,3}-\d{2,4}$/.test(layoutPlain(text));
+}
+
+function looksLikeLatinAuthorLine(text: string): boolean {
+  if (looksLikeEmail(text) || looksLikeAffiliation(text) || looksLikeUrl(text)) {
+    return false;
+  }
+  if (looksLikePaperCode(text) || looksLikePersonName(text)) return false;
+  const t = layoutPlain(text)
+    .replace(/[*,†‡§]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cjkCount(t) > 0 || t.length > 80 || t.length < 6) return false;
+  if (/^\d/.test(t) || /[@/]/.test(t)) return false;
+  const caps = t.split(/\s+/).filter((w) => {
+    const fold = foldNameToken(w);
+    return /^[A-Z][A-Za-z.'’-]*$/.test(fold) && fold.length >= 2;
+  });
+  const words = t.split(/\s+/).filter(Boolean);
+  return caps.length >= 2 && caps.length <= 8 && caps.length >= words.length - 2;
 }
 
 const NAME_PARTICLE = /^(van|von|de|den|der|di|da|la|le|du|del|st|ter|bin|al)$/i;
 const NAME_JOINER = /^(and|&)$/i;
 
+function foldNameToken(text: string): string {
+  return text
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f\u00AF\u02C9\u203E]/g, "")
+    .replace(/[^\p{L}.''’-]/gu, "");
+}
+
+function isNameToken(part: string, parts: string[]): boolean {
+  if (/^[\u3040-\u30ff\u4e00-\u9fff]{1,4}$/.test(part)) return true;
+  const fold = foldNameToken(part);
+  if (/^[A-Z][A-Za-z.'’-]*$/.test(fold)) return true;
+  if (/^[A-Z]\.$/.test(fold) || /^[A-Z]$/.test(fold)) return true;
+  const hasMacronStub = parts.some((p) => {
+    const f = foldNameToken(p);
+    return /^[A-Z]$/.test(f) || /[\u00AF\u0304]$/.test(p);
+  });
+  if (/^[a-z]{2,6}$/.test(fold) && hasMacronStub) return true;
+  return false;
+}
+
 function looksLikePersonName(text: string): boolean {
   if (looksLikeEmail(text) || looksLikeAffiliation(text) || looksLikeUrl(text)) {
     return false;
   }
-  const cleaned = text
+  const cleaned = layoutPlain(text)
     .replace(/[*,†‡§]/g, " ")
     .replace(/(\p{L})\d+/gu, "$1")
     .replace(/,/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (cleaned.length > 80 || cleaned.length < 4) return false;
+  if (cleaned.length > 80 || cleaned.length < 3) return false;
   if (/^\d/.test(cleaned)) return false;
   const parts = cleaned.split(/\s+/);
-  if (parts.length < 2 || parts.length > 10) return false;
+  if (parts.length < 2 || parts.length > 12) return false;
   const nameParts = parts.filter((p) => !NAME_PARTICLE.test(p) && !NAME_JOINER.test(p));
   if (nameParts.length < 2) return false;
-  return nameParts.every(
-    (p) => /^[A-Z][A-Za-z.'’-]*$/.test(p) || /^[A-Z]\.$/.test(p)
-  );
+  if (!nameParts.every((p) => isNameToken(p, nameParts))) return false;
+  const substantial = nameParts.filter((p) => {
+    if (/^[\u3040-\u30ff\u4e00-\u9fff]{1,4}$/.test(p)) return true;
+    const fold = foldNameToken(p);
+    return /^[A-Z][A-Za-z.'’-]*$/.test(fold);
+  });
+  return substantial.length >= 2;
 }
 
 function detectTitleFont(lines: LayoutLine[], baseFont: number): number {
@@ -662,6 +770,7 @@ function looksLikeTitleLine(
   if (looksLikeEmail(text) || looksLikeAffiliation(text) || looksLikeUrl(text)) {
     return false;
   }
+  if (looksLikePaperCode(text)) return false;
   return true;
 }
 
@@ -765,9 +874,11 @@ function buildPageLines(
   });
 
   const visible = lines.filter((line) => !isEdgeChrome(line, layout, patterns));
-  const splitAt = visible.find((line) =>
-    /^(abstract|introduction)$/i.test(line.text.trim())
-  );
+  const splitCandidates = visible.filter((line) => isBodyStartHeading(line.text));
+  const splitAt =
+    splitCandidates.length > 0
+      ? splitCandidates.reduce((best, line) => (line.y < best.y ? line : best))
+      : visible.find((line) => /^(abstract|introduction)$/i.test(line.text.trim()));
   if (layout.isMultiColumn && splitAt && page.pageNumber === 1) {
     const masthead = visible.filter((line) => line.y < splitAt.y);
     const body = visible.filter((line) => line.y >= splitAt.y);
@@ -775,6 +886,12 @@ function buildPageLines(
   }
 
   return orderPageLines(visible, layout);
+}
+
+function isLongBodyLine(text: string): boolean {
+  const t = layoutPlain(text);
+  if (t.length > 50) return true;
+  return cjkCount(t) >= 18;
 }
 
 function detectMastheadEnd(lines: LayoutLine[], baseFont: number): number {
@@ -793,7 +910,7 @@ function detectMastheadEnd(lines: LayoutLine[], baseFont: number): number {
     (l) =>
       l.y > afterTitle &&
       l.fontSize <= baseFont * 1.08 &&
-      l.text.trim().length > 50 &&
+      isLongBodyLine(l.text) &&
       !looksLikeEmail(l.text) &&
       !looksLikeAffiliation(l.text) &&
       !looksLikePersonName(l.text)
@@ -815,7 +932,10 @@ function roleForLine(
   if (isFigureCaption(text)) return "figure_caption";
   if (isTableCaption(text)) return "table_caption";
   if (isEquationLine(text)) return "equation";
-  if (isFootnoteLine(line, line.pageHeight ?? 792, baseFont)) return "footnote";
+  if (isFootnoteLine(line, line.pageHeight ?? 792, baseFont)) {
+    if (line.page === 1 && looksLikeAffiliation(text)) return "affiliation";
+    return "footnote";
+  }
 
   if (looksLikeTitleLine(line, titleFont, baseFont)) return "title";
 
@@ -825,7 +945,14 @@ function roleForLine(
     if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
       return "paragraph";
     }
-    if (looksLikeEmail(text) || looksLikePersonName(text)) return "author";
+    if (looksLikePaperCode(text)) return "affiliation";
+    if (
+      looksLikeEmail(text) ||
+      looksLikePersonName(text) ||
+      looksLikeLatinAuthorLine(text)
+    ) {
+      return "author";
+    }
     return "affiliation";
   }
 
@@ -1059,7 +1186,7 @@ function isSubstantialCropBound(block: LayoutBlock): boolean {
 }
 
 export function figureLookupKey(text: string, page: number): string {
-  const match = text.trim().match(/^(?:figure|fig\.?|tables?)\s*(\S+)/i);
+  const match = layoutPlain(text).match(/^(?:figure|fig\.?|tables?|図|表)\s*(\d+[a-z]?)/i);
   return match ? `${page}:${match[1]}` : `${page}:${text.slice(0, 48)}`;
 }
 

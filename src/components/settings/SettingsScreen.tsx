@@ -1,128 +1,118 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { AlertCircle, CheckCircle, Loader2, RefreshCw, Server, Brain, FileText, Settings } from "lucide-react";
-import { getSetting, saveSetting } from "../../services/database";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Settings } from "lucide-react";
+import { getSetting, saveSetting, clearTranslationCache } from "../../services/database";
 import { checkMADLADServer } from "../../services/translation/madladEngine";
 import { checkOllamaAvailability } from "../../services/llm/ollamaProvider";
 import { addSamplePaper } from "../../services/samplePaper";
 import { useAppStore } from "../../stores/appStore";
 import { samplePaper } from "../../data/samplePaper";
+import {
+  mergeTranslationSettingsV2,
+  type TranslationSettingsV2,
+} from "../../utils/translationSettings";
+import {
+  SETTINGS_SECTIONS,
+  settingsSectionElementId,
+  type SettingsSectionId,
+} from "../../utils/settingsToc";
+import { SettingsToc } from "./SettingsToc";
+import { GeneralSettingsSection } from "./GeneralSettingsSection";
+import { TranslationSettingsSection } from "./TranslationSettingsSection";
+import { ReadingSettingsSection } from "./ReadingSettingsSection";
+import { StorageSettingsSection } from "./StorageSettingsSection";
+import { DiagnosticsSettingsSection } from "./DiagnosticsSettingsSection";
+import type { ServiceStatus } from "./settingsTypes";
 import styles from "./SettingsScreen.module.css";
 
-type ServiceStatus = {
-  checking: boolean;
-  available: boolean;
-  modelLoaded?: boolean;
-  models?: string[];
-  error?: string;
-};
-
-type TranslationSettings = {
-  madladServerUrl: string;
-  ollamaServerUrl: string;
-  ollamaModel: string;
-  generateGlossary: boolean;
-  translationConcurrency: number;
-  useCache: boolean;
-};
-
-const DEFAULT_SETTINGS: TranslationSettings = {
-  madladServerUrl: "http://127.0.0.1:8765",
-  ollamaServerUrl: "http://localhost:11434",
-  ollamaModel: "gemma2:9b",
-  generateGlossary: true,
-  translationConcurrency: 8,
-  useCache: true,
-};
+const IDLE_STATUS: ServiceStatus = { checking: false, available: false };
 
 export function SettingsScreen() {
-  const navigate = useNavigate();
   const sampleAlreadyAdded = useAppStore((state) =>
     state.papers.some((paper) => paper.id === samplePaper.id)
   );
-  const [settings, setSettings] = useState<TranslationSettings>(DEFAULT_SETTINGS);
-  const [isSaving, setIsSaving] = useState(false);
+  const [settings, setSettings] = useState<TranslationSettingsV2>(
+    mergeTranslationSettingsV2(null)
+  );
+  const [loaded, setLoaded] = useState(false);
   const [isAddingSample, setIsAddingSample] = useState(false);
   const [sampleMessage, setSampleMessage] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const [madladStatus, setMadladStatus] = useState<ServiceStatus>({
-    checking: false,
-    available: false,
-  });
-
+  const [madladStatus, setMadladStatus] = useState<ServiceStatus>(IDLE_STATUS);
   const [ollamaStatus, setOllamaStatus] = useState<ServiceStatus>({
-    checking: false,
-    available: false,
+    ...IDLE_STATUS,
     models: [],
   });
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const [confirmClearCache, setConfirmClearCache] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const contentRef = useRef<HTMLElement>(null);
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     async function loadSettings() {
-      const saved = await getSetting<TranslationSettings>("translationSettingsV2");
-      if (saved) {
-        const merged = { ...DEFAULT_SETTINGS, ...saved };
-        const previous = saved.translationConcurrency ?? 1;
-        if (previous <= 3) {
-          merged.translationConcurrency = 8;
-        }
-        setSettings(merged);
-      }
+      const saved = await getSetting<TranslationSettingsV2>("translationSettingsV2");
+      setSettings(mergeTranslationSettingsV2(saved));
+      setLoaded(true);
     }
-    loadSettings();
+    void loadSettings();
   }, []);
 
   useEffect(() => {
-    checkMadlad();
-    checkOllama();
-  }, []);
+    if (!loaded) return;
+    const handle = window.setTimeout(() => {
+      void saveSetting("translationSettingsV2", settings);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [loaded, settings]);
 
-  const checkMadlad = async () => {
+  useEffect(() => {
+    return () => {
+      if (!loaded) return;
+      void saveSetting("translationSettingsV2", settingsRef.current);
+    };
+  }, [loaded]);
+
+  const checkMadlad = useCallback(async (url = settingsRef.current.madladServerUrl) => {
     setMadladStatus((prev) => ({ ...prev, checking: true }));
-    const status = await checkMADLADServer(settings.madladServerUrl);
+    const status = await checkMADLADServer(url);
     setMadladStatus({
       checking: false,
       available: status.available,
       modelLoaded: status.modelLoaded,
       error: status.error,
     });
-  };
+  }, []);
 
-  const checkOllama = async () => {
+  const checkOllama = useCallback(async (url = settingsRef.current.ollamaServerUrl) => {
     setOllamaStatus((prev) => ({ ...prev, checking: true }));
-    const status = await checkOllamaAvailability(settings.ollamaServerUrl);
+    const status = await checkOllamaAvailability(url);
     setOllamaStatus({
       checking: false,
       available: status.available,
       models: status.models,
       error: status.error,
     });
-
-    if (status.available && status.models.length > 0 && !status.models.includes(settings.ollamaModel)) {
+    if (
+      status.available &&
+      status.models.length > 0 &&
+      !status.models.includes(settingsRef.current.ollamaModel)
+    ) {
       setSettings((prev) => ({ ...prev, ollamaModel: status.models[0] }));
     }
-  };
+  }, []);
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    setMessage(null);
+  useEffect(() => {
+    if (!loaded) return;
+    void checkMadlad();
+    void checkOllama();
+  }, [loaded, checkMadlad, checkOllama]);
 
-    try {
-      await saveSetting("translationSettingsV2", settings);
-      setMessage({ type: "success", text: "設定を保存しました" });
-    } catch {
-      setMessage({ type: "error", text: "保存に失敗しました" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-    navigate("/");
+  const updateSettings = (patch: Partial<TranslationSettingsV2>) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
   };
 
   const handleAddSample = async () => {
@@ -133,9 +123,9 @@ export function SettingsScreen() {
       const result = await addSamplePaper();
       if (result === "exists") {
         setSampleMessage("すでにライブラリにあります");
-        return;
+      } else {
+        setSampleMessage("ライブラリに追加しました");
       }
-      navigate("/");
     } catch (error) {
       console.error("Failed to add sample paper:", error);
       setSampleMessage("追加に失敗しました");
@@ -143,6 +133,53 @@ export function SettingsScreen() {
       setIsAddingSample(false);
     }
   };
+
+  const handleConfirmClearCache = async () => {
+    setClearingCache(true);
+    setCacheMessage(null);
+    try {
+      const count = await clearTranslationCache();
+      setConfirmClearCache(false);
+      setCacheMessage(
+        count > 0
+          ? `翻訳キャッシュを削除しました（${count}件）`
+          : "削除するキャッシュはありませんでした"
+      );
+    } catch (error) {
+      console.error("Failed to clear translation cache:", error);
+      setCacheMessage("削除に失敗しました");
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
+  const handleSelectSection = (id: SettingsSectionId) => {
+    setActiveSection(id);
+    const element = document.getElementById(settingsSectionElementId(id));
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const id = visible[0]?.target.id.replace(/^section-/, "");
+        if (id && SETTINGS_SECTIONS.some((section) => section.id === id)) {
+          setActiveSection(id as SettingsSectionId);
+        }
+      },
+      { root, rootMargin: "-20% 0px -70% 0px", threshold: 0 }
+    );
+    for (const section of SETTINGS_SECTIONS) {
+      const el = document.getElementById(settingsSectionElementId(section.id));
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className={styles.container}>
@@ -153,251 +190,71 @@ export function SettingsScreen() {
         </div>
       </header>
 
-      <div className={styles.content}>
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>
-              <Server size={16} />
-              翻訳エンジン（MADLAD-400）
-            </h3>
-            <p className={styles.sectionDescription}>
-              ローカルで動作する高速翻訳エンジン。英語→日本語の論文翻訳に使用します。
-            </p>
-
-            <div className={styles.field}>
-              <label className={styles.label}>サーバーURL</label>
-              <input
-                type="text"
-                className={styles.input}
-                value={settings.madladServerUrl}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, madladServerUrl: e.target.value }))
-                }
-                placeholder="http://127.0.0.1:8765"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>
-                接続状態
-                <button
-                  type="button"
-                  className={styles.refreshButton}
-                  onClick={checkMadlad}
-                  disabled={madladStatus.checking}
-                >
-                  <RefreshCw size={12} className={madladStatus.checking ? styles.spinning : ""} />
-                </button>
-              </label>
-              {madladStatus.checking ? (
-                <div className={styles.statusChecking}>
-                  <Loader2 size={16} className={styles.spinning} />
-                  <span>確認中...</span>
-                </div>
-              ) : madladStatus.available ? (
-                <div className={styles.statusOk}>
-                  <CheckCircle size={16} />
-                  <span>
-                    接続OK
-                    {madladStatus.modelLoaded ? " - モデル読み込み済み" : " - モデル未読み込み"}
-                  </span>
-                </div>
-              ) : (
-                <div className={styles.statusError}>
-                  <AlertCircle size={16} />
-                  <span>{madladStatus.error || "接続できません"}</span>
-                </div>
-              )}
-            </div>
-
-            {!madladStatus.available && (
-              <div className={styles.installGuide}>
-                <p className={styles.installTitle}>翻訳サーバーの起動方法</p>
-                <ol className={styles.installSteps}>
-                  <li>
-                    <code>cd translation-server</code>
-                  </li>
-                  <li>
-                    <code>python3 -m venv venv && source venv/bin/activate</code>
-                  </li>
-                  <li>
-                    <code>pip install -r requirements.txt</code>
-                  </li>
-                  <li>
-                    <code>python server.py</code>
-                  </li>
-                </ol>
-              </div>
-            )}
-          </section>
-
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>
-              <Brain size={16} />
-              LLM分析（Ollama）
-            </h3>
-            <p className={styles.sectionDescription}>
-              用語集の生成に使用します。翻訳には使用しません。
-            </p>
-
-            <div className={styles.field}>
-              <label className={styles.label}>サーバーURL</label>
-              <input
-                type="text"
-                className={styles.input}
-                value={settings.ollamaServerUrl}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, ollamaServerUrl: e.target.value }))
-                }
-                placeholder="http://localhost:11434"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>
-                接続状態
-                <button
-                  type="button"
-                  className={styles.refreshButton}
-                  onClick={checkOllama}
-                  disabled={ollamaStatus.checking}
-                >
-                  <RefreshCw size={12} className={ollamaStatus.checking ? styles.spinning : ""} />
-                </button>
-              </label>
-              {ollamaStatus.checking ? (
-                <div className={styles.statusChecking}>
-                  <Loader2 size={16} className={styles.spinning} />
-                  <span>確認中...</span>
-                </div>
-              ) : ollamaStatus.available ? (
-                <div className={styles.statusOk}>
-                  <CheckCircle size={16} />
-                  <span>接続OK - {ollamaStatus.models?.length || 0}個のモデル</span>
-                </div>
-              ) : (
-                <div className={styles.statusError}>
-                  <AlertCircle size={16} />
-                  <span>{ollamaStatus.error || "接続できません"}</span>
-                </div>
-              )}
-            </div>
-
-            {ollamaStatus.available && ollamaStatus.models && ollamaStatus.models.length > 0 && (
-              <div className={styles.field}>
-                <label className={styles.label}>モデル</label>
-                <select
-                  className={styles.select}
-                  value={settings.ollamaModel}
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, ollamaModel: e.target.value }))
-                  }
-                >
-                  {ollamaStatus.models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className={styles.field}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={settings.generateGlossary}
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, generateGlossary: e.target.checked }))
-                  }
-                />
-                <span>インポート時に用語集を自動生成</span>
-              </label>
-            </div>
-          </section>
-
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>詳細設定</h3>
-
-            <div className={styles.field}>
-              <label className={styles.label}>翻訳並列数</label>
-              <select
-                className={styles.select}
-                value={settings.translationConcurrency}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    translationConcurrency: parseInt(e.target.value),
-                  }))
-                }
-              >
-                <option value={1}>1（逐次）</option>
-                <option value={2}>2</option>
-                <option value={4}>4</option>
-                <option value={8}>8（推奨）</option>
-              </select>
-              <p className={styles.hint}>
-                複数段落をサーバー側で1回の generate にまとめます。MPS 上の generate 自体は1本のままです。
-              </p>
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={settings.useCache}
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, useCache: e.target.checked }))
-                  }
-                />
-                <span>翻訳結果をキャッシュ（再インポート時に高速化）</span>
-              </label>
-            </div>
-          </section>
-
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>
-              <FileText size={16} />
-              サンプル論文
-            </h3>
-            <p className={styles.sectionDescription}>
-              翻訳済みの短いサンプルをライブラリに追加して、リーダーの操作を確認できます。
-            </p>
-            <button
-              type="button"
-              className={styles.sectionButton}
-              onClick={() => void handleAddSample()}
-              disabled={isAddingSample || sampleAlreadyAdded}
-            >
-              {sampleAlreadyAdded
-                ? "追加済み"
-                : isAddingSample
-                  ? "追加中..."
-                  : "ライブラリに追加"}
-            </button>
-            {sampleMessage && (
-              <p className={styles.sectionStatus}>{sampleMessage}</p>
-            )}
-          </section>
-      </div>
-
-      <div className={styles.footer}>
-        {message && (
-          <p className={`${styles.message} ${styles[message.type]}`}>
-            {message.text}
-          </p>
-        )}
-        <div className={styles.actions}>
-          <button className={styles.cancelButton} onClick={handleCancel}>
-            キャンセル
-          </button>
-          <button
-            className={styles.saveButton}
-            onClick={() => void handleSave()}
-            disabled={isSaving}
+      <div className={styles.main}>
+        <aside className={styles.sidebar}>
+          <SettingsToc activeId={activeSection} onSelect={handleSelectSection} />
+        </aside>
+        <main ref={contentRef} className={styles.content}>
+          <section
+            id={settingsSectionElementId("general")}
+            className={styles.section}
           >
-            {isSaving ? "保存中..." : "保存"}
-          </button>
-        </div>
+            <GeneralSettingsSection
+              sampleAlreadyAdded={sampleAlreadyAdded}
+              isAddingSample={isAddingSample}
+              sampleMessage={sampleMessage}
+              onAddSample={() => void handleAddSample()}
+            />
+          </section>
+          <section
+            id={settingsSectionElementId("translation")}
+            className={styles.section}
+          >
+            <TranslationSettingsSection
+              settings={settings}
+              onChange={updateSettings}
+              madladStatus={madladStatus}
+              ollamaStatus={ollamaStatus}
+              onCheckMadlad={() => void checkMadlad()}
+              onCheckOllama={() => void checkOllama()}
+            />
+          </section>
+          <section
+            id={settingsSectionElementId("reading")}
+            className={styles.section}
+          >
+            <ReadingSettingsSection />
+          </section>
+          <section
+            id={settingsSectionElementId("storage")}
+            className={styles.section}
+          >
+            <StorageSettingsSection
+              confirming={confirmClearCache}
+              busy={clearingCache}
+              message={cacheMessage}
+              onRequestClear={() => {
+                setCacheMessage(null);
+                setConfirmClearCache(true);
+              }}
+              onConfirmClear={() => void handleConfirmClearCache()}
+              onCancelClear={() => setConfirmClearCache(false)}
+            />
+          </section>
+          <section
+            id={settingsSectionElementId("diagnostics")}
+            className={styles.section}
+          >
+            <DiagnosticsSettingsSection
+              madladStatus={madladStatus}
+              ollamaStatus={ollamaStatus}
+              onRecheck={() => {
+                void checkMadlad();
+                void checkOllama();
+              }}
+            />
+          </section>
+        </main>
       </div>
     </div>
   );

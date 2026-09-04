@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/shell/AppShell";
 import { LibraryScreen } from "./components/library/LibraryScreen";
 import { ProjectScreen } from "./components/project/ProjectScreen";
@@ -65,47 +65,56 @@ function App() {
       .catch(() => setServerError(true));
   };
 
-  if (!serverReady) {
-    return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", height: "100vh", gap: 12,
-        background: "var(--color-bg)", color: "var(--color-text-secondary)",
-        fontFamily: "var(--font-family-sans)",
-      }}>
-        {serverError ? (
-          <>
-            <p style={{ fontSize: "1rem", color: "var(--color-text)" }}>翻訳サーバーの起動に時間がかかっています</p>
-            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-tertiary)", maxWidth: 360, textAlign: "center" }}>
-              モデルのロード中の場合は、そのまましばらくお待ちください。
-            </p>
-            <button
-              onClick={handleRetry}
-              style={{
-                marginTop: 8, padding: "8px 20px", borderRadius: 8,
-                border: "1px solid var(--color-border)", background: "var(--color-bg-secondary)",
-                color: "var(--color-text)", cursor: "pointer", fontSize: "0.875rem",
-              }}
-            >
-              再試行
-            </button>
-          </>
-        ) : (
-          <>
-            <p style={{ fontSize: "1rem", color: "var(--color-text)" }}>起動中...</p>
-            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-tertiary)" }}>
+  return (
+    <HashRouter>
+      {!serverReady && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            padding: "10px 16px",
+            background: "#1a365d",
+            color: "#ffffff",
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif',
+            fontSize: 13,
+          }}
+        >
+          {serverError ? (
+            <>
+              <span>翻訳サーバーの起動に時間がかかっています</span>
+              <button
+                type="button"
+                onClick={handleRetry}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #ffffff",
+                  background: "transparent",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                再試行
+              </button>
+            </>
+          ) : (
+            <span>
               翻訳モデルを読み込んでいます
               {attempt > 5 ? `（${attempt}秒）` : ""}
-            </p>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <BrowserRouter>
+            </span>
+          )}
+        </div>
+      )}
       <PdfFileDropLayer />
+      <div style={{ paddingTop: !serverReady ? 40 : 0, minHeight: "100%" }}>
       <Routes>
         {/* Import は shell の外（フルスクリーン） */}
         <Route path="/import" element={<ImportScreen />} />
@@ -123,7 +132,8 @@ function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+      </div>
+    </HashRouter>
   );
 }
 

@@ -9,6 +9,11 @@ const pdfjsLib = ((pdfjsNs as { default?: PdfJs }).default ?? pdfjsNs) as PdfJs;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
+function pdfjsCMapUrl(): string | undefined {
+  if (typeof document === "undefined" || !document.baseURI) return undefined;
+  return new URL("cmaps/", document.baseURI).href;
+}
+
 export { pdfjsLib };
 
 export function openPdfDocument(data: ArrayBuffer | Uint8Array) {
@@ -20,5 +25,7 @@ export function openPdfDocument(data: ArrayBuffer | Uint8Array) {
     disableAutoFetch: true,
     disableStream: true,
     disableRange: true,
+    cMapUrl: pdfjsCMapUrl(),
+    cMapPacked: true,
   });
 }

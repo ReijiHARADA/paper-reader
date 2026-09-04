@@ -408,6 +408,19 @@ export async function clearCacheByModel(model: string): Promise<number> {
   return entries.length;
 }
 
+/**
+ * Clear only the translationCache object store.
+ * Does not touch papers, blocks, annotations, glossaries, or settings.
+ */
+export async function clearTranslationCache(): Promise<number> {
+  const db = await getDB();
+  const tx = db.transaction("translationCache", "readwrite");
+  const count = await tx.store.count();
+  await tx.store.clear();
+  await tx.done;
+  return count;
+}
+
 // ============================================================
 // Glossary operations
 // ============================================================

@@ -6,8 +6,9 @@
 - 生成物: `src-tauri/target/release/bundle/macos/Paper Reader.app`
 - Xcode は `/Applications/Xcode-beta.app` を使用。ビルド時は `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` を設定すること。
 - 翻訳サーバーは Tauri の `tauri-plugin-shell` でサイドカー起動。アプリ終了時に自動停止。
-- リリースビルド前に `bash scripts/bundle-python.sh` を実行して `.venv` → `translation-server/venv/` にコピーする（`beforeBuildCommand` に組み込み済み）。
-- PDF 解析は **pdfjs-dist 3.11（legacy build）**。6.x は WKWebView で Iterator Helpers が無く即クラッシュするので上げない。
+- リリースビルド前に `bash scripts/bundle-python.sh` を実行して `.venv` → `translation-server/venv/` にコピーする。フルリリースでは `beforeBuildCommand` で回す。画面確認だけの再ビルドでは Python コピーを省略してよい。
+- 本番 CSP は WKWebView で Vite の ES module が止まるため、いまは `null`。再導入するときは `script-src` を nonce だけにしない。
+- PDF 解析は **pdfjs-dist 3.11（legacy build）**。6.x は WKWebView で Iterator Helpers が無く即クラッシュするので上げない。日本語 CID フォントは `pdfjs-dist/cmaps`（Adobe-Japan1 など）をアプリに同梱してデコードする。
 
 ## OCR（スキャン PDF 対応）
 

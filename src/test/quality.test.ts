@@ -90,6 +90,27 @@ describe("subject classification lines", () => {
   });
 });
 
+describe("Japanese conference structure", () => {
+  it("puts はじめに in the outline and extracts CJK authors", () => {
+    const result = analyzeStructure(
+      FIXTURES["japanese-conference"](),
+      "paper-ja",
+      "/tmp/ja.pdf",
+      "hash-ja",
+      { pageCount: 1 }
+    );
+    expect(result.paper.titleOriginal).toMatch(/情報採餌理論/);
+    expect(result.paper.authors.some((name) => /栗原/.test(name))).toBe(true);
+    expect(
+      result.sections.some((s) => /1 はじめに/.test(s.originalTitle))
+    ).toBe(true);
+    expect(
+      result.sections.some((s) => /Acquisition process/.test(s.originalTitle))
+    ).toBe(false);
+    expect(result.blocks.some((b) => b.type === "figure")).toBe(true);
+  });
+});
+
 describe("isRetryableTranslationFailure", () => {
   const prose =
     "This opening paragraph explains the problem in a single column layout with enough words to look like body text.";
@@ -146,6 +167,16 @@ describe("isRetryableTranslationFailure", () => {
   it("keeps stored partial until blocks are loaded", () => {
     expect(
       displayProcessingStatus("partial", undefined, isRetryableTranslationFailure)
+    ).toBe("partial");
+  });
+
+  it("does not treat Array.some's index as a section-id set", () => {
+    const block = makeBlock({});
+    expect(
+      finalizedTranslationStatus([block], isRetryableTranslationFailure)
+    ).toBe("partial");
+    expect(
+      displayProcessingStatus("partial", [block], isRetryableTranslationFailure)
     ).toBe("partial");
   });
 });

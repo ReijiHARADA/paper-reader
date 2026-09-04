@@ -34,17 +34,36 @@
   color: var(--color-text);
 }
 
+.main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  height: 100%;
+  border-right: 1px solid var(--color-border-light);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--color-bg-secondary);
+}
+
 .content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
-  padding: var(--spacing-xl);
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
+  overscroll-behavior: contain;
+  padding: var(--spacing-2xl) var(--spacing-xl);
 }
 
 .section {
-  margin-bottom: var(--spacing-xl);
+  max-width: 840px;
+  margin-bottom: var(--spacing-2xl);
+  scroll-margin-top: var(--spacing-lg);
 }
 
 .section:last-child {
@@ -52,19 +71,36 @@
 }
 
 .sectionTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-md);
+}
+
+.surface {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.surface:last-child {
+  margin-bottom: 0;
+}
+
+.surfaceTitle {
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-  margin-bottom: var(--spacing-xs);
+  margin: 0 0 var(--spacing-xs);
 }
 
 .sectionDescription {
   font-size: 0.8125rem;
   color: var(--color-text-tertiary);
-  margin-bottom: var(--spacing-md);
+  margin: 0 0 var(--spacing-md);
+  line-height: 1.5;
 }
 
 .checkboxLabel {
@@ -74,6 +110,11 @@
   font-size: 0.875rem;
   color: var(--color-text);
   cursor: pointer;
+  margin-bottom: var(--spacing-md);
+}
+
+.checkboxLabel:last-child {
+  margin-bottom: 0;
 }
 
 .checkboxLabel input[type="checkbox"] {
@@ -238,75 +279,12 @@
   color: var(--color-text);
 }
 
-.footer {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-top: 1px solid var(--color-border-light);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  background-color: var(--color-bg);
-}
-
-.message {
-  font-size: 0.875rem;
-}
-
-.message.success {
-  color: #34a853;
-}
-
-.message.error {
-  color: #ea4335;
-}
-
-.actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-left: auto;
-}
-
-.cancelButton {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.cancelButton:hover {
-  background-color: var(--color-bg-secondary);
-}
-
-.saveButton {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: none;
-  background-color: var(--color-accent);
-  color: white;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.saveButton:hover {
-  background-color: var(--color-accent-hover);
-}
-
-.saveButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .sectionButton {
   appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-secondary);
@@ -333,4 +311,136 @@
   margin: var(--spacing-sm) 0 0;
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+
+.details {
+  margin-top: var(--spacing-md);
+}
+
+.detailsSummary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+.detailsSummary:hover {
+  color: var(--color-text);
+}
+
+.confirmRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.confirmText {
+  margin: 0;
+  width: 100%;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.dangerButton {
+  appearance: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  background: #c5221f;
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dangerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  appearance: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.diagHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.diagHeader .surfaceTitle {
+  margin: 0;
+}
+
+.diagList {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.diagRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.diagRow dt {
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.diagRow dd {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.diagChecking,
+.diagOk,
+.diagError {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagOk {
+  color: #065f46;
+}
+
+[data-theme="dark"] .diagOk {
+  color: #6ee7b7;
+}
+
+.diagError {
+  color: #c5221f;
+}
+
+[data-theme="dark"] .diagError {
+  color: #f28b82;
+}
+
+.diagChecking {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 160px;
+  }
+
+  .content {
+    padding: var(--spacing-lg);
+  }
 }

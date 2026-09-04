@@ -58,7 +58,7 @@ export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardP
   const status = displayProcessingStatus(
     paper.processingStatus,
     blocks,
-    isRetryableTranslationFailure
+    (block) => isRetryableTranslationFailure(block)
   );
 
   return (
