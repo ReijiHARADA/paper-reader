@@ -65,7 +65,8 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - 未完了翻訳の再開、段落の再翻訳、抽出低信頼の警告
 - 用語集の生成（Ollama 任意）、訳後置換、リーダーでの閲覧・修正
 - パスワード付き PDF は処理せず理由を出す
-- 読み順回帰: 合成 PDF（`test-fixtures/`）と実論文キャッシュ（`test-data/real-papers/`、リポジトリには入れない）。catalog に publisher / formatFamily を GT として持てる。Format Profile detector は import 未接続の PoC
+- 読み順回帰: 合成 PDF（`test-fixtures/`）と実論文キャッシュ（`test-data/real-papers/`、リポジトリには入れない）。catalog に publisher / formatFamily を GT として持てる
+- 学術 PDF 抽出は CanonicalDocument が Source of Truth。Import は `extractAcademicPdf` → Paper projection。Format Profile（generic/acm/ieee）と page class を pipeline に接続済み。GROBID / Docling は任意 enricher で同梱しない
 - ハイフン連結の英文と参考文献 URL をブロック数式にしない
 - CCS / Index Terms などの分類カタログ行は訳さず原文のまま出す（「翻訳待ち」に残さない）
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準
@@ -80,18 +81,18 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 
 代表的な ACM 2 段組（Interactive Jewellery など）では左列→右列になり、図キャプションは独立ブロックになる。実論文コーパスでの回帰もある。
 
-調査と独立 PoC（Format Profile、検出閾値、GROBID TEI、native 文字列の bbox 割当、benchmark runner）は [ACADEMIC_PDF_EXTRACTION_RESEARCH.md](./ACADEMIC_PDF_EXTRACTION_RESEARCH.md)。**現行 `pdfLayout.ts` は Production parser のまま。** import は切り替えていない。GROBID / Docling / MinerU は同梱しない。
+Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)。調査メモは [ACADEMIC_PDF_EXTRACTION_RESEARCH.md](./ACADEMIC_PDF_EXTRACTION_RESEARCH.md)。`pdfLayout.ts` は Generic Evidence Generator として残している。GROBID / Docling / MinerU は同梱しない。
 
 まだ崩れること:
 
 - 実論文では列混在・見出し吸収・参考文献見出しの取りこぼしが残る。同一の少数 PDF だけに最適化しない。壊れた PDF のたびに `pdfLayout.ts` へ if を足さない
 - ヘッダー／フッター／著作権の本文混入は減ったが、論文タイトル型のランニングヘッダーなどは残る
 - 図キャプションと本文の取り違いは減ったが、ゼロではない
-- 所属が 2×2 のグリッドだと、複数機関が同じ行に連結されることがある（本文見出しにはしない）。著者↔所属 relation は未実装
-- `Section.parentSectionId` は未配線
+- 2×2 affiliation grid の AFFILIATED_WITH は superscript / 件数フォールバックまで。複雑な grid は未完成
 - インライン数式や、キャプションに見えにくい表はまだ落とす
 - 50〜100 ページで UI が固まらないことは未検証（3.7）
-- Format Profile を Production の補正に使うのは、回帰が全部通り baseline より明確に良くなってから
+- Elsevier / Nature / MDPI / J-STAGE / scanned の実 PDF がコーパスに不足
+- GROBID / Docling の live enricher はローカルサービスがあるときだけ
 
 テスト方針は維持する。種類ごとの確認点:
 

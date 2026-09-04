@@ -6,12 +6,14 @@ import { fuseTitle } from "./fusion";
 import { parseGrobidHeaderTei } from "./grobid/tei";
 import {
   pairwiseOrderAccuracy,
+  relationAccuracy,
   setScores,
   substringRecall,
   titleExactMatch,
 } from "./metrics";
 import { classifyDocument, scannedByItemAverage } from "./pageClass";
 import type { FormatId } from "./types";
+import { extractFromPages } from "./pipeline/extractAcademicPdf";
 
 export type PartialGroundTruth = {
   id: string;
@@ -22,7 +24,9 @@ export type PartialGroundTruth = {
   tokensInOrder?: [string, string];
   figureCaptions?: string[];
   tableCaptions?: string[];
-  pageCount?: number;
+  authorAffiliation?: Array<{ from: string; to: string }>;
+  headingHierarchy?: Array<{ from: string; to: string }>;
+  figureCaptionRelations?: Array<{ from: string; to: string }>;
 };
 
 export type BaselinePaperReport = {
@@ -38,13 +42,17 @@ export type BaselinePaperReport = {
   titleExact?: boolean;
   authorF1?: number;
   affiliationF1?: number;
-  headingRecall?: number;
-  readingOrderPair?: number;
-  figureCaptionRecall?: number;
-  tableCaptionRecall?: number;
-  fusedTitle: string;
-  fusedTitleConfidence: number;
-};
+    headingRecall?: number;
+    headingHierarchyAccuracy?: number;
+    readingOrderPair?: number;
+    figureCaptionRecall?: number;
+    tableCaptionRecall?: number;
+    figureCaptionRelation?: number;
+    authorAffiliationF1?: number;
+    fusedTitle: string;
+    fusedTitleConfidence: number;
+    canonicalTitle?: string | null;
+  };
 
 export function evaluateBaselinePaper(input: {
   id: string;
@@ -85,9 +93,20 @@ export function evaluateBaselinePaper(input: {
   const tables = input.blocks
     .filter((b) => b.role === "table_caption")
     .map((b) => b.text);
-  const sequence = input.blocks.map((b) => b.text);
   const gold = input.groundTruth;
   const expectedTitle = gold?.title ?? input.catalogTitle;
+  const extracted = extractFromPages({
+    pages: input.pages,
+    paperId: `bench-${input.id}`,
+    filePath: input.filename,
+    fileHash: input.id,
+    metadata: { title: input.catalogTitle, pageCount: input.pages.length },
+  });
+  const canonicalTitle =
+    extracted.canonical.nodes.find((n) => n.role === "title")?.text ?? null;
+  const captionRels = extracted.canonical.relations.filter((r) => r.kind === "CAPTION_OF");
+  const affRels = extracted.canonical.relations.filter((r) => r.kind === "AFFILIATED_WITH");
+  const childRels = extracted.canonical.relations.filter((r) => r.kind === "CHILD_OF");
 
   return {
     id: input.id,
@@ -100,7 +119,7 @@ export function evaluateBaselinePaper(input: {
     scannedByItemAverage: scannedByItemAverage(input.pages),
     titlePredicted: titles[0] ?? null,
     titleExact: expectedTitle
-      ? titleExactMatch(titles.join(" "), expectedTitle)
+      ? titleExactMatch(canonicalTitle ?? titles.join(" "), expectedTitle)
       : undefined,
     authorF1:
       gold?.authors && gold.authors.length > 0
@@ -113,8 +132,19 @@ export function evaluateBaselinePaper(input: {
     headingRecall: gold?.headings
       ? substringRecall(headings, gold.headings)
       : undefined,
+    headingHierarchyAccuracy: gold?.headingHierarchy
+      ? relationAccuracy(
+          childRels.map((r) => ({
+            from: extracted.canonical.nodes.find((n) => n.id === r.from)?.text ?? "",
+            to: extracted.canonical.nodes.find((n) => n.id === r.to)?.text ?? "",
+          })),
+          gold.headingHierarchy
+        )
+      : undefined,
     readingOrderPair: gold?.tokensInOrder
-      ? pairwiseOrderAccuracy(sequence, [gold.tokensInOrder])
+      ? pairwiseOrderAccuracy(extracted.blocks.map((b) => b.original ?? ""), [
+          gold.tokensInOrder,
+        ])
       : undefined,
     figureCaptionRecall: gold?.figureCaptions
       ? substringRecall(figures, gold.figureCaptions)
@@ -122,7 +152,27 @@ export function evaluateBaselinePaper(input: {
     tableCaptionRecall: gold?.tableCaptions
       ? substringRecall(tables, gold.tableCaptions)
       : undefined,
+    figureCaptionRelation:
+      gold?.figureCaptionRelations && gold.figureCaptionRelations.length > 0
+        ? relationAccuracy(
+            captionRels.map((r) => ({ from: r.from, to: r.to })),
+            gold.figureCaptionRelations
+          )
+        : captionRels.length > 0
+          ? 1
+          : undefined,
+    authorAffiliationF1:
+      gold?.authorAffiliation && gold.authorAffiliation.length > 0
+        ? relationAccuracy(
+            affRels.map((r) => ({
+              from: extracted.canonical.nodes.find((n) => n.id === r.from)?.text ?? "",
+              to: extracted.canonical.nodes.find((n) => n.id === r.to)?.text ?? "",
+            })),
+            gold.authorAffiliation
+          )
+        : undefined,
     fusedTitle: fused.text,
     fusedTitleConfidence: fused.confidence,
+    canonicalTitle,
   };
 }

@@ -5,6 +5,11 @@ export type ExtractionDiagnostics = {
   readingOrderConfidence: number;
   unicodeConfidence: number;
   paragraphConfidence: number;
+  layoutConfidence?: number;
+  textIntegrityConfidence?: number;
+  semanticConfidence?: number;
+  formatConfidence?: number;
+  relationConfidence?: number;
 };
 
 export type ExtractionConfidenceBand = "high" | "medium" | "low";

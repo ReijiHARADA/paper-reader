@@ -1,6 +1,4 @@
-/**
- * Extraction research types. Not wired into importServiceV2.
- */
+import type { BoundingBox } from "../../types/paper";
 
 export type EvidenceSource =
   | "pdf-native"
@@ -10,12 +8,18 @@ export type EvidenceSource =
   | "layout-model"
   | "ocr";
 
-export type Evidence = {
+export type ExtractionEvidence = {
   source: EvidenceSource;
   label: string;
   confidence: number;
-  note?: string;
+  nodeId?: string;
+  page?: number;
+  bbox?: BoundingBox;
+  reason?: string;
 };
+
+/** @deprecated Use ExtractionEvidence. Kept for PoC call sites. */
+export type Evidence = ExtractionEvidence & { note?: string };
 
 export type FormatId = "generic" | "acm" | "ieee" | "springer-lncs" | "jstage";
 
@@ -30,7 +34,6 @@ export type DocumentEvidence = {
   bodyFontSize: number;
   pageWidth: number;
   pageHeight: number;
-  /** Concatenated layout text for the first two pages (native pdf.js strings). */
   firstPagesText: string;
   fullTextSample: string;
   titleCandidates: string[];
@@ -50,7 +53,7 @@ export type FormatDetection = {
 export type TitleFusion = {
   text: string;
   confidence: number;
-  evidence: Evidence[];
+  evidence: ExtractionEvidence[];
 };
 
 export type AuthorAffiliationLink = {

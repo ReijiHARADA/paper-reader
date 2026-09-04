@@ -14,8 +14,8 @@
 
 - Apple Vision Framework を Rust から呼び出す Tauri コマンド `ocr_image` を実装済み（`src-tauri/src/ocr.rs`）。
 - `src/services/ocrService.ts` がフロントエンド側のラッパー。`isTauriApp()` で Tauri 環境を判定し、非 Tauri では「デスクトップ版のみ」と案内する。
-- `importServiceV2.ts` がスキャン判定（1ページ平均テキストアイテム < 10）→ OCR 自動実行 → pdfResult に結果を上書きする流れを実装済み。
 - OCR 言語は `["en-US", "ja-JP"]` を既定値として渡している（Vision が自動検出）。
+- スキャン判定は `extractAcademicPdf` 内の Page Classification（平均 item < 10 の baseline + garbled/mixed）。ImportService には OCR heuristic を置かない。
 
 ## Translation
 
@@ -37,6 +37,6 @@
 - Import a PDF by dropping it onto the app window. Use Tauri `onDragDropEvent` in the desktop app (HTML5 `drop` does not receive files in WKWebView). Browser `npm run dev` can keep HTML5 file drop. A drop on `/project/:id` attaches the paper to that project.
 - Project delete lives on the project screen header (trash icon), not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox. The “論文を追加” button sits in the header next to the title on Project, All Papers, and Inbox.
 - Reading-order regression fixtures: `test-fixtures/` (synthetic PDFs only). Real papers from the jewelry-first-computing index live in gitignored `test-data/real-papers/` (`npm run fetch:real-papers`). Do not copy those PDFs into the repo or edit jewelry-first-computing.
-- Academic PDF extraction research: `ACADEMIC_PDF_EXTRACTION_RESEARCH.md`. `src/services/pdfExtraction/` is a PoC (Format Profile, page class, GROBID TEI, fusion). Do not wire it into `importServiceV2` until a later, measured production change. Do not use `catalog.json` `formatFamily` for production format detection. Do not fix one broken PDF by adding a one-off `if` in `pdfLayout.ts`. Do not upgrade pdfjs-dist to 6.x.
+- Academic PDF extraction: CanonicalDocument is the source of truth. Entry point is `extractAcademicPdf` / `extractFromPages`. Import projects Canonical → Paper/Section/PaperBlock. `pdfLayout.ts` remains the generic heuristic engine (do not rewrite column left→right). Format Profile apply thresholds stay APPLY_MIN=0.75 / APPLY_MARGIN=0.12. Do not use catalog.json formatFamily for production detection. Do not upgrade pdfjs-dist to 6.x. GROBID/Docling are optional enrichers, not required dependencies.
 - Dotted grant identifiers (`016.128.303`) are not section headings or paper titles. Wrap them into the preceding `grant number` paragraph. Latin-ratio quality checks ignore source proper nouns and numeric ids.
 - After any product or behavior change, update `README.md` and `ROADMAP.md` in the same turn so they match the current code. Move finished work out of ROADMAP section 3. Put remaining gaps only. Update `QUICKSTART.md` or `AGENTS.md` when launch steps or constraints change.
