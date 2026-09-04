@@ -7,7 +7,12 @@ import {
   looksLikeSubjectClassification,
 } from "../services/translation/quality";
 import { analyzeStructure } from "../services/structureService";
+import {
+  isRetryableTranslationFailure,
+  shouldTranslateBlock,
+} from "../services/importServiceV2";
 import { FIXTURES } from "./readingOrder/builders";
+import type { PaperBlock } from "../types/paper";
 
 describe("isPlausibleJaTranslation", () => {
   const source =
@@ -74,5 +79,49 @@ describe("subject classification lines", () => {
     expect(catalog?.translationStatus).toBe("skipped");
     const prose = result.blocks.find((b) => /CLASSIFIX_INTRO/.test(b.original || ""));
     expect(prose?.translationStatus).toBe("pending");
+    const introHeading = result.blocks.find(
+      (b) => b.type === "heading" && /^Introduction$/i.test(b.original || "")
+    );
+    expect(introHeading?.translationStatus).toBe("skipped");
+  });
+});
+
+describe("isRetryableTranslationFailure", () => {
+  const prose =
+    "This opening paragraph explains the problem in a single column layout with enough words to look like body text.";
+
+  function makeBlock(overrides: Partial<PaperBlock>): PaperBlock {
+    return {
+      id: "b1",
+      paperId: "p1",
+      sectionId: "s1",
+      type: "paragraph",
+      order: 0,
+      pageStart: 1,
+      pageEnd: 1,
+      boundingBoxes: [],
+      original: prose,
+      translated: null,
+      extractionConfidence: 1,
+      translationStatus: "failed",
+      parentBlockId: null,
+      metadata: {},
+      ...overrides,
+    };
+  }
+
+  it("counts a failed body paragraph that the reader can retry", () => {
+    const block = makeBlock({});
+    expect(shouldTranslateBlock(block)).toBe(true);
+    expect(isRetryableTranslationFailure(block)).toBe(true);
+  });
+
+  it("does not count failed heading blocks that the reader never renders", () => {
+    const block = makeBlock({
+      type: "heading",
+      original: "Introduction",
+    });
+    expect(shouldTranslateBlock(block)).toBe(false);
+    expect(isRetryableTranslationFailure(block)).toBe(false);
   });
 });

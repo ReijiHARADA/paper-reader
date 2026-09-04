@@ -2,6 +2,7 @@ import type { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/a
 import { openPdfDocument, pdfjsLib } from "./pdfjsRuntime";
 import { classifyPdfOpenError } from "./pdfOpenError";
 import {
+  assignRectsToRegions,
   figureImageRect,
   figureLookupKey,
   type LayoutBlock,
@@ -242,19 +243,6 @@ function pdfImageToCanvas(img: PdfImageObject): HTMLCanvasElement | null {
   return canvas;
 }
 
-function boxesOverlap(
-  a: { x: number; y: number; width: number; height: number },
-  b: { x: number; y: number; width: number; height: number },
-  pad = 10
-): boolean {
-  return (
-    a.x < b.x + b.width + pad &&
-    b.x < a.x + a.width + pad &&
-    a.y < b.y + b.height + pad &&
-    b.y < a.y + a.height + pad
-  );
-}
-
 function compositePlacedImages(
   items: { placed: PlacedPdfImage; canvas: HTMLCanvasElement }[]
 ): string | null {
@@ -356,19 +344,24 @@ export async function extractFigureImages(
         annotationMode: pdfjsLib.AnnotationMode.DISABLE,
       }).promise;
 
-      for (const caption of pageCaptions) {
+      const captionRegions = pageCaptions.map((caption) => {
         const crop = figureImageRect(caption, layoutBlocks, layout);
-        const key = figureLookupKey(caption.text, caption.pageStart);
+        return {
+          crop,
+          key: figureLookupKey(caption.text, caption.pageStart),
+          region: crop ?? caption.bbox,
+        };
+      });
+      const grouped = assignRectsToRegions(
+        placements.filter((img) => img.width >= 36 && img.height >= 36),
+        captionRegions.map((item) => ({ id: item.key, rect: item.region }))
+      );
+
+      for (const { crop, key } of captionRegions) {
         done += 1;
         onProgress?.(done, total);
 
-        const region = crop ?? caption.bbox;
-        const matched = placements.filter(
-          (img) =>
-            img.width >= 36 &&
-            img.height >= 36 &&
-            boxesOverlap(img, region, 14)
-        );
+        const matched = grouped.get(key) ?? [];
 
         const decoded = matched
           .map((placed) => {

@@ -7,7 +7,7 @@ import { Equation } from "./Equation";
 import { Table } from "./Table";
 import { Footnote } from "./Footnote";
 import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, isReferencesHeading } from "../../services/translation/quality";
-import { shouldTranslateBlock } from "../../services/importServiceV2";
+import { shouldTranslateBlock, isRetryableTranslationFailure } from "../../services/importServiceV2";
 import { isBusyProcessingStatus } from "../../services/paperStatus";
 import { indexReferenceBlocks } from "../../services/citations";
 import styles from "./PaperContent.module.css";
@@ -196,8 +196,8 @@ export function PaperContent({
   const unfinishedCount = translatableBlocks.filter(
     (b) => b.translationStatus === "pending" || b.translationStatus === "processing"
   ).length;
-  const failedCount = translatableBlocks.filter(
-    (b) => b.translationStatus === "failed"
+  const failedCount = blocks.filter((b) =>
+    isRetryableTranslationFailure(b, refSectionIds)
   ).length;
   const showBusyBanner =
     isBusyProcessingStatus(paper.processingStatus) &&

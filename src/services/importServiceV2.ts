@@ -159,7 +159,7 @@ export function shouldTranslateBlock(
   if (role === "author" || role === "affiliation" || role === "copyright") {
     return false;
   }
-  if (block.type === "heading") return shouldTranslateHeading(block.original);
+  if (block.type === "heading") return false;
   if (block.type === "paragraph" || block.type === "footnote") {
     return shouldTranslateParagraph(block.original);
   }
@@ -170,6 +170,15 @@ export function shouldTranslateBlock(
   return false;
 }
 
+export function isRetryableTranslationFailure(
+  block: PaperBlock,
+  refSectionIds: Set<string> = new Set()
+): boolean {
+  if (block.type !== "paragraph") return false;
+  if (block.translationStatus !== "failed") return false;
+  return shouldTranslateBlock(block, refSectionIds);
+}
+
 async function persistUntranslatableAsSkipped(
   blocks: PaperBlock[],
   refSectionIds: Set<string>
@@ -177,8 +186,8 @@ async function persistUntranslatableAsSkipped(
   const changed: PaperBlock[] = [];
   for (const block of blocks) {
     if (
-      block.translationStatus !== "pending" &&
-      block.translationStatus !== "processing"
+      block.translationStatus === "skipped" ||
+      block.translationStatus === "completed"
     ) {
       continue;
     }

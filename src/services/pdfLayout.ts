@@ -1126,6 +1126,66 @@ export function figureImageRect(
   };
 }
 
+export type LayoutRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export function rectOverlapArea(a: LayoutRect, b: LayoutRect): number {
+  const width = Math.max(
+    0,
+    Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  );
+  const height = Math.max(
+    0,
+    Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  );
+  return width * height;
+}
+
+/**
+ * Assign each rectangle to at most one region: the region with the largest
+ * unpadded overlap. Side-by-side figures must not share an image just because
+ * a crop band's padding touches the neighbor.
+ */
+export function assignRectsToRegions<T extends LayoutRect>(
+  rects: T[],
+  regions: { id: string; rect: LayoutRect }[]
+): Map<string, T[]> {
+  const assigned = new Map<string, T[]>();
+  for (const region of regions) {
+    if (!assigned.has(region.id)) assigned.set(region.id, []);
+  }
+
+  for (const rect of rects) {
+    let bestId: string | null = null;
+    let bestArea = 0;
+    let bestCenterDist = Number.POSITIVE_INFINITY;
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+
+    for (const region of regions) {
+      const area = rectOverlapArea(rect, region.rect);
+      if (area <= 0) continue;
+      const rx = region.rect.x + region.rect.width / 2;
+      const ry = region.rect.y + region.rect.height / 2;
+      const dist = (cx - rx) ** 2 + (cy - ry) ** 2;
+      const closer = Math.abs(area - bestArea) <= 0.5 && dist < bestCenterDist;
+      if (area > bestArea + 0.5 || closer) {
+        bestArea = area;
+        bestCenterDist = dist;
+        bestId = region.id;
+      }
+    }
+
+    if (bestId) assigned.get(bestId)?.push(rect);
+  }
+
+  return assigned;
+}
+
 export function reconstructDocument(pages: ExtractedPage[]): {
   layouts: PageColumnLayout[];
   lines: LayoutLine[];

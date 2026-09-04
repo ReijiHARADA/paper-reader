@@ -65,9 +65,9 @@ export function Paragraph({
     : usableTranslatedText(block.translated, block.original);
   const hasTranslation = Boolean(translated);
   const hasOriginal = Boolean(block.original && translated);
-  const isPending = block.translationStatus === "pending";
-  const isProcessing = block.translationStatus === "processing";
-  const isFailed = block.translationStatus === "failed" && !hasTranslation;
+  const isPending = !skipTranslation && block.translationStatus === "pending";
+  const isProcessing = !skipTranslation && block.translationStatus === "processing";
+  const isFailed = !skipTranslation && block.translationStatus === "failed" && !hasTranslation;
   const isWaiting = !hasTranslation && (isPending || isProcessing);
   const lowConfidence = isLowExtractionConfidence(block.extractionConfidence);
 

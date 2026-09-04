@@ -16,7 +16,7 @@ import {
   type LayoutBlock,
   type PageColumnLayout,
 } from "./pdfLayout";
-import { pickPaperTitle, pickPublication, isReferencesHeading, shouldTranslateHeading, shouldTranslateParagraph } from "./translation/quality";
+import { pickPaperTitle, pickPublication, isReferencesHeading, shouldTranslateParagraph } from "./translation/quality";
 import { scoreLayoutBlock } from "./extractionConfidence";
 
 function normalizeSection(title: string): NormalizedSectionKind {
@@ -167,10 +167,7 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: layout.text,
         translated: null,
-        translationStatus:
-          kind === "references" || !shouldTranslateHeading(layout.text)
-            ? "skipped"
-            : "pending",
+        translationStatus: "skipped",
         parentBlockId: null,
         metadata: { column: layout.column, role: layout.role },
       });
