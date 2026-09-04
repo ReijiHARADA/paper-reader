@@ -1,0 +1,81 @@
+.panel {
+  width: var(--notes-panel-width);
+  min-width: var(--notes-panel-min-width);
+  max-width: var(--notes-panel-max-width);
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.undoBar,
+.confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+.undoBar button,
+.confirm button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    box-shadow: -8px 0 24px var(--color-shadow);
+  }
+}

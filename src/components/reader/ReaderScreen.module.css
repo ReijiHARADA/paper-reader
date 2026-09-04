@@ -96,11 +96,17 @@
   color: var(--color-accent);
 }
 
+.iconButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .main {
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .sidebar {

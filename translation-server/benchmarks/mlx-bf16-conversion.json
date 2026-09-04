@@ -1,0 +1,22 @@
+{
+  "source_model": "google/madlad400-3b-mt",
+  "output_dir": "/Users/harada/Desktop/codex/projects/paper-reader/translation-server/models/madlad400-3b-mt-mlx-bf16",
+  "weight_dtype": "bfloat16",
+  "quantization": null,
+  "conversion_s": 22.834299583977554,
+  "weight_bytes": 5880840152,
+  "weight_gib": 5.477,
+  "tensor_count": 742,
+  "parameter_count": 2940374016,
+  "tensor_dtypes": {
+    "torch.bfloat16": 742
+  },
+  "embedding_mapping": "decoder.embed_tokens -> shared; lm_head untied",
+  "host": {
+    "python": "3.12.14",
+    "platform": "macOS-26.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "mac_ver": "26.0",
+    "timestamp": "2026-09-04T08:35:10.702880+00:00"
+  }
+}

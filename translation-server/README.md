@@ -2,7 +2,7 @@
 
 Paper Reader 用のローカル翻訳サーバーです。**MADLAD-400 3B** を Apple Silicon の **MPS + bfloat16** で動かし、英語→日本語を返します。
 
-速度の実測と、MLX INT8 を不採用にした理由は [SPEED_BENCH.md](./SPEED_BENCH.md) にあります。
+速度の実測と、MLX INT8 を不採用にした理由は [SPEED_BENCH.md](./SPEED_BENCH.md) にあります。公式 3B の MLX **bf16**（量子化なし）比較は [MLX_BF16_BENCH_REPORT.md](./MLX_BF16_BENCH_REPORT.md)（本番未切替、判定は No-Go）。
 
 ## 要件
 

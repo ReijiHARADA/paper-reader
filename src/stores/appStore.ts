@@ -19,6 +19,7 @@ type AppState = {
 
   setCurrentPaper: (paperId: string | null) => void;
   addPaper: (paper: Paper) => void;
+  setPapers: (papers: Paper[]) => void;
   updatePaper: (paperId: string, updates: Partial<Paper>) => void;
   removePaper: (paperId: string) => void;
 
@@ -56,6 +57,8 @@ export const useAppStore = create<AppState>()(
           }
           return { papers: [...state.papers, paper] };
         }),
+
+      setPapers: (papers) => set({ papers }),
 
       updatePaper: (paperId, updates) =>
         set((state) => ({
@@ -103,8 +106,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "paper-reader-storage",
+      version: 2,
+      migrate: (persisted) => {
+        const value = persisted as { displaySettings?: DisplaySettings } | undefined;
+        return {
+          displaySettings: value?.displaySettings ?? defaultDisplaySettings,
+        };
+      },
       partialize: (state) => ({
-        papers: state.papers,
         displaySettings: state.displaySettings,
       }),
     }
@@ -118,6 +127,7 @@ type PaperDataState = {
   setSections: (paperId: string, sections: Section[] | ((prev: Section[]) => Section[])) => void;
   setBlocks: (paperId: string, blocks: PaperBlock[] | ((prev: PaperBlock[]) => PaperBlock[])) => void;
   updateBlock: (paperId: string, blockId: string, updates: Partial<PaperBlock>) => void;
+  removePaperData: (paperId: string) => void;
   getSections: (paperId: string) => Section[];
   getBlocks: (paperId: string) => PaperBlock[];
 };
@@ -157,6 +167,15 @@ export const usePaperDataStore = create<PaperDataState>()((set, get) => ({
           [paperId]: next,
         },
       };
+    }),
+
+  removePaperData: (paperId) =>
+    set((state) => {
+      const sections = { ...state.sections };
+      const blocks = { ...state.blocks };
+      delete sections[paperId];
+      delete blocks[paperId];
+      return { sections, blocks };
     }),
 
   getSections: (paperId) => get().sections[paperId] || [],

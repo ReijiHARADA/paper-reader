@@ -339,3 +339,43 @@ class T5(nn.Module):
         model.load_weights(list(weights.items()), strict=True)
         mx.eval(model.parameters())
         return model
+
+    @classmethod
+    def from_bf16_dir(cls, model_dir: Path) -> "T5":
+        """Load unquantized MADLAD / T5 weights in bfloat16."""
+        with open(model_dir / "config.json", "r") as f:
+            raw = json.load(f)
+        raw.setdefault("feed_forward_proj", "gated-gelu")
+        raw.pop("quantization", None)
+        raw.pop("weight_dtype", None)
+        # Hugging Face config keys unused by this Module
+        for extra in (
+            "architectures",
+            "dropout_rate",
+            "initializer_factor",
+            "is_encoder_decoder",
+            "n_positions",
+            "output_past",
+            "task_specific_params",
+            "transformers_version",
+            "use_cache",
+            "model_type",
+            "torch_dtype",
+            "weight_dtype",
+        ):
+            raw.pop(extra, None)
+        config = SimpleNamespace(**raw)
+
+        model = T5(config)
+        weights = mx.load(str(model_dir / "model.safetensors"))
+        weights = cls.sanitize(weights)
+        target = mx.bfloat16
+        casted = {}
+        for key, value in weights.items():
+            if hasattr(value, "dtype") and "float" in str(value.dtype):
+                casted[key] = value.astype(target)
+            else:
+                casted[key] = value
+        model.load_weights(list(casted.items()), strict=True)
+        mx.eval(model.parameters())
+        return model

@@ -60,8 +60,7 @@ export function isPlausibleJaTranslation(output: string, source: string): boolea
   if (!hasKana && !hasKanji) return false;
   if (source.trim().length >= 40 && hasKanji && !hasKana) return false;
 
-  const latin = (out.match(/[A-Za-z]/g) || []).length;
-  if (out.length >= 16 && latin / out.length > 0.45) return false;
+  if (latinRatioBeyondSource(out, source) > 0.45) return false;
 
   if (
     /^\d+[.)]\s+\S/.test(source.trim()) &&
@@ -70,6 +69,22 @@ export function isPlausibleJaTranslation(output: string, source: string): boolea
     return false;
   }
   return true;
+}
+
+function latinRatioBeyondSource(output: string, source: string): number {
+  const tokens = source.match(/[A-Za-z]{2,}/g) ?? [];
+  let stripped = output;
+  for (const token of [...tokens].sort((a, b) => b.length - a.length)) {
+    stripped = stripped.replace(
+      new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+      ""
+    );
+  }
+  stripped = stripped.replace(/\d+(?:\.\d+)*/g, "");
+  const compact = stripped.replace(/\s+/g, "");
+  if (compact.length < 8) return 0;
+  const latin = (compact.match(/[A-Za-z]/g) || []).length;
+  return latin / compact.length;
 }
 
 export function looksLikeNamedWorkHeading(text: string): boolean {
@@ -167,6 +182,8 @@ export function shouldTranslateTitle(text: string): boolean {
   if (!shouldTranslateHeading(t) && t.length < 8) return false;
   if (isGarbageTitle(t)) return false;
   if (/@/.test(t)) return false;
+  if (/^[\d.\s]+$/.test(t)) return false;
+  if (/^\d{2,}(?:\.\d+){2,}/.test(t)) return false;
   return t.length >= 8 && t.length <= 220;
 }
 

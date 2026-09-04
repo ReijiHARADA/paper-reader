@@ -105,6 +105,23 @@
   color: #93c5fd;
 }
 
+.partialBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: #fce8e6;
+  color: #c5221f;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-xl);
+  font-size: 0.875rem;
+}
+
+[data-theme="dark"] .partialBanner {
+  background-color: #3c1f1e;
+  color: #f28b82;
+}
+
 .processingSpinner {
   width: 16px;
   height: 16px;

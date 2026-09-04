@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Paper, Section, PaperBlock } from "../types/paper";
 import type { Project, ProjectPaper } from "../types/project";
+import type { Annotation } from "../types/annotation";
 import type { GlossaryEntry } from "./llm/types";
 import type { TranslationCacheEntry } from "./translation/types";
 
@@ -88,10 +89,19 @@ interface PaperReaderDB extends DBSchema {
       "by-paper": string;
     };
   };
+  annotations: {
+    key: string;
+    value: Annotation;
+    indexes: {
+      "by-paper": string;
+      "by-block": string;
+      "by-project": string;
+    };
+  };
 }
 
 const DB_NAME = "paper-reader";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<PaperReaderDB>> | null = null;
 
@@ -156,6 +166,17 @@ function getDB(): Promise<IDBPDatabase<PaperReaderDB>> {
             linkStore.createIndex("by-paper", "paperId");
           }
         }
+
+        if (oldVersion < 4) {
+          if (!db.objectStoreNames.contains("annotations")) {
+            const annotationStore = db.createObjectStore("annotations", {
+              keyPath: "id",
+            });
+            annotationStore.createIndex("by-paper", "paperId");
+            annotationStore.createIndex("by-block", "blockId");
+            annotationStore.createIndex("by-project", "projectId");
+          }
+        }
       },
     });
   }
@@ -188,32 +209,40 @@ export async function getPaperByHash(hash: string): Promise<Paper | undefined> {
 
 export async function deletePaper(id: string): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(
-    ["papers", "sections", "blocks", "glossaries", "projectPapers"],
-    "readwrite"
-  );
 
-  // Delete all related sections and blocks
-  const sections = await tx.objectStore("sections").index("by-paper").getAllKeys(id);
-  for (const sectionId of sections) {
-    await tx.objectStore("sections").delete(sectionId);
+  const deleteIndex = async (
+    store:
+      | "sections"
+      | "blocks"
+      | "projectPapers"
+      | "annotations"
+      | "benchmarks",
+    indexName: "by-paper"
+  ) => {
+    if (!db.objectStoreNames.contains(store)) return;
+    const tx = db.transaction(store, "readwrite");
+    const keys = await tx.objectStore(store).index(indexName).getAllKeys(id);
+    for (const key of keys) {
+      await tx.objectStore(store).delete(key);
+    }
+    await tx.done;
+  };
+
+  await deleteIndex("annotations", "by-paper");
+  await deleteIndex("benchmarks", "by-paper");
+  await deleteIndex("blocks", "by-paper");
+  await deleteIndex("sections", "by-paper");
+  await deleteIndex("projectPapers", "by-paper");
+
+  if (db.objectStoreNames.contains("glossaries")) {
+    const tx = db.transaction("glossaries", "readwrite");
+    await tx.objectStore("glossaries").delete(id);
+    await tx.done;
   }
 
-  const blocks = await tx.objectStore("blocks").index("by-paper").getAllKeys(id);
-  for (const blockId of blocks) {
-    await tx.objectStore("blocks").delete(blockId);
-  }
-
-  // Delete glossary
-  await tx.objectStore("glossaries").delete(id);
-
-  const links = await tx.objectStore("projectPapers").index("by-paper").getAllKeys(id);
-  for (const key of links) {
-    await tx.objectStore("projectPapers").delete(key);
-  }
-
-  await tx.objectStore("papers").delete(id);
-  await tx.done;
+  const paperTx = db.transaction("papers", "readwrite");
+  await paperTx.objectStore("papers").delete(id);
+  await paperTx.done;
 }
 
 // ============================================================
@@ -522,4 +551,33 @@ export async function getAllProjectPapers(): Promise<ProjectPaper[]> {
 export async function deleteProjectPaper(projectId: string, paperId: string): Promise<void> {
   const db = await getDB();
   await db.delete("projectPapers", [projectId, paperId]);
+}
+
+// ============================================================
+// Annotation operations
+// ============================================================
+
+export async function saveAnnotation(annotation: Annotation): Promise<void> {
+  const db = await getDB();
+  await db.put("annotations", annotation);
+}
+
+export async function getAnnotation(id: string): Promise<Annotation | undefined> {
+  const db = await getDB();
+  return db.get("annotations", id);
+}
+
+export async function getAnnotationsByPaper(paperId: string): Promise<Annotation[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("annotations", "by-paper", paperId);
+}
+
+export async function getAnnotationsByBlock(blockId: string): Promise<Annotation[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("annotations", "by-block", blockId);
+}
+
+export async function deleteAnnotation(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("annotations", id);
 }

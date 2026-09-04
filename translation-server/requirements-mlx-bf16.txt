@@ -1,0 +1,8 @@
+# Isolated MLX bfloat16 bench (no PyTorch).
+mlx>=0.25
+transformers>=4.38.0
+sentencepiece>=0.2.0
+safetensors>=0.4.0
+numpy>=1.26
+psutil>=5.9
+huggingface_hub>=0.20

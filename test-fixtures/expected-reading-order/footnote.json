@@ -1,0 +1,5 @@
+{
+  "name": "footnote",
+  "token": "FOOTNOTE_MARK",
+  "notMergedWith": "FOOT_L1"
+}

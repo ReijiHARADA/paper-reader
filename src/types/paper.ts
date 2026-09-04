@@ -74,6 +74,8 @@ export type ProcessingStatus =
 export type Paper = {
   id: string;
   sourceFilePath: string;
+  sourceFileName?: string;
+  sourceStoredPath?: string | null;
   sourceFileHash: string;
   titleOriginal: string | null;
   titleTranslated: string | null;

@@ -1,27 +1,43 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FileText, Plus, Trash2, Loader2, CheckCircle, AlertCircle, Clock, FolderX } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  Trash2,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  FolderX,
+} from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { useProjectStore } from "../../stores/projectStore";
 import {
-  addPaperToProject,
   removePaperFromProject,
   listPapersForProject,
+  removeProject,
 } from "../../services/projectService";
-import { AddToProjectMenu } from "./AddToProjectMenu";
-import { NewProjectModal } from "./NewProjectModal";
-import { createProject } from "../../services/projectService";
 import { displayPaperTitle } from "../../services/translation/quality";
+import {
+  isBusyProcessingStatus,
+  processingStatusLabel,
+} from "../../services/paperStatus";
+import { DraggablePaperArticle } from "../library/DraggablePaperArticle";
 import type { Paper } from "../../types/paper";
 import styles from "./ProjectScreen.module.css";
 
 function getStatusIcon(status: Paper["processingStatus"]) {
+  if (isBusyProcessingStatus(status)) {
+    return <Loader2 size={14} className={styles.statusProcessing} />;
+  }
   switch (status) {
-    case "ready": return <CheckCircle size={14} className={styles.statusReady} />;
-    case "translating": case "extracting": case "structuring": case "glossary":
-      return <Loader2 size={14} className={styles.statusProcessing} />;
-    case "failed": return <AlertCircle size={14} className={styles.statusFailed} />;
-    default: return <Clock size={14} className={styles.statusPending} />;
+    case "ready":
+      return <CheckCircle size={14} className={styles.statusReady} />;
+    case "partial":
+    case "failed":
+      return <AlertCircle size={14} className={styles.statusFailed} />;
+    default:
+      return <Clock size={14} className={styles.statusPending} />;
   }
 }
 
@@ -29,12 +45,14 @@ export function ProjectScreen() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const setCurrentPaper = useAppStore((s) => s.setCurrentPaper);
-  const { projects, memberships, upsertMembership, removeMembershipLocal, upsertProject } = useProjectStore();
+  const { projects, memberships, removeMembershipLocal, removeProjectLocal } =
+    useProjectStore();
 
   const project = projects.find((p) => p.id === projectId);
   const [projectPapers, setProjectPapers] = useState<Paper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,24 +72,22 @@ export function ProjectScreen() {
 
   const handleRemove = async (paperId: string) => {
     if (!projectId) return;
-    if (!confirm("このProjectから論文を外しますか？論文自体は削除されません。")) return;
     await removePaperFromProject(projectId, paperId);
     removeMembershipLocal(projectId, paperId);
   };
 
-  const handleAddPaper = async (targetProjectId: string, paperId: string) => {
-    const link = await addPaperToProject({ projectId: targetProjectId, paperId });
-    upsertMembership(link);
+  const handleDeleteProject = async () => {
+    if (!projectId || deleting) return;
+    setDeleting(true);
+    try {
+      await removeProject(projectId);
+      removeProjectLocal(projectId);
+      navigate("/inbox");
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      setDeleting(false);
+    }
   };
-
-  const handleCreateProject = async (input: { name: string; description?: string }) => {
-    const p = await createProject(input);
-    upsertProject(p);
-  };
-
-  // Papers not yet in this project (for potential future "add from library" button)
-  const allProjectIds = (paperId: string) =>
-    memberships.filter((m) => m.paperId === paperId).map((m) => m.projectId);
 
   if (!project && !isLoading) {
     return (
@@ -93,15 +109,49 @@ export function ProjectScreen() {
             <p className={styles.description}>{project.description}</p>
           )}
         </div>
-        <button
-          className={styles.addButton}
-          onClick={() => fileInputRef.current?.click()}
-          title="このProjectへPDFを追加"
-        >
-          <Plus size={18} />
-          論文を追加
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.addButton}
+            onClick={() => fileInputRef.current?.click()}
+            title="このProjectへPDFを追加"
+          >
+            <Plus size={18} />
+            論文を追加
+          </button>
+        </div>
       </header>
+
+      {confirmDelete ? (
+        <div className={styles.deleteConfirm}>
+          <p>
+            「{project?.name}」を削除します。論文ファイルは残ります。このプロジェクトにしか入っていない論文は Inbox に戻ります。
+          </p>
+          <button
+            type="button"
+            className={styles.deleteConfirmYes}
+            disabled={deleting}
+            onClick={() => void handleDeleteProject()}
+          >
+            {deleting ? "削除中..." : "削除する"}
+          </button>
+          <button
+            type="button"
+            className={styles.deleteConfirmNo}
+            disabled={deleting}
+            onClick={() => setConfirmDelete(false)}
+          >
+            キャンセル
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={styles.deleteProject}
+          onClick={() => setConfirmDelete(true)}
+        >
+          プロジェクトを削除
+        </button>
+      )}
 
       {isLoading ? (
         <div className={styles.loadingWrap}>
@@ -112,18 +162,17 @@ export function ProjectScreen() {
         <div className={styles.emptyState}>
           <FileText size={48} strokeWidth={1} />
           <p>まだ論文がありません</p>
-          <p className={styles.hint}>ライブラリの論文カードにある <strong>+</strong> ボタンでこのProjectへ追加できます</p>
+          <p className={styles.hint}>Inbox や All Papers のカードを、サイドバーのこのプロジェクトへドラッグして追加できます。戻すときは Inbox へドラッグします。</p>
         </div>
       ) : (
         <div className={styles.list}>
           {projectPapers.map((paper) => (
-            <article
+            <DraggablePaperArticle
               key={paper.id}
+              paperId={paper.id}
+              label={displayPaperTitle(paper)}
               className={styles.card}
-              onClick={() => handleOpen(paper.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpen(paper.id); }}
+              onOpen={() => handleOpen(paper.id)}
             >
               <div className={styles.cardIcon}>
                 <FileText size={28} strokeWidth={1.5} />
@@ -138,35 +187,25 @@ export function ProjectScreen() {
                 )}
                 <div className={styles.cardMeta}>
                   {getStatusIcon(paper.processingStatus)}
+                  <span>{processingStatusLabel(paper.processingStatus)}</span>
                   <span className={styles.cardYear}>{paper.year ?? ""}</span>
                 </div>
               </div>
               <div className={styles.actions}>
-                <AddToProjectMenu
-                  projects={projects}
-                  addedProjectIds={allProjectIds(paper.id)}
-                  onAdd={(pid) => handleAddPaper(pid, paper.id)}
-                  onRemove={(pid) => pid === projectId ? handleRemove(paper.id) : removePaperFromProject(pid, paper.id)}
-                  onCreateProject={() => setShowNewProject(true)}
-                />
                 <button
                   className={styles.removeButton}
                   title="このProjectから外す"
-                  onClick={(e) => { e.stopPropagation(); handleRemove(paper.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleRemove(paper.id);
+                  }}
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
-            </article>
+            </DraggablePaperArticle>
           ))}
         </div>
-      )}
-
-      {showNewProject && (
-        <NewProjectModal
-          onClose={() => setShowNewProject(false)}
-          onCreate={handleCreateProject}
-        />
       )}
     </div>
   );

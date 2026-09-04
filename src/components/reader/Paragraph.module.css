@@ -205,3 +205,77 @@
   background-color: #5d4037;
   color: #fff59d;
 }
+
+.annotationMark {
+  background-color: #fff59d;
+  padding: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.annotationMark:hover,
+.annotationFlash {
+  background-color: #ffe066;
+}
+
+[data-theme="dark"] .annotationMark {
+  background-color: #5d4037;
+  color: #fff59d;
+}
+
+[data-theme="dark"] .annotationMark:hover,
+[data-theme="dark"] .annotationFlash {
+  background-color: #7a5a2b;
+}
+
+.confidence {
+  position: absolute;
+  top: 2px;
+  right: 32px;
+}
+
+.confidenceButton {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.confidenceMenu {
+  position: absolute;
+  top: 22px;
+  right: 0;
+  z-index: 5;
+  width: 220px;
+  padding: 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 20px var(--color-shadow);
+}
+
+.confidenceMenu p {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.confidenceMenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  padding: 4px 0;
+  cursor: pointer;
+}

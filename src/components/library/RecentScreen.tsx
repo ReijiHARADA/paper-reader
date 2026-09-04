@@ -2,14 +2,18 @@ import { useNavigate } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { displayPaperTitle } from "../../services/translation/quality";
+import { PaperDeleteControls } from "./PaperDeleteControls";
+import { DraggablePaperArticle } from "./DraggablePaperArticle";
+import { useDeletePaper } from "../../hooks/useDeletePaper";
 import styles from "./LibraryScreen.module.css";
 
 export function RecentScreen() {
   const navigate = useNavigate();
   const papers = useAppStore((s) => s.papers);
   const setCurrentPaper = useAppStore((s) => s.setCurrentPaper);
+  const { pendingId, error, busy, requestDelete, cancelDelete, confirmDelete } =
+    useDeletePaper();
 
-  // Papers sorted by lastOpenedAt or updatedAt descending
   const recent = [...papers]
     .filter((p) => p.lastOpenedAt || p.lastReadBlockId)
     .sort((a, b) => {
@@ -20,6 +24,7 @@ export function RecentScreen() {
     .slice(0, 30);
 
   const handleOpen = (paperId: string) => {
+    if (pendingId === paperId) return;
     setCurrentPaper(paperId);
     navigate(`/reader/${paperId}`);
   };
@@ -42,13 +47,13 @@ export function RecentScreen() {
         ) : (
           <div className={styles.paperList}>
             {recent.map((paper) => (
-              <article
+              <DraggablePaperArticle
                 key={paper.id}
+                paperId={paper.id}
+                label={displayPaperTitle(paper)}
                 className={styles.paperCard}
-                onClick={() => handleOpen(paper.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpen(paper.id); }}
+                enabled={pendingId !== paper.id}
+                onOpen={() => handleOpen(paper.id)}
               >
                 <div className={styles.paperIcon}><FileText size={32} strokeWidth={1.5} /></div>
                 <div className={styles.paperInfo}>
@@ -62,7 +67,16 @@ export function RecentScreen() {
                     最終閲覧: {new Date(paper.lastOpenedAt ?? paper.updatedAt).toLocaleDateString("ja-JP")}
                   </p>
                 </div>
-              </article>
+                <PaperDeleteControls
+                  paperId={paper.id}
+                  pendingId={pendingId}
+                  error={error}
+                  busy={busy}
+                  onRequest={requestDelete}
+                  onConfirm={confirmDelete}
+                  onCancel={cancelDelete}
+                />
+              </DraggablePaperArticle>
             ))}
           </div>
         )}

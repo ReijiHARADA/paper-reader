@@ -14,3 +14,55 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px var(--color-shadow);
+  cursor: pointer;
+}
+
+.toastOk {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.toastError {
+  background: #c5221f;
+  color: #fff;
+}
+
+.dragPreview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 80;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 24px var(--color-shadow);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dragPreview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

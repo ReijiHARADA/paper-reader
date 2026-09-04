@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
 import { useProjectStore } from "../../stores/projectStore";
@@ -11,37 +11,43 @@ import {
 } from "../../services/database";
 import {
   createProject,
-  removeProject,
+  addPaperToProject,
+  DuplicateProjectPaperError,
+  removePaperFromAllProjects,
 } from "../../services/projectService";
 import {
   mergePreferTranslated,
   mergePreferTranslatedSections,
 } from "../../utils/mergePaperData";
 import { AppSidebar } from "./AppSidebar";
+import { PaperDragPreview } from "./PaperDragPreview";
 import { NewProjectModal } from "../project/NewProjectModal";
-import type { Project } from "../../types/project";
+import { setPaperDropHandler, INBOX_DROP_ID, usePaperDragStore } from "../../stores/paperDragStore";
 import styles from "./AppShell.module.css";
 
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { paperId } = useParams<{ paperId?: string }>();
-  const addPaper = useAppStore((state) => state.addPaper);
+  const setPapers = useAppStore((state) => state.setPapers);
   const setSections = usePaperDataStore((state) => state.setSections);
   const setBlocks = usePaperDataStore((state) => state.setBlocks);
   const {
     projects,
     memberships,
     searchQuery,
-    loaded,
     setLoaded,
     setSearchQuery,
     setProjects,
     setMemberships,
     upsertProject,
-    removeProjectLocal,
+    upsertMembership,
+    removeMembershipsForPaper,
   } = useProjectStore();
 
+  const toast = usePaperDragStore((state) => state.toast);
+  const showToast = usePaperDragStore((state) => state.showToast);
+  const clearToast = usePaperDragStore((state) => state.clearToast);
   const [showNewProject, setShowNewProject] = useState(false);
 
   useEffect(() => {
@@ -56,13 +62,16 @@ export function AppShell() {
         if (cancelled) return;
         setProjects(dbProjects);
         setMemberships(dbLinks);
+        setPapers(dbPapers);
         for (const paper of dbPapers) {
-          addPaper(paper);
           const [sections, blocks] = await Promise.all([
             getSectionsByPaper(paper.id),
             getBlocksByPaper(paper.id),
           ]);
           if (cancelled) return;
+          if (!useAppStore.getState().papers.some((item) => item.id === paper.id)) {
+            continue;
+          }
           setSections(paper.id, (prev) =>
             mergePreferTranslatedSections(prev, sections)
           );
@@ -78,7 +87,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [addPaper, setBlocks, setLoaded, setMemberships, setProjects, setSections]);
+  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections]);
 
   const searchParams = new URLSearchParams(location.search);
   const queryProjectId = searchParams.get("project");
@@ -93,11 +102,11 @@ export function AppShell() {
     return links.length === 1 ? links[0].projectId : queryProjectId;
   }, [memberships, paperId, queryProjectId]);
 
+  const papers = useAppStore((state) => state.papers);
   const inboxCount = useMemo(() => {
     const assigned = new Set(memberships.map((link) => link.paperId));
-    return useAppStore.getState().papers.filter((paper) => !assigned.has(paper.id))
-      .length;
-  }, [memberships, loaded]);
+    return papers.filter((paper) => !assigned.has(paper.id)).length;
+  }, [memberships, papers]);
 
   const handleCreate = async (input: { name: string; description?: string }) => {
     const project = await createProject(input);
@@ -105,16 +114,56 @@ export function AppShell() {
     navigate(`/project/${project.id}`);
   };
 
-  const handleDelete = async (project: Project) => {
-    if (!confirm(`「${project.name}」を削除しますか？論文自体は残ります。`)) {
+  const handleDropPaper = useCallback(async (targetId: string, paperId: string) => {
+    if (targetId === INBOX_DROP_ID) {
+      const removed = await removePaperFromAllProjects(paperId);
+      removeMembershipsForPaper(paperId);
+      showToast({
+        kind: removed > 0 ? "added" : "duplicate",
+        message: removed > 0 ? "Inbox に戻しました" : "すでに Inbox にあります",
+      });
       return;
     }
-    await removeProject(project.id);
-    removeProjectLocal(project.id);
-    if (routeProjectId === project.id) {
-      navigate("/inbox");
+
+    const project = projects.find((item) => item.id === targetId);
+    const projectName = project?.name ?? "このプロジェクト";
+    const already = memberships.some(
+      (link) => link.projectId === targetId && link.paperId === paperId
+    );
+    if (already) {
+      showToast({
+        kind: "duplicate",
+        message: `「${projectName}」にはすでに入っています`,
+      });
+      return;
     }
-  };
+    try {
+      const link = await addPaperToProject({ projectId: targetId, paperId });
+      upsertMembership(link);
+      showToast({
+        kind: "added",
+        message: `「${projectName}」に追加しました`,
+      });
+    } catch (error) {
+      if (error instanceof DuplicateProjectPaperError) {
+        showToast({
+          kind: "duplicate",
+          message: `「${projectName}」にはすでに入っています`,
+        });
+        return;
+      }
+      console.error("Failed to add paper to project:", error);
+      showToast({
+        kind: "error",
+        message: "プロジェクトへの追加に失敗しました",
+      });
+    }
+  }, [memberships, projects, removeMembershipsForPaper, showToast, upsertMembership]);
+
+  useEffect(() => {
+    setPaperDropHandler(handleDropPaper);
+    return () => setPaperDropHandler(null);
+  }, [handleDropPaper]);
 
   return (
     <div className={styles.shell}>
@@ -123,13 +172,26 @@ export function AppShell() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onNewProject={() => setShowNewProject(true)}
-        onDeleteProject={handleDelete}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
       />
       <div className={styles.main}>
         <Outlet context={{ openNewProject: () => setShowNewProject(true) }} />
       </div>
+      <PaperDragPreview />
+      {toast && (
+        <div
+          className={`${styles.toast} ${
+            toast.kind === "duplicate" || toast.kind === "error"
+              ? styles.toastError
+              : styles.toastOk
+          }`}
+          role="status"
+          onClick={clearToast}
+        >
+          {toast.message}
+        </div>
+      )}
       {showNewProject && (
         <NewProjectModal
           onClose={() => setShowNewProject(false)}

@@ -1,0 +1,48 @@
+{
+  "name": "paper-reader-madlad-en-ja",
+  "source_language": "en",
+  "target_language": "ja",
+  "notes": "Fixed English inputs for MPS bf16 vs MLX bf16. Several sentences reuse the Interactive Jewellery / SPEED_BENCH set.",
+  "cases": [
+    {
+      "id": "short",
+      "name": "短い一般文",
+      "text": "Attention is all you need introduced the Transformer architecture for neural machine translation."
+    },
+    {
+      "id": "title",
+      "name": "論文タイトル",
+      "text": "Interactive Jewellery: a design exploration"
+    },
+    {
+      "id": "abstract",
+      "name": "Abstractの1段落",
+      "text": "This paper explores interactive jewellery as a class of wearable artefacts that sit close to the body and carry social meaning. We present a series of design concepts developed with students and discuss how miniaturised electronics can be orchestrated with human values rather than with practical functionality alone. The work argues that jewellery's material, cultural, and personal connotations should guide the design of on-body technology."
+    },
+    {
+      "id": "body_short",
+      "name": "本文の短い段落",
+      "text": "Devices that used to be static were extended with portable variations: for example the Walkman and the cell phone."
+    },
+    {
+      "id": "intro",
+      "name": "6文程度のIntroduction",
+      "text": "Over the last decennia electronics rapidly miniaturised while gaining computing power. Devices that used to be static were extended with portable variations: for example the Walkman and the cell phone. More recently electronics have become small enough to be worn directly on the human body integrated in our apparel. Driven by technological possibilities it seems logical to focus on new practical functionalities. However such an approach neglects interesting aspects of clothing and accessory like the implications of the proximity to the human body and its rich material and social connotations. In line with van Dijk et al. [8] we see it as ‘our challenge to orchestrate social, human and technological resources’ with an emphasis on human values and practices."
+    },
+    {
+      "id": "long",
+      "name": "かなり長い段落",
+      "text": "Wearable computing has long promised to move electronics from the desk and the pocket onto the surface of the body, yet many products still treat the body as little more than a convenient mounting point. Interactive jewellery resists that reduction because a ring, a locket, or a necklace is already a social object before any sensor is added. People wear these things to remember, to signal belonging, or to keep a private story close to the skin, and those practices do not disappear when a battery and a radio arrive. If designers start from technical possibility, they tend to add notifications, tracking, or efficiency features that compete with the quiet roles jewellery already plays. A more careful approach starts from the existing ritual: when the object is put on, who is allowed to touch it, and what happens if it breaks or is left behind. Miniaturised electronics can still be useful here, but only when they are orchestrated with material choices, repair, and the social setting rather than used as an excuse to turn every ornament into a tiny computer. This paper therefore treats jewellery as a design material with history, not as a form factor waiting to be instrumented, and asks how on-body technology might support memory, care, and conversation without erasing the object’s older meanings. The argument is practical as well as cultural: once a device is worn all day, comfort, weight, and the meaning of a glance from another person become as important as latency or battery life."
+    },
+    {
+      "id": "citations",
+      "name": "引用番号を含む文章",
+      "text": "In line with van Dijk et al. [8] we see it as ‘our challenge to orchestrate social, human and technological resources’ with an emphasis on human values and practices. Similar arguments appear in later work on embodied interaction [12] and on-body design [3]."
+    },
+    {
+      "id": "terms",
+      "name": "固有名詞・専門用語を含む文章",
+      "text": "This research was supported by STW VIDI grant number 016.128.303 of the Netherlands Organisation for Scientific Research (NWO), awarded to Elise van den Hoven. The prototype used a Sony Walkman metaphor together with MADLAD-400 for on-device translation."
+    }
+  ]
+}

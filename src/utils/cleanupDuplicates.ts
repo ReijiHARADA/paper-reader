@@ -5,7 +5,8 @@
  *   import('/src/utils/cleanupDuplicates.ts').then(m => m.cleanupDuplicatePapers())
  */
 
-import { getAllPapers, deletePaper } from "../services/database";
+import { getAllPapers } from "../services/database";
+import { deletePaperEverywhere } from "../services/paperDelete";
 import type { Paper } from "../types/paper";
 
 interface DuplicateGroup {
@@ -89,7 +90,7 @@ export async function cleanupDuplicatePapers(dryRun = true): Promise<{
         reason: group.hash ? `Duplicate hash: ${group.hash}` : `Duplicate title: ${group.title}`,
       });
       if (!dryRun) {
-        await deletePaper(paper.id);
+        await deletePaperEverywhere(paper.id);
       }
     }
   }

@@ -37,6 +37,9 @@
   --sidebar-width: 280px;
   --header-height: 56px;
   --content-max-width: 720px;
+  --notes-panel-width: 360px;
+  --notes-panel-min-width: 300px;
+  --notes-panel-max-width: 480px;
 
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -98,6 +101,15 @@ a:hover {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+body.paper-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.paper-dragging * {
+  cursor: grabbing !important;
 }
 
 ::selection {

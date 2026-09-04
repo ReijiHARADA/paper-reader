@@ -4,3 +4,5 @@
 export * from "./types";
 export * from "./madladEngine";
 export * from "./translationQueue";
+export * from "./translationManager";
+export * from "./readingPriority";

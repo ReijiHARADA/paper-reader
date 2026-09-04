@@ -15,6 +15,7 @@ import {
   type PageColumnLayout,
 } from "./pdfLayout";
 import { pickPaperTitle, pickPublication, isReferencesHeading } from "./translation/quality";
+import { scoreLayoutBlock } from "./extractionConfidence";
 
 function normalizeSection(title: string): NormalizedSectionKind {
   const lower = title.toLowerCase();
@@ -84,12 +85,22 @@ export function analyzeStructure(
   let blockOrder = 0;
   let sectionOrder = 0;
 
-  const pushBlock = (partial: Omit<PaperBlock, "id" | "paperId" | "order">) => {
+  const pushBlock = (
+    layout: LayoutBlock,
+    partial: Omit<PaperBlock, "id" | "paperId" | "order" | "extractionConfidence">
+  ) => {
+    const pageLayout = layouts.find((l) => l.page === layout.pageStart);
+    const { score, diagnostics } = scoreLayoutBlock(layout, pageLayout);
     blocks.push({
       id: uuidv4(),
       paperId,
       order: blockOrder++,
+      extractionConfidence: score,
       ...partial,
+      metadata: {
+        ...partial.metadata,
+        extractionDiagnostics: diagnostics,
+      },
     });
   };
 
@@ -106,7 +117,7 @@ export function analyzeStructure(
         currentKind === "references" &&
         !isReferencesHeading(layout.text)
       ) {
-        pushBlock({
+        pushBlock(layout, {
           sectionId: currentSectionId,
           type: "reference",
           pageStart: layout.pageStart,
@@ -114,7 +125,6 @@ export function analyzeStructure(
           boundingBoxes: boxes,
           original: layout.text,
           translated: null,
-          extractionConfidence: 0.9,
           translationStatus: "skipped",
           parentBlockId: null,
           metadata: { column: layout.column, role: "reference" },
@@ -141,7 +151,7 @@ export function analyzeStructure(
       sections.push(section);
       currentSectionId = sectionId;
       currentKind = kind;
-      pushBlock({
+      pushBlock(layout, {
         sectionId,
         type: "heading",
         pageStart: layout.pageStart,
@@ -149,7 +159,6 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: layout.text,
         translated: null,
-        extractionConfidence: 0.9,
         translationStatus: kind === "references" ? "skipped" : "pending",
         parentBlockId: null,
         metadata: { column: layout.column, role: layout.role },
@@ -160,7 +169,7 @@ export function analyzeStructure(
     if (layout.role === "figure_caption") {
       const match = layout.text.match(/^(figure|fig\.?)\s*(\d+)/i);
       const figureNumber = match ? `Figure ${match[2]}` : "Figure";
-      pushBlock({
+      pushBlock(layout, {
         sectionId: currentSectionId,
         type: "figure",
         pageStart: layout.pageStart,
@@ -168,7 +177,6 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: null,
         translated: null,
-        extractionConfidence: 0.8,
         translationStatus: "skipped",
         parentBlockId: null,
         metadata: {
@@ -186,7 +194,7 @@ export function analyzeStructure(
     if (layout.role === "table_caption") {
       const match = layout.text.match(/^(table)\s*(\d+)/i);
       const tableNumber = match ? `Table ${match[2]}` : "Table";
-      pushBlock({
+      pushBlock(layout, {
         sectionId: currentSectionId,
         type: "table",
         pageStart: layout.pageStart,
@@ -194,7 +202,6 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: null,
         translated: null,
-        extractionConfidence: 0.8,
         translationStatus: "skipped",
         parentBlockId: null,
         metadata: {
@@ -208,7 +215,7 @@ export function analyzeStructure(
     }
 
     const isRef = isReferenceText(layout.text, currentKind);
-    pushBlock({
+    pushBlock(layout, {
       sectionId: currentSectionId,
       type: isRef ? "reference" : "paragraph",
       pageStart: layout.pageStart,
@@ -216,7 +223,6 @@ export function analyzeStructure(
       boundingBoxes: boxes,
       original: layout.text,
       translated: null,
-      extractionConfidence: 0.9,
       translationStatus: isRef ? "skipped" : "pending",
       parentBlockId: null,
       metadata: { column: layout.column, role: layout.role },
@@ -226,6 +232,8 @@ export function analyzeStructure(
   const paper: Paper = {
     id: paperId,
     sourceFilePath: filePath,
+    sourceFileName: filePath,
+    sourceStoredPath: null,
     sourceFileHash: fileHash,
     titleOriginal: pickPaperTitle(pdfMetadata.title, titleBlock?.text),
     titleTranslated: null,

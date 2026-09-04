@@ -2,6 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { Star, FileText } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { displayPaperTitle } from "../../services/translation/quality";
+import { PaperDeleteControls } from "./PaperDeleteControls";
+import { DraggablePaperArticle } from "./DraggablePaperArticle";
+import { useDeletePaper } from "../../hooks/useDeletePaper";
 import styles from "./LibraryScreen.module.css";
 
 export function FavoritesScreen() {
@@ -9,8 +12,11 @@ export function FavoritesScreen() {
   const papers = useAppStore((s) => s.papers);
   const setCurrentPaper = useAppStore((s) => s.setCurrentPaper);
   const favorites = papers.filter((p) => p.favorite);
+  const { pendingId, error, busy, requestDelete, cancelDelete, confirmDelete } =
+    useDeletePaper();
 
   const handleOpen = (paperId: string) => {
+    if (pendingId === paperId) return;
     setCurrentPaper(paperId);
     navigate(`/reader/${paperId}`);
   };
@@ -33,13 +39,13 @@ export function FavoritesScreen() {
         ) : (
           <div className={styles.paperList}>
             {favorites.map((paper) => (
-              <article
+              <DraggablePaperArticle
                 key={paper.id}
+                paperId={paper.id}
+                label={displayPaperTitle(paper)}
                 className={styles.paperCard}
-                onClick={() => handleOpen(paper.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpen(paper.id); }}
+                enabled={pendingId !== paper.id}
+                onOpen={() => handleOpen(paper.id)}
               >
                 <div className={styles.paperIcon}><FileText size={32} strokeWidth={1.5} /></div>
                 <div className={styles.paperInfo}>
@@ -50,7 +56,16 @@ export function FavoritesScreen() {
                     </p>
                   )}
                 </div>
-              </article>
+                <PaperDeleteControls
+                  paperId={paper.id}
+                  pendingId={pendingId}
+                  error={error}
+                  busy={busy}
+                  onRequest={requestDelete}
+                  onConfirm={confirmDelete}
+                  onCancel={cancelDelete}
+                />
+              </DraggablePaperArticle>
             ))}
           </div>
         )}

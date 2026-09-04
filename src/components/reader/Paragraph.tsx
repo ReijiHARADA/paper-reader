@@ -1,22 +1,55 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
 import type { PaperBlock } from "../../types/paper";
+import type { Annotation } from "../../types/annotation";
 import { useAppStore } from "../../stores/appStore";
 import { updateBlock, getSetting } from "../../services/database";
 import { MADLADEngine } from "../../services/translation/madladEngine";
 import type { ImportConfig } from "../../services/importServiceV2";
 import { usableTranslatedText, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
+import { isLowExtractionConfidence } from "../../services/extractionConfidence";
+import { splitHighlightedText } from "../../services/highlightRanges";
 import styles from "./Paragraph.module.css";
 
 type ParagraphProps = {
   block: PaperBlock;
   highlightText?: string;
   onBlockUpdated?: (block: PaperBlock) => void;
+  annotations?: Annotation[];
+  flashAnnotationIds?: string[];
+  onHighlightClick?: (annotationIds: string[]) => void;
+  onOpenSourcePdf?: (block: PaperBlock) => void;
 };
 
-export function Paragraph({ block, highlightText, onBlockUpdated }: ParagraphProps) {
+function highlightMatches(text: string, query: string): ReactNode {
+  if (!query || query.length < 2) return text;
+
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <mark key={i} className={styles.highlight}>
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
+export function Paragraph({
+  block,
+  highlightText,
+  onBlockUpdated,
+  annotations = [],
+  flashAnnotationIds = [],
+  onHighlightClick,
+  onOpenSourcePdf,
+}: ParagraphProps) {
   const { expandedOriginalBlocks, toggleOriginalExpanded } = useAppStore();
   const [isRetrying, setIsRetrying] = useState(false);
+  const [showConfidence, setShowConfidence] = useState(false);
 
   const isExpanded = expandedOriginalBlocks.has(block.id);
   const skipTranslation =
@@ -31,6 +64,7 @@ export function Paragraph({ block, highlightText, onBlockUpdated }: ParagraphPro
   const isProcessing = block.translationStatus === "processing";
   const isFailed = block.translationStatus === "failed" && !hasTranslation;
   const isWaiting = !hasTranslation && (isPending || isProcessing);
+  const lowConfidence = isLowExtractionConfidence(block.extractionConfidence);
 
   const handleToggle = () => {
     toggleOriginalExpanded(block.id);
@@ -38,19 +72,19 @@ export function Paragraph({ block, highlightText, onBlockUpdated }: ParagraphPro
 
   const handleRetry = useCallback(async () => {
     if (!block.original || isRetrying) return;
-    
+
     setIsRetrying(true);
     try {
       const v2 = await getSetting<ImportConfig>("translationSettingsV2");
       const engine = new MADLADEngine(v2?.madladServerUrl);
       const result = await engine.translate(block.original, "en", "ja");
-      
+
       const updatedBlock: PaperBlock = {
         ...block,
         translated: result.text,
         translationStatus: "completed",
       };
-      
+
       await updateBlock(updatedBlock);
       onBlockUpdated?.(updatedBlock);
     } catch (e) {
@@ -60,21 +94,39 @@ export function Paragraph({ block, highlightText, onBlockUpdated }: ParagraphPro
     }
   }, [block, isRetrying, onBlockUpdated]);
 
-  const highlightMatches = (text: string, query: string): React.ReactNode => {
-    if (!query || query.length < 2) return text;
-
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-    const parts = text.split(regex);
-
-    return parts.map((part, i) =>
-      regex.test(part) ? (
-        <mark key={i} className={styles.highlight}>
-          {part}
-        </mark>
-      ) : (
-        part
-      )
+  const renderTranslated = (text: string): ReactNode => {
+    const segments = splitHighlightedText(
+      text,
+      annotations.map((a) => ({
+        id: a.id,
+        start: a.startOffset,
+        end: a.endOffset,
+        status: a.status,
+      }))
     );
+
+    return segments.map((seg, i) => {
+      const inner = highlightText ? highlightMatches(seg.text, highlightText) : seg.text;
+      if (seg.annotationIds.length === 0) {
+        return <span key={i}>{inner}</span>;
+      }
+      const flashing = flashAnnotationIds.some((id) =>
+        seg.annotationIds.includes(id)
+      );
+      return (
+        <mark
+          key={i}
+          className={`${styles.annotationMark} ${flashing ? styles.annotationFlash : ""}`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onHighlightClick?.(seg.annotationIds);
+          }}
+        >
+          {inner}
+        </mark>
+      );
+    });
   };
 
   const displayText = translated || block.original || "";
@@ -117,9 +169,43 @@ export function Paragraph({ block, highlightText, onBlockUpdated }: ParagraphPro
         </div>
       ) : (
         <>
-          <p className={styles.translated}>
-            {highlightText ? highlightMatches(displayText, highlightText) : displayText}
+          <p
+            className={styles.translated}
+            data-paper-block-id={block.id}
+            data-text-role={hasTranslation ? "translation" : "original"}
+          >
+            {hasTranslation
+              ? renderTranslated(translated!)
+              : highlightText
+                ? highlightMatches(displayText, highlightText)
+                : displayText}
           </p>
+
+          {lowConfidence && (
+            <div className={styles.confidence}>
+              <button
+                type="button"
+                className={styles.confidenceButton}
+                title="抽出精度が低い可能性があります"
+                onClick={() => setShowConfidence((v) => !v)}
+              >
+                !
+              </button>
+              {showConfidence && (
+                <div className={styles.confidenceMenu}>
+                  <p>抽出精度が低い可能性があります</p>
+                  {hasOriginal && (
+                    <button type="button" onClick={handleToggle}>
+                      原文を見る
+                    </button>
+                  )}
+                  <button type="button" onClick={() => onOpenSourcePdf?.(block)}>
+                    元PDFを見る
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {hasOriginal && (
             <button

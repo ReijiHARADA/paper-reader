@@ -89,21 +89,36 @@ export async function listProjects(): Promise<Project[]> {
   return getAllProjects();
 }
 
+export class DuplicateProjectPaperError extends Error {
+  readonly projectId: string;
+  readonly paperId: string;
+
+  constructor(projectId: string, paperId: string) {
+    super("このプロジェクトにはすでに入っています");
+    this.name = "DuplicateProjectPaperError";
+    this.projectId = projectId;
+    this.paperId = paperId;
+  }
+}
+
 export async function addPaperToProject(
   input: AddPaperToProjectInput
 ): Promise<ProjectPaper> {
   const existing = await getProjectPaper(input.projectId, input.paperId);
+  if (existing) {
+    throw new DuplicateProjectPaperError(input.projectId, input.paperId);
+  }
   const stamp = nowIso();
   const link: ProjectPaper = {
     projectId: input.projectId,
     paperId: input.paperId,
-    note: input.note ?? existing?.note,
-    relevance: input.relevance ?? existing?.relevance,
-    status: input.status ?? existing?.status ?? "unread",
-    decision: input.decision ?? existing?.decision,
-    tags: input.tags ?? existing?.tags,
-    quotes: input.quotes ?? existing?.quotes,
-    createdAt: existing?.createdAt ?? stamp,
+    note: input.note,
+    relevance: input.relevance,
+    status: input.status ?? "unread",
+    decision: input.decision,
+    tags: input.tags,
+    quotes: input.quotes,
+    createdAt: stamp,
     updatedAt: stamp,
   };
   await saveProjectPaper(link);
@@ -115,6 +130,14 @@ export async function removePaperFromProject(
   paperId: string
 ): Promise<void> {
   await deleteProjectPaper(projectId, paperId);
+}
+
+export async function removePaperFromAllProjects(paperId: string): Promise<number> {
+  const links = await getProjectPapersByPaper(paperId);
+  for (const link of links) {
+    await deleteProjectPaper(link.projectId, paperId);
+  }
+  return links.length;
 }
 
 export async function listProjectPapers(projectId: string): Promise<ProjectPaper[]> {

@@ -23,3 +23,13 @@
 - Do not run `update_python_env.sh` unless the 3.12 venv is broken.
 - Restart the server with `./restart-translation-server.sh`.
 - Speed measurements and rejected alternatives live in `translation-server/SPEED_BENCH.md`.
+- MLX bf16 (unquantized official 3B) was measured in `translation-server/MLX_BF16_BENCH_REPORT.md`. Do not switch production to it: quality matches MPS, but it is not 1.5–2× faster than the batched MPS path.
+
+## Local data
+
+- Original PDFs are copied to the Tauri app data directory as `papers/<paperId>/source.pdf`. They are not stored in IndexedDB.
+- Annotations live in IndexedDB (`annotations` store) and stay on-device.
+- Assign papers to a Project by dragging a library card onto the sidebar item. Drag onto Inbox to remove all project memberships. Do not use HTML5 drag-and-drop for this: WKWebView often starts a drag but never fires `drop`. Use pointer tracking and `elementFromPoint`.
+- Project delete lives on the project screen, not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox.
+- Reading-order regression fixtures: `test-fixtures/` (synthetic PDFs only). Run `npm test`.
+- Dotted grant identifiers (`016.128.303`) are not section headings or paper titles. Wrap them into the preceding `grant number` paragraph. Latin-ratio quality checks ignore source proper nouns and numeric ids.

@@ -25,6 +25,16 @@
   width: var(--sidebar-expanded-w);
 }
 
+.sidebarDropReady {
+  width: var(--sidebar-expanded-w);
+  transition: none;
+}
+
+:global(body.paper-dragging) .sidebar {
+  width: var(--sidebar-expanded-w);
+  transition: none;
+}
+
 /* ────────────────────────────────────────────────
    ラベル類：通常は非表示・ホバー時にフェードイン
 ──────────────────────────────────────────────── */
@@ -44,7 +54,12 @@
 .sidebar:hover .itemLabel,
 .sidebar:hover .searchInput,
 .sidebar:hover .sectionTitle,
-.sidebar:hover .empty {
+.sidebar:hover .empty,
+.sidebarDropReady .label,
+.sidebarDropReady .itemLabel,
+.sidebarDropReady .searchInput,
+.sidebarDropReady .sectionTitle,
+.sidebarDropReady .empty {
   opacity: 1;
   pointer-events: auto;
 }
@@ -82,6 +97,10 @@
 }
 
 .sidebar:hover .searchInput {
+  width: auto;
+}
+
+.sidebarDropReady .searchInput {
   width: auto;
 }
 
@@ -180,10 +199,20 @@
   font-weight: 500;
 }
 
+.item.dropTarget {
+  background: var(--color-accent-light);
+  outline: 2px dashed var(--color-accent);
+  outline-offset: -2px;
+  color: var(--color-accent);
+}
+
 .icon {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .itemLabel {
@@ -204,48 +233,11 @@
   transition: opacity var(--transition-normal);
 }
 
-.sidebar:hover .badge {
+.sidebar:hover .badge,
+.sidebarDropReady .badge {
   opacity: 1;
 }
 
 .item.active .badge {
   background: var(--color-bg);
-}
-
-/* ────────────────────────────────────────────────
-   Project 行（削除ボタン付き）
-──────────────────────────────────────────────── */
-.projectRow {
-  display: flex;
-  align-items: center;
-  border-radius: var(--radius-md);
-}
-
-.projectRow .item {
-  flex: 1;
-}
-
-.delete {
-  flex-shrink: 0;
-  opacity: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-tertiary);
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  transition: opacity var(--transition-fast);
-}
-
-.sidebar:hover .projectRow:hover .delete {
-  opacity: 1;
-}
-
-.delete:hover {
-  background: #fce8e6;
-  color: #c5221f;
-}
-
-[data-theme="dark"] .delete:hover {
-  background-color: #3c1f1e;
-  color: #f28b82;
 }

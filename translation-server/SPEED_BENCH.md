@@ -87,6 +87,20 @@ KV キャッシュの有無で title は同じ。実装バグではなく量子�
 4. 文分割は維持（3B greedy の drift 対策）。まとめるのは呼び出しだけ。
 5. 次に 2 倍を超えて質を寄せるなら、公式 3B の MLX **bf16**（量子化なし）。未測。
 
+## 2026-09-04 MLX bf16（STEP 0/1、本番未切替）
+
+詳細は [MLX_BF16_BENCH_REPORT.md](./MLX_BF16_BENCH_REPORT.md)。公式 `google/madlad400-3b-mt` を量子化なし bf16 で MLX 実行。
+
+- 品質: INT8 で落ちたタイトル後半・長段落途中停止は再発しない。MPS と実用上同等
+- 速度: 逐次同士は約 1.10×（どちらも ~21 tok/s）。現行本番の文バッチ 8 対比では平均 0.68×
+- 判定: **No-Go**。runtime 差し替えだけでは 1.5〜2 倍にならない
+
+```bash
+PYTORCH_ENABLE_MPS_FALLBACK=1 .venv/bin/python scripts/bench_mps_baseline.py --sequential
+.venv/bin/python scripts/convert_madlad_mlx_bf16.py
+.venv-mlx-bf16/bin/python scripts/bench_mlx_bf16.py
+```
+
 ## 再現
 
 ```bash

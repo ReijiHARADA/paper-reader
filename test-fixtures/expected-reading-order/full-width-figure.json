@@ -1,0 +1,5 @@
+{
+  "name": "full-width-figure",
+  "captionToken": "FWFIG_CAPTION",
+  "captionNotMixedIntoBody": true
+}

@@ -1,0 +1,971 @@
+{
+  "engine": "pytorch-mps-bf16",
+  "model": "google/madlad400-3b-mt",
+  "device": "mps",
+  "dtype": "torch.bfloat16",
+  "batch_size": 8,
+  "sentence_split": true,
+  "generation": {
+    "num_beams": 1,
+    "do_sample": false,
+    "max_new_tokens": "min(max(input*3+24, 48), 256)",
+    "decoder_start_token_id": 0,
+    "eos_token_id": 2,
+    "pad_token_id": 1
+  },
+  "model_load_s": 26.341104541963432,
+  "peak_memory": {
+    "rss_bytes": 237387776,
+    "mps_current_allocated_bytes": 5889136640,
+    "mps_driver_allocated_bytes": 6630998016
+  },
+  "host": {
+    "python": "3.12.14",
+    "platform": "macOS-26.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "mac_ver": "26.0",
+    "timestamp": "2026-09-04T08:34:34.359456+00:00"
+  },
+  "cases": [
+    {
+      "id": "short",
+      "name": "短い一般文",
+      "input_chars": 97,
+      "chunks": 1,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+          "wall_s": 1.756508374994155,
+          "wall_ms": 1756.508374994155,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 14.802092816714591,
+          "chars_per_sec": 17.648649127621244,
+          "engine_ms": 1756.4630508422852,
+          "memory": {
+            "rss_bytes": 755843072,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504054784
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+          "wall_s": 1.2166797909885645,
+          "wall_ms": 1216.6797909885645,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 21.369632497039127,
+          "chars_per_sec": 25.47917720800819,
+          "engine_ms": 1216.6497707366943,
+          "memory": {
+            "rss_bytes": 756367360,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504054784
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+          "wall_s": 1.2975178750348277,
+          "wall_ms": 1297.5178750348277,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 20.03825958798611,
+          "chars_per_sec": 23.891771047214206,
+          "engine_ms": 1297.4960803985596,
+          "memory": {
+            "rss_bytes": 756596736,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504054784
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+          "wall_s": 1.2761211670003831,
+          "wall_ms": 1276.1211670003831,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 20.374240841968728,
+          "chars_per_sec": 24.292364080808866,
+          "engine_ms": 1276.082992553711,
+          "memory": {
+            "rss_bytes": 756744192,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504054784
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 1.2761211670003831,
+      "warm_tokens_per_sec_median": 20.374240841968728,
+      "warm_chars_per_sec_median": 24.292364080808866,
+      "warm_translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+      "warm_output_tokens": 26,
+      "warm_input_tokens": 20,
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.32,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+        "wall_s": 1.2960008750087582,
+        "wall_ms": 1296.0008750087582,
+        "input_chars": 97,
+        "output_chars": 31,
+        "input_tokens": 20,
+        "output_tokens": 26,
+        "tokens_per_sec": 20.061714850172688,
+        "chars_per_sec": 23.919736936744357,
+        "engine_ms": 1295.9790229797363,
+        "memory": {
+          "rss_bytes": 757547008,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6504054784
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "title",
+      "name": "論文タイトル",
+      "input_chars": 43,
+      "chunks": 2,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "インタラクティブジュエリー: デザインの探求",
+          "wall_s": 0.6195848749484867,
+          "wall_ms": 619.5848749484867,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 32.27967758519417,
+          "chars_per_sec": 35.50764534371359,
+          "engine_ms": 619.5638179779053,
+          "memory": {
+            "rss_bytes": 766279680,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504071168
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "インタラクティブジュエリー: デザインの探求",
+          "wall_s": 0.5673122910084203,
+          "wall_ms": 567.3122910084203,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 35.253951513106124,
+          "chars_per_sec": 38.779346664416735,
+          "engine_ms": 567.2900676727295,
+          "memory": {
+            "rss_bytes": 766443520,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504071168
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "インタラクティブジュエリー: デザインの探求",
+          "wall_s": 0.553394999995362,
+          "wall_ms": 553.394999995362,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 36.1405506015913,
+          "chars_per_sec": 39.75460566175043,
+          "engine_ms": 553.3719062805176,
+          "memory": {
+            "rss_bytes": 766459904,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504071168
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "インタラクティブジュエリー: デザインの探求",
+          "wall_s": 0.5582035420229658,
+          "wall_ms": 558.2035420229658,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 35.82922445729868,
+          "chars_per_sec": 39.41214690302855,
+          "engine_ms": 558.1710338592529,
+          "memory": {
+            "rss_bytes": 766525440,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6504071168
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 0.5582035420229658,
+      "warm_tokens_per_sec_median": 35.82922445729868,
+      "warm_chars_per_sec_median": 39.41214690302855,
+      "warm_translation": "インタラクティブジュエリー: デザインの探求",
+      "warm_output_tokens": 20,
+      "warm_input_tokens": 16,
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.512,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "インタラクティブジュエリー: デザインの探求",
+        "wall_s": 0.9133093330310658,
+        "wall_ms": 913.3093330310658,
+        "input_chars": 43,
+        "output_chars": 22,
+        "input_tokens": 16,
+        "output_tokens": 20,
+        "tokens_per_sec": 21.898385658257265,
+        "chars_per_sec": 24.088224224082992,
+        "engine_ms": 913.2809638977051,
+        "memory": {
+          "rss_bytes": 767655936,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6504071168
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "abstract",
+      "name": "Abstractの1段落",
+      "input_chars": 443,
+      "chunks": 3,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+          "wall_s": 3.1795920829754323,
+          "wall_ms": 3179.5920829754323,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 40.256736291851254,
+          "chars_per_sec": 48.11938009885345,
+          "engine_ms": 3179.572105407715,
+          "memory": {
+            "rss_bytes": 811188224,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6613139456
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+          "wall_s": 3.074619542050641,
+          "wall_ms": 3074.619542050641,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 41.63116712470689,
+          "chars_per_sec": 49.762254453751204,
+          "engine_ms": 3074.5930671691895,
+          "memory": {
+            "rss_bytes": 811843584,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+          "wall_s": 3.050062499998603,
+          "wall_ms": 3050.062499998603,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 41.96635314852028,
+          "chars_per_sec": 50.162906497840645,
+          "engine_ms": 3050.039052963257,
+          "memory": {
+            "rss_bytes": 812105728,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+          "wall_s": 3.050403416971676,
+          "wall_ms": 3050.403416971676,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 41.961662935413806,
+          "chars_per_sec": 50.157300227486814,
+          "engine_ms": 3050.381898880005,
+          "memory": {
+            "rss_bytes": 812318720,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 3.050403416971676,
+      "warm_tokens_per_sec_median": 41.961662935413806,
+      "warm_chars_per_sec_median": 50.157300227486814,
+      "warm_translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+      "warm_output_tokens": 128,
+      "warm_input_tokens": 103,
+      "quality": {
+        "source_sentence_count": 3,
+        "translation_sentence_count": 3,
+        "output_length_ratio": 0.345,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。宝石の材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+        "wall_s": 5.964981249999255,
+        "wall_ms": 5964.981249999255,
+        "input_chars": 443,
+        "output_chars": 150,
+        "input_tokens": 103,
+        "output_tokens": 127,
+        "tokens_per_sec": 21.290930294209367,
+        "chars_per_sec": 25.146768064026812,
+        "engine_ms": 5964.96319770813,
+        "memory": {
+          "rss_bytes": 815169536,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6621528064
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "body_short",
+      "name": "本文の短い段落",
+      "input_chars": 114,
+      "chunks": 1,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+          "wall_s": 1.5975249580224045,
+          "wall_ms": 1597.5249580224045,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 21.282922579243465,
+          "chars_per_sec": 24.412764135014562,
+          "engine_ms": 1597.5050926208496,
+          "memory": {
+            "rss_bytes": 818380800,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+          "wall_s": 1.7681664169649594,
+          "wall_ms": 1768.1664169649594,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 19.228959261855383,
+          "chars_per_sec": 22.05674738859882,
+          "engine_ms": 1768.1262493133545,
+          "memory": {
+            "rss_bytes": 574537728,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+          "wall_s": 1.4699914590455592,
+          "wall_ms": 1469.9914590455592,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 23.129386086416876,
+          "chars_per_sec": 26.53076639324289,
+          "engine_ms": 1469.9480533599854,
+          "memory": {
+            "rss_bytes": 517881856,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+          "wall_s": 1.6131633330369368,
+          "wall_ms": 1613.1633330369368,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 21.076601050677052,
+          "chars_per_sec": 24.176101205188385,
+          "engine_ms": 1613.1362915039062,
+          "memory": {
+            "rss_bytes": 277905408,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6621528064
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 1.6131633330369368,
+      "warm_tokens_per_sec_median": 21.076601050677052,
+      "warm_chars_per_sec_median": 24.176101205188385,
+      "warm_translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+      "warm_output_tokens": 34,
+      "warm_input_tokens": 30,
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.342,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+        "wall_s": 1.584843415999785,
+        "wall_ms": 1584.843415999785,
+        "input_chars": 114,
+        "output_chars": 39,
+        "input_tokens": 30,
+        "output_tokens": 34,
+        "tokens_per_sec": 21.453223489937894,
+        "chars_per_sec": 24.6081092972817,
+        "engine_ms": 1584.7830772399902,
+        "memory": {
+          "rss_bytes": 277905408,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6621528064
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "intro",
+      "name": "6文程度のIntroduction",
+      "input_chars": 766,
+      "chunks": 6,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+          "wall_s": 3.412396500003524,
+          "wall_ms": 3412.396500003524,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 67.98741002101028,
+          "chars_per_sec": 78.53718054151187,
+          "engine_ms": 3412.2190475463867,
+          "memory": {
+            "rss_bytes": 246644736,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6629933056
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+          "wall_s": 3.128792166011408,
+          "wall_ms": 3128.792166011408,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 74.1500194612652,
+          "chars_per_sec": 85.65605696387532,
+          "engine_ms": 3128.772020339966,
+          "memory": {
+            "rss_bytes": 255262720,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6629933056
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+          "wall_s": 3.0907945000217296,
+          "wall_ms": 3090.7945000217296,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 75.06160632755395,
+          "chars_per_sec": 86.70909696458818,
+          "engine_ms": 3090.773105621338,
+          "memory": {
+            "rss_bytes": 255623168,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6629933056
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+          "wall_s": 3.1339186670375057,
+          "wall_ms": 3133.9186670375057,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 74.02872398705537,
+          "chars_per_sec": 85.51593977815017,
+          "engine_ms": 3133.894920349121,
+          "memory": {
+            "rss_bytes": 255934464,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6629933056
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 3.128792166011408,
+      "warm_tokens_per_sec_median": 74.1500194612652,
+      "warm_chars_per_sec_median": 85.65605696387532,
+      "warm_translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+      "warm_output_tokens": 232,
+      "warm_input_tokens": 188,
+      "quality": {
+        "source_sentence_count": 6,
+        "translation_sentence_count": 6,
+        "output_length_ratio": 0.35,
+        "missing_numbers": [
+          "8"
+        ],
+        "missing_citations": [
+          "[8]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型の電子機器が登場した。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+        "wall_s": 11.394900999963284,
+        "wall_ms": 11394.900999963284,
+        "input_chars": 766,
+        "output_chars": 271,
+        "input_tokens": 188,
+        "output_tokens": 236,
+        "tokens_per_sec": 20.711018024707755,
+        "chars_per_sec": 23.78256730803306,
+        "engine_ms": 11394.881010055542,
+        "memory": {
+          "rss_bytes": 233930752,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6629933056
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "long",
+      "name": "かなり長い段落",
+      "input_chars": 1503,
+      "chunks": 10,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+          "wall_s": 7.318000208993908,
+          "wall_ms": 7318.000208993908,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 70.64771593810573,
+          "chars_per_sec": 85.26919679957055,
+          "engine_ms": 7317.915201187134,
+          "memory": {
+            "rss_bytes": 265338880,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+          "wall_s": 6.6423260839655995,
+          "wall_ms": 6642.3260839655995,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 77.83417939206936,
+          "chars_per_sec": 93.94299408249763,
+          "engine_ms": 6642.291069030762,
+          "memory": {
+            "rss_bytes": 268992512,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+          "wall_s": 6.749705458001699,
+          "wall_ms": 6749.705458001699,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 76.595934921442,
+          "chars_per_sec": 92.44847851253347,
+          "engine_ms": 6749.692916870117,
+          "memory": {
+            "rss_bytes": 244039680,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+          "wall_s": 6.866940416977741,
+          "wall_ms": 6866.940416977741,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 75.28826065270283,
+          "chars_per_sec": 90.870163727827,
+          "engine_ms": 6866.897106170654,
+          "memory": {
+            "rss_bytes": 240353280,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 6.749705458001699,
+      "warm_tokens_per_sec_median": 76.595934921442,
+      "warm_chars_per_sec_median": 92.44847851253347,
+      "warm_translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+      "warm_output_tokens": 517,
+      "warm_input_tokens": 367,
+      "quality": {
+        "source_sentence_count": 10,
+        "translation_sentence_count": 10,
+        "output_length_ratio": 0.415,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": true
+      },
+      "sequential_warm": {
+        "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、それらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化した電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+        "wall_s": 25.756873207981698,
+        "wall_ms": 25756.8732079817,
+        "input_chars": 1503,
+        "output_chars": 623,
+        "input_tokens": 367,
+        "output_tokens": 517,
+        "tokens_per_sec": 20.072312187326716,
+        "chars_per_sec": 24.187718554554245,
+        "engine_ms": 25756.81471824646,
+        "memory": {
+          "rss_bytes": 228196352,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6630998016
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "citations",
+      "name": "引用番号を含む文章",
+      "input_chars": 258,
+      "chunks": 2,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+          "wall_s": 2.2208932079956867,
+          "wall_ms": 2220.8932079956867,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 33.77019648220099,
+          "chars_per_sec": 36.92208148720641,
+          "engine_ms": 2220.87025642395,
+          "memory": {
+            "rss_bytes": 239321088,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+          "wall_s": 2.241382791020442,
+          "wall_ms": 2241.382791020442,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 33.461486498633505,
+          "chars_per_sec": 36.5845585718393,
+          "engine_ms": 2241.353988647461,
+          "memory": {
+            "rss_bytes": 239599616,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+          "wall_s": 2.21533645800082,
+          "wall_ms": 2215.33645800082,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 33.85490259465239,
+          "chars_per_sec": 37.01469350348661,
+          "engine_ms": 2215.3079509735107,
+          "memory": {
+            "rss_bytes": 239714304,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+          "wall_s": 2.8267019169870764,
+          "wall_ms": 2826.7019169870764,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 26.532687988530803,
+          "chars_per_sec": 29.00907220079368,
+          "engine_ms": 2826.5488147735596,
+          "memory": {
+            "rss_bytes": 219922432,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 2.241382791020442,
+      "warm_tokens_per_sec_median": 33.461486498633505,
+      "warm_chars_per_sec_median": 36.5845585718393,
+      "warm_translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+      "warm_output_tokens": 75,
+      "warm_input_tokens": 76,
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.318,
+        "missing_numbers": [
+          "8",
+          "12",
+          "3"
+        ],
+        "missing_citations": [
+          "[8]",
+          "[12]",
+          "[3]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+        "wall_s": 3.9183406659867615,
+        "wall_ms": 3918.3406659867615,
+        "input_chars": 258,
+        "output_chars": 82,
+        "input_tokens": 76,
+        "output_tokens": 75,
+        "tokens_per_sec": 19.140755333256006,
+        "chars_per_sec": 20.92722583102657,
+        "engine_ms": 3918.31111907959,
+        "memory": {
+          "rss_bytes": 209125376,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6630998016
+        },
+        "phase": "warm_sequential"
+      }
+    },
+    {
+      "id": "terms",
+      "name": "固有名詞・専門用語を含む文章",
+      "input_chars": 254,
+      "chunks": 2,
+      "batch_size": 8,
+      "runs": [
+        {
+          "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+          "wall_s": 3.7155284169712104,
+          "wall_ms": 3715.5284169712104,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 30.951183006627257,
+          "chars_per_sec": 35.2574345553754,
+          "engine_ms": 3715.4998779296875,
+          "memory": {
+            "rss_bytes": 236240896,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "cold"
+        },
+        {
+          "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+          "wall_s": 3.733014958037529,
+          "wall_ms": 3733.014958037529,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 30.806198553368848,
+          "chars_per_sec": 35.092278352098425,
+          "engine_ms": 3732.990026473999,
+          "memory": {
+            "rss_bytes": 236568576,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm1"
+        },
+        {
+          "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+          "wall_s": 3.600139333982952,
+          "wall_ms": 3600.139333982952,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 31.943208118217953,
+          "chars_per_sec": 36.38748055205697,
+          "engine_ms": 3600.1179218292236,
+          "memory": {
+            "rss_bytes": 236716032,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm2"
+        },
+        {
+          "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+          "wall_s": 3.6845842080074362,
+          "wall_ms": 3684.5842080074362,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 31.21112003630666,
+          "chars_per_sec": 35.5535367370102,
+          "engine_ms": 3684.566020965576,
+          "memory": {
+            "rss_bytes": 236552192,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6630998016
+          },
+          "phase": "warm3"
+        }
+      ],
+      "warm_wall_s_median": 3.6845842080074362,
+      "warm_tokens_per_sec_median": 31.21112003630666,
+      "warm_chars_per_sec_median": 35.5535367370102,
+      "warm_translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+      "warm_output_tokens": 115,
+      "warm_input_tokens": 77,
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.516,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "sequential_warm": {
+        "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+        "wall_s": 5.304721582971979,
+        "wall_ms": 5304.721582971979,
+        "input_chars": 254,
+        "output_chars": 131,
+        "input_tokens": 77,
+        "output_tokens": 115,
+        "tokens_per_sec": 21.678800329341897,
+        "chars_per_sec": 24.694981244728595,
+        "engine_ms": 5304.682970046997,
+        "memory": {
+          "rss_bytes": 237371392,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6630998016
+        },
+        "phase": "warm_sequential"
+      }
+    }
+  ]
+}

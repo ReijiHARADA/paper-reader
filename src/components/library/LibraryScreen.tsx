@@ -9,42 +9,32 @@ import {
   AlertCircle,
   Clock,
   Upload,
-  Trash2,
 } from "lucide-react";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
-import { useProjectStore } from "../../stores/projectStore";
 import { samplePaper, sampleSections, sampleBlocks } from "../../data/samplePaper";
-import { deletePaper as deletePaperFromDB } from "../../services/database";
-import { addPaperToProject, createProject } from "../../services/projectService";
 import { SettingsModal } from "../settings/SettingsModal";
-import { AddToProjectMenu } from "../project/AddToProjectMenu";
-import { NewProjectModal } from "../project/NewProjectModal";
+import { PaperDeleteControls } from "./PaperDeleteControls";
+import { DraggablePaperArticle } from "./DraggablePaperArticle";
+import { useDeletePaper } from "../../hooks/useDeletePaper";
 import type { Paper } from "../../types/paper";
+import { processingStatusLabel, isBusyProcessingStatus } from "../../services/paperStatus";
 import { checkMADLADAvailability } from "../../services/importServiceV2";
 import { setPendingImportFile } from "../../services/pendingImport";
 import { displayPaperTitle, usableTranslatedText, isGarbageTitle } from "../../services/translation/quality";
 import styles from "./LibraryScreen.module.css";
 
 function getStatusIcon(status: Paper["processingStatus"]) {
-  switch (status) {
-    case "ready":      return <CheckCircle size={16} className={styles.statusReady} />;
-    case "translating": case "extracting": case "structuring": case "glossary":
-      return <Loader2 size={16} className={styles.statusProcessing} />;
-    case "failed":     return <AlertCircle size={16} className={styles.statusFailed} />;
-    default:           return <Clock size={16} className={styles.statusPending} />;
+  if (isBusyProcessingStatus(status)) {
+    return <Loader2 size={16} className={styles.statusProcessing} />;
   }
-}
-
-function getStatusText(status: Paper["processingStatus"]) {
   switch (status) {
-    case "ready":        return "翻訳完了";
-    case "translating":  return "翻訳中...";
-    case "extracting":   return "テキスト抽出中...";
-    case "structuring":  return "構造解析中...";
-    case "glossary":     return "用語集生成中...";
-    case "partial":      return "一部完了";
-    case "failed":       return "処理失敗";
-    default:             return "処理待ち";
+    case "ready":
+      return <CheckCircle size={16} className={styles.statusReady} />;
+    case "partial":
+    case "failed":
+      return <AlertCircle size={16} className={styles.statusFailed} />;
+    default:
+      return <Clock size={16} className={styles.statusPending} />;
   }
 }
 
@@ -57,13 +47,13 @@ function formatDate(dateString: string) {
 export function LibraryScreen() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { papers, addPaper, removePaper, setCurrentPaper } = useAppStore();
+  const { papers, addPaper, setCurrentPaper } = useAppStore();
   const { setSections, setBlocks } = usePaperDataStore();
-  const { projects, memberships, upsertMembership, upsertProject } = useProjectStore();
 
+  const { pendingId, error, busy, requestDelete, cancelDelete, confirmDelete } =
+    useDeletePaper();
   const [isDragging, setIsDragging] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showNewProject, setShowNewProject] = useState(false);
 
   // AppShell now handles loading from DB – LibraryScreen just reads from store
 
@@ -78,10 +68,26 @@ export function LibraryScreen() {
     navigate("/import");
   }, [navigate]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }, []);
-  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }, []);
+  const isFileDrag = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types).includes("Files");
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (!isFileDrag(e)) return;
     const files = e.dataTransfer.files;
     if (files.length > 0) handleFileSelect(files[0]);
   }, [handleFileSelect]);
@@ -97,29 +103,9 @@ export function LibraryScreen() {
   };
 
   const handleOpenPaper = (paperId: string) => {
+    if (pendingId === paperId) return;
     setCurrentPaper(paperId);
     navigate(`/reader/${paperId}`);
-  };
-
-  const handleDeletePaper = async (e: React.MouseEvent, paperId: string) => {
-    e.stopPropagation();
-    if (!confirm("この論文を削除しますか？翻訳データも削除されます。")) return;
-    try {
-      await deletePaperFromDB(paperId);
-      removePaper(paperId);
-    } catch (err) {
-      console.error("Failed to delete paper:", err);
-    }
-  };
-
-  const handleAddToProject = async (projectId: string, paperId: string) => {
-    const link = await addPaperToProject({ projectId, paperId });
-    upsertMembership(link);
-  };
-
-  const handleCreateProject = async (input: { name: string; description?: string }) => {
-    const p = await createProject(input);
-    upsertProject(p);
   };
 
   const isEmpty = papers.length === 0;
@@ -178,55 +164,46 @@ export function LibraryScreen() {
             </div>
 
             <div className={styles.paperList}>
-              {papers.map((paper) => {
-                const paperProjectIds = memberships
-                  .filter((m) => m.paperId === paper.id)
-                  .map((m) => m.projectId);
-                return (
-                  <article
-                    key={paper.id}
-                    className={styles.paperCard}
-                    onClick={() => handleOpenPaper(paper.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpenPaper(paper.id); }}
-                  >
-                    <div className={styles.paperIcon}><FileText size={32} strokeWidth={1.5} /></div>
-                    <div className={styles.paperInfo}>
-                      <h3 className={styles.paperTitle}>{displayPaperTitle(paper)}</h3>
-                      {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
-                        paper.titleOriginal && !isGarbageTitle(paper.titleOriginal) && (
-                        <p className={styles.paperOriginalTitle}>{paper.titleOriginal}</p>
-                      )}
-                      {paper.authors.length > 0 && (
-                        <p className={styles.paperAuthors}>
-                          {paper.authors.slice(0, 3).join(", ")}{paper.authors.length > 3 && " ほか"}
-                        </p>
-                      )}
-                      <div className={styles.paperMeta}>
-                        <span className={styles.paperStatus}>
-                          {getStatusIcon(paper.processingStatus)}
-                          {getStatusText(paper.processingStatus)}
-                        </span>
-                        <span className={styles.paperDate}>最終閲覧: {formatDate(paper.updatedAt)}</span>
-                      </div>
+              {papers.map((paper) => (
+                <DraggablePaperArticle
+                  key={paper.id}
+                  paperId={paper.id}
+                  label={displayPaperTitle(paper)}
+                  className={styles.paperCard}
+                  enabled={pendingId !== paper.id}
+                  onOpen={() => handleOpenPaper(paper.id)}
+                >
+                  <div className={styles.paperIcon}><FileText size={32} strokeWidth={1.5} /></div>
+                  <div className={styles.paperInfo}>
+                    <h3 className={styles.paperTitle}>{displayPaperTitle(paper)}</h3>
+                    {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
+                      paper.titleOriginal && !isGarbageTitle(paper.titleOriginal) && (
+                      <p className={styles.paperOriginalTitle}>{paper.titleOriginal}</p>
+                    )}
+                    {paper.authors.length > 0 && (
+                      <p className={styles.paperAuthors}>
+                        {paper.authors.slice(0, 3).join(", ")}{paper.authors.length > 3 && " ほか"}
+                      </p>
+                    )}
+                    <div className={styles.paperMeta}>
+                      <span className={styles.paperStatus}>
+                        {getStatusIcon(paper.processingStatus)}
+                        {processingStatusLabel(paper.processingStatus)}
+                      </span>
+                      <span className={styles.paperDate}>最終閲覧: {formatDate(paper.updatedAt)}</span>
                     </div>
-                    <AddToProjectMenu
-                      projects={projects}
-                      addedProjectIds={paperProjectIds}
-                      onAdd={(pid) => handleAddToProject(pid, paper.id)}
-                      onCreateProject={() => setShowNewProject(true)}
-                    />
-                    <button
-                      className={styles.deleteButton}
-                      onClick={(e) => handleDeletePaper(e, paper.id)}
-                      title="削除"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </article>
-                );
-              })}
+                  </div>
+                  <PaperDeleteControls
+                    paperId={paper.id}
+                    pendingId={pendingId}
+                    error={error}
+                    busy={busy}
+                    onRequest={requestDelete}
+                    onConfirm={confirmDelete}
+                    onCancel={cancelDelete}
+                  />
+                </DraggablePaperArticle>
+              ))}
             </div>
           </>
         )}
@@ -240,9 +217,6 @@ export function LibraryScreen() {
       )}
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-      {showNewProject && (
-        <NewProjectModal onClose={() => setShowNewProject(false)} onCreate={handleCreateProject} />
-      )}
     </div>
   );
 }

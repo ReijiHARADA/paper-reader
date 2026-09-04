@@ -381,9 +381,72 @@ const NAMED_HEADINGS = [
   /^results?$/i,
 ];
 
+function looksLikeGrantIdentifier(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/^\d{3,}(?:\.\d+){1,}$/.test(t)) return true;
+  if (/^0\d+(?:\.\d+)+$/.test(t)) return true;
+  const dotted = t.match(/^(\d+)(?:\.(\d+)){2,}$/);
+  if (dotted && (dotted[1].length >= 3 || /^0/.test(dotted[1]))) return true;
+  return false;
+}
+
+function startsWithGrantIdentifier(text: string): boolean {
+  const first = (text.trim().split(/\s+/)[0] ?? "").replace(/[,;:]$/, "");
+  return looksLikeGrantIdentifier(first);
+}
+
+function looksLikeSectionNumberedHeading(text: string): boolean {
+  const match = text
+    .trim()
+    .match(/^(\d{1,2})(?:\.\d{1,2}){1,3}\.?\s+([A-Za-z].+)$/);
+  if (!match) return false;
+  if (/^0/.test(match[1])) return false;
+  const rest = match[2].trim();
+  const first = rest.split(/\s+/)[0] ?? "";
+  if (looksLikeGrantIdentifier(first) || looksLikeGrantIdentifier(rest)) {
+    return false;
+  }
+  return rest.length < 70 && rest.split(/\s+/).length <= 10;
+}
+
+function isGrantNumberContinuation(previous: string, next: string): boolean {
+  const a = previous.trim();
+  const b = next.trim();
+  if (!a || !b) return false;
+  if (/[.!?]$/.test(a)) return false;
+  const nextFirst = b.split(/\s+/)[0] ?? b;
+  if (
+    /\b(?:grant|award|project|contract)\s+(?:numbers?|no\.?|#)\s*$/i.test(a) &&
+    /^\d/.test(b)
+  ) {
+    return true;
+  }
+  if (/\bnumbers?\s*$/i.test(a) && looksLikeGrantIdentifier(nextFirst)) {
+    return true;
+  }
+  if (!/[.!?]$/.test(a) && looksLikeGrantIdentifier(nextFirst)) {
+    return true;
+  }
+  // "...grant number 016.128.303" wrapping onto "Research (NWO), awarded..."
+  if (
+    /\b(?:grant|award|project|contract)\s+(?:numbers?|no\.?|#)\b/i.test(a) &&
+    /\d+(?:\.\d+){1,}/.test(a) &&
+    /^[A-Z(]/.test(b) &&
+    !looksLikeSectionNumberedHeading(b) &&
+    !NAMED_HEADINGS.some((re) => re.test(b))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
   const text = line.text.trim();
   if (!text || text.length > 90) return false;
+  if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
+    return false;
+  }
   if (isFigureCaption(text) || isTableCaption(text)) return false;
   if (/^\d+\.\s+[A-Z]/.test(text) && !/^\d+\.\d+/.test(text)) {
     // "6. Martin A. Conway..." is a bibliography item, not "6. Results"
@@ -393,14 +456,19 @@ function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
     if (/\band\b/.test(text) && /[A-Z][a-z]+\s+[A-Z]/.test(text)) return false;
   }
   if (NAMED_HEADINGS.some((re) => re.test(text))) return true;
-  if (/^\d+(\.\d+)+\.?\s+\S/.test(text) && text.length < 80) return true;
+  if (looksLikeSectionNumberedHeading(text)) return true;
   if (/^\d+\.?\s+[A-Z][A-Za-z].{0,40}$/.test(text) && text.split(/\s+/).length <= 8) {
-    if (!/,/.test(text) && !/\b(19|20)\d{2}\b/.test(text)) return true;
+    if (!/,/.test(text) && !/\b(19|20)\d{2}\b/.test(text) && !looksLikeGrantIdentifier(text)) {
+      return true;
+    }
   }
   const letters = text.replace(/[^A-Za-z]/g, "");
   const upper = text.replace(/[^A-Z]/g, "");
   if (letters.length >= 6 && upper.length / letters.length > 0.72) return true;
-  if (line.fontSize > baseFont * 1.18 && text.length < 80) return true;
+  if (line.fontSize > baseFont * 1.18 && text.length < 80) {
+    if (!/[A-Za-z]{3,}/.test(text)) return false;
+    return true;
+  }
   return false;
 }
 
@@ -553,6 +621,9 @@ function roleForLine(
   const inMasthead =
     line.page === 1 && (mastheadEndY < 0 || line.y < mastheadEndY);
   if (inMasthead) {
+    if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
+      return "paragraph";
+    }
     if (line.fontSize > baseFont * 1.35 && text.length > 8) return "title";
     if (looksLikeEmail(text)) return "author";
     if (looksLikePersonName(text)) return "author";
@@ -614,12 +685,19 @@ function groupLinesIntoBlocks(
     if (isReferencesHeading(line.text)) {
       inReferences = true;
     }
-    const forcedRole =
+    let forcedRole =
       inReferences &&
       role === "heading" &&
       !isReferencesHeading(line.text)
         ? "paragraph"
         : role;
+    if (
+      currentRole === "paragraph" &&
+      forcedRole === "heading" &&
+      isGrantNumberContinuation(joinLines(current), line.text)
+    ) {
+      forcedRole = "paragraph";
+    }
     const atomic =
       forcedRole === "heading" ||
       forcedRole === "title" ||
@@ -643,6 +721,14 @@ function groupLinesIntoBlocks(
       currentRole !== "title" &&
       canMerge(current[current.length - 1], line, baseFont);
 
+    const grantContinue =
+      currentRole === "paragraph" &&
+      forcedRole === "paragraph" &&
+      line.page === current[current.length - 1].page &&
+      line.column === current[current.length - 1].column &&
+      line.y - current[current.length - 1].y < baseFont * 3.2 &&
+      isGrantNumberContinuation(joinLines(current), line.text);
+
     const captionContinue =
       (currentRole === "figure_caption" || currentRole === "table_caption") &&
       line.page === current[0].page &&
@@ -651,7 +737,7 @@ function groupLinesIntoBlocks(
       line.fontSize <= current[0].fontSize + 0.6 &&
       !isHeadingLine(line, baseFont);
 
-    if (mergeable || captionContinue) {
+    if (mergeable || captionContinue || grantContinue) {
       current.push(line);
       continue;
     }
@@ -673,6 +759,7 @@ function isSentenceContinuation(left: string, right: string): boolean {
   if (!a || !b) return false;
   if (/[.!?]$/.test(a)) return false;
   if (a.endsWith("-") && /^[a-z]/.test(b)) return true;
+  if (isGrantNumberContinuation(a, b)) return true;
   return /^[a-z(]/.test(b);
 }
 

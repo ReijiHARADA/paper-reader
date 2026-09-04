@@ -15,6 +15,7 @@ type ProjectState = {
   setMemberships: (memberships: ProjectPaper[]) => void;
   upsertMembership: (link: ProjectPaper) => void;
   removeMembershipLocal: (projectId: string, paperId: string) => void;
+  removeMembershipsForPaper: (paperId: string) => void;
 };
 
 export const useProjectStore = create<ProjectState>()((set) => ({
@@ -59,5 +60,9 @@ export const useProjectStore = create<ProjectState>()((set) => ({
       memberships: state.memberships.filter(
         (link) => !(link.projectId === projectId && link.paperId === paperId)
       ),
+    })),
+  removeMembershipsForPaper: (paperId) =>
+    set((state) => ({
+      memberships: state.memberships.filter((link) => link.paperId !== paperId),
     })),
 }));

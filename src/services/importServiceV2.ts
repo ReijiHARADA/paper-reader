@@ -27,10 +27,12 @@ import {
   type BenchmarkEntry,
 } from "./database";
 import type { Paper, Section, PaperBlock } from "../types/paper";
+import { persistSourcePdf } from "./sourcePdf";
 import {
   MADLADEngine,
   TranslationQueue,
   TranslationPriority,
+  translationManager,
   type TranslationPriorityValue,
 } from "./translation";
 import {
@@ -44,6 +46,7 @@ import {
 } from "./translation/quality";
 import { OllamaProvider, generateGlossary } from "./llm";
 import { resolveMadladServerUrl, MADLAD_MODEL_VERSION } from "./translation/madladEngine";
+import { finalizedTranslationStatus } from "./paperStatus";
 
 // ============================================================
 // Types
@@ -129,7 +132,7 @@ function shouldTranslateSection(section: Section): boolean {
   return shouldTranslateHeading(section.originalTitle);
 }
 
-function shouldTranslateBlock(
+export function shouldTranslateBlock(
   block: PaperBlock,
   refSectionIds: Set<string> = new Set()
 ): boolean {
@@ -273,6 +276,13 @@ export async function importPDFV2(
       fileHash,
       pdfResult.metadata
     );
+    paper.sourceFileName = file.name;
+    try {
+      paper.sourceStoredPath = await persistSourcePdf(paperId, file);
+    } catch (e) {
+      console.warn("Failed to persist source PDF copy:", e);
+      paper.sourceStoredPath = null;
+    }
 
     callbacks.onProgress({
       stage: "structuring",
@@ -376,6 +386,7 @@ export async function importPDFV2(
       retryDelayMs: 1000,
     });
     translationQueue.start();
+    translationManager.attach(paperId, translationQueue);
 
     // Track translation progress
     let translatedCount = 0;
@@ -617,7 +628,9 @@ export async function importPDFV2(
     // Update section translations
     await saveSections(sections);
 
-    paper.processingStatus = "ready";
+    paper.processingStatus = finalizedTranslationStatus(blocks, (block) =>
+      shouldTranslateBlock(block, refSectionIds)
+    );
     paper.updatedAt = new Date().toISOString();
     await savePaper(paper);
 
@@ -646,6 +659,7 @@ export async function importPDFV2(
     });
     return null;
   } finally {
+    translationManager.detach(paperId);
     activeImportPaperIds.delete(paperId);
   }
 }
@@ -674,6 +688,7 @@ export async function resumeIncompleteTranslation(
     const pendingBlocks = blocks.filter(
       (b) =>
         shouldTranslateBlock(b, refSectionIds) &&
+        b.translationStatus !== "failed" &&
         (!b.translated || !isPlausibleJaTranslation(b.translated, b.original || ""))
     );
     const pendingTitle = Boolean(
@@ -691,8 +706,11 @@ export async function resumeIncompleteTranslation(
     );
 
     if (!pendingBlocks.length && !pendingTitle && pendingSections.length === 0) {
-      if (paper.processingStatus !== "ready") {
-        paper.processingStatus = "ready";
+      const nextStatus = finalizedTranslationStatus(blocks, (block) =>
+        shouldTranslateBlock(block, refSectionIds)
+      );
+      if (paper.processingStatus !== nextStatus) {
+        paper.processingStatus = nextStatus;
         await savePaper(paper);
         callbacks.onPaperUpdated?.(paper);
       }
@@ -706,6 +724,7 @@ export async function resumeIncompleteTranslation(
       retryFailed: false,
     });
     queue.start();
+    translationManager.attach(paperId, queue);
 
     paper.processingStatus = "translating";
     await savePaper(paper);
@@ -793,11 +812,14 @@ export async function resumeIncompleteTranslation(
     if (outstanding === 0) settleAll();
     await allDone;
 
-    paper.processingStatus = "ready";
+    paper.processingStatus = finalizedTranslationStatus(blocks, (block) =>
+      shouldTranslateBlock(block, refSectionIds)
+    );
     paper.updatedAt = new Date().toISOString();
     await savePaper(paper);
     callbacks.onPaperUpdated?.(paper);
   } finally {
+    translationManager.detach(paperId);
     resumingPapers.delete(paperId);
   }
 }

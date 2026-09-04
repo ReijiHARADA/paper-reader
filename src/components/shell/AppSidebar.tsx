@@ -7,9 +7,12 @@ import {
   Plus,
   Search,
   Star,
-  Trash2,
 } from "lucide-react";
 import type { Project } from "../../types/project";
+import {
+  INBOX_DROP_ID,
+  usePaperDragStore,
+} from "../../stores/paperDragStore";
 import styles from "./AppSidebar.module.css";
 
 type AppSidebarProps = {
@@ -17,7 +20,6 @@ type AppSidebarProps = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNewProject: () => void;
-  onDeleteProject: (project: Project) => void;
   activeProjectId?: string | null;
   inboxCount: number;
 };
@@ -27,12 +29,13 @@ export function AppSidebar({
   searchQuery,
   onSearchChange,
   onNewProject,
-  onDeleteProject,
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const draggingPaperId = usePaperDragStore((state) => state.draggingPaperId);
+  const dropTargetId = usePaperDragStore((state) => state.dropTargetId);
 
   const handleSearchFocus = () => {
     if (location.pathname.startsWith("/reader")) {
@@ -41,8 +44,7 @@ export function AppSidebar({
   };
 
   return (
-    <aside className={styles.sidebar}>
-      {/* 検索 */}
+    <aside className={`${styles.sidebar} ${draggingPaperId ? styles.sidebarDropReady : ""}`}>
       <label className={styles.search} title="Search">
         <Search size={16} className={styles.searchIcon} />
         <input
@@ -56,13 +58,11 @@ export function AppSidebar({
         />
       </label>
 
-      {/* New Project */}
       <button type="button" className={styles.newProject} onClick={onNewProject} title="New Project">
         <Plus size={16} className={styles.icon} />
         <span className={styles.label}>New Project</span>
       </button>
 
-      {/* Projects */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.label}>Projects</span>
@@ -72,36 +72,29 @@ export function AppSidebar({
         )}
         <nav className={styles.nav}>
           {projects.map((project) => (
-            <div
+            <NavLink
               key={project.id}
-              className={`${styles.projectRow} ${
-                activeProjectId === project.id ? styles.projectRowActive : ""
-              }`}
+              to={`/project/${project.id}`}
+              data-project-drop-id={project.id}
+              className={({ isActive }) =>
+                `${styles.item} ${
+                  isActive || activeProjectId === project.id ? styles.active : ""
+                } ${dropTargetId === project.id ? styles.dropTarget : ""}`
+              }
+              title={project.name}
+              onClick={(event) => {
+                if (draggingPaperId) event.preventDefault();
+              }}
             >
-              <NavLink
-                to={`/project/${project.id}`}
-                className={({ isActive }) =>
-                  `${styles.item} ${isActive || activeProjectId === project.id ? styles.active : ""}`
-                }
-                title={project.name}
-              >
-                <Folder size={16} className={styles.icon} />
-                <span className={styles.itemLabel}>{project.name}</span>
-              </NavLink>
-              <button
-                type="button"
-                className={styles.delete}
-                title="Project を削除"
-                onClick={() => onDeleteProject(project)}
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+              <span className={styles.icon}>
+                <Folder size={16} />
+              </span>
+              <span className={styles.itemLabel}>{project.name}</span>
+            </NavLink>
           ))}
         </nav>
       </section>
 
-      {/* Library */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.label}>Library</span>
@@ -113,6 +106,9 @@ export function AppSidebar({
             icon={<Inbox size={16} />}
             label="Inbox"
             badge={inboxCount > 0 ? inboxCount : undefined}
+            inboxDrop
+            dropTarget={dropTargetId === INBOX_DROP_ID}
+            preventNav={Boolean(draggingPaperId)}
           />
           <LibItem to="/favorites" icon={<Star size={16} />} label="Favorites" />
           <LibItem to="/recent" icon={<Clock size={16} />} label="Recently Read" />
@@ -128,19 +124,31 @@ function LibItem({
   icon,
   label,
   badge,
+  inboxDrop,
+  dropTarget,
+  preventNav,
 }: {
   to: string;
   end?: boolean;
   icon: React.ReactNode;
   label: string;
   badge?: number;
+  inboxDrop?: boolean;
+  dropTarget?: boolean;
+  preventNav?: boolean;
 }) {
   return (
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ""}`}
+      data-inbox-drop={inboxDrop ? "" : undefined}
+      className={({ isActive }) =>
+        `${styles.item} ${isActive ? styles.active : ""} ${dropTarget ? styles.dropTarget : ""}`
+      }
       title={label}
+      onClick={(event) => {
+        if (preventNav) event.preventDefault();
+      }}
     >
       <span className={styles.icon}>{icon}</span>
       <span className={styles.itemLabel}>{label}</span>

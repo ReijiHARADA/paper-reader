@@ -1,4 +1,5 @@
 mod ocr;
+mod source_pdf;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -147,6 +148,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             restart_translation_server,
             ocr::ocr_image,
+            source_pdf::save_source_pdf,
+            source_pdf::copy_source_pdf,
+            source_pdf::open_source_pdf,
+            source_pdf::delete_source_pdf,
+            source_pdf::source_pdf_exists,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

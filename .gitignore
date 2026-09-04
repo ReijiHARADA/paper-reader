@@ -16,7 +16,9 @@ dist-ssr
 translation-server/.venv/
 translation-server/venv/
 translation-server/.venv-mlx/
+translation-server/.venv-mlx-bf16/
 translation-server/.venv.backup.py39/
+translation-server/models/
 **/__pycache__/
 *.py[cod]
 .Python

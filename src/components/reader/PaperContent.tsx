@@ -1,9 +1,11 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { Paper, Section, PaperBlock, FigureMetadata, EquationMetadata } from "../../types/paper";
+import type { Annotation } from "../../types/annotation";
 import { Paragraph } from "./Paragraph";
 import { Figure } from "./Figure";
 import { Equation } from "./Equation";
 import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, looksLikeBibliographyEntry } from "../../services/translation/quality";
+import { isBusyProcessingStatus } from "../../services/paperStatus";
 import styles from "./PaperContent.module.css";
 
 type PaperContentProps = {
@@ -13,6 +15,10 @@ type PaperContentProps = {
   onSectionVisible: (sectionId: string | null) => void;
   highlightText?: string;
   onBlockUpdated?: (block: PaperBlock) => void;
+  annotations?: Annotation[];
+  flashAnnotationIds?: string[];
+  onHighlightClick?: (annotationIds: string[]) => void;
+  onOpenSourcePdf?: (block: PaperBlock) => void;
 };
 
 export function PaperContent({
@@ -22,6 +28,10 @@ export function PaperContent({
   onSectionVisible,
   highlightText,
   onBlockUpdated,
+  annotations = [],
+  flashAnnotationIds = [],
+  onHighlightClick,
+  onOpenSourcePdf,
 }: PaperContentProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -84,6 +94,10 @@ export function PaperContent({
             block={block}
             highlightText={highlightText}
             onBlockUpdated={onBlockUpdated}
+            annotations={annotations.filter((a) => a.blockId === block.id)}
+            flashAnnotationIds={flashAnnotationIds}
+            onHighlightClick={onHighlightClick}
+            onOpenSourcePdf={onOpenSourcePdf}
           />
         );
         break;
@@ -152,7 +166,6 @@ export function PaperContent({
     })
     .sort((a, b) => a.order - b.order);
 
-  const isProcessing = paper.processingStatus !== "ready" && paper.processingStatus !== "failed";
   const translatableBlocks = blocks.filter(
     (b) =>
       b.original &&
@@ -164,6 +177,20 @@ export function PaperContent({
   );
   const translatedCount = translatableBlocks.filter((b) => b.translated).length;
   const totalCount = translatableBlocks.length;
+  const unfinishedCount = translatableBlocks.filter(
+    (b) => b.translationStatus === "pending" || b.translationStatus === "processing"
+  ).length;
+  const failedCount = translatableBlocks.filter(
+    (b) => b.translationStatus === "failed"
+  ).length;
+  const showBusyBanner =
+    isBusyProcessingStatus(paper.processingStatus) &&
+    (unfinishedCount > 0 ||
+      paper.processingStatus === "extracting" ||
+      paper.processingStatus === "structuring" ||
+      paper.processingStatus === "glossary" ||
+      paper.processingStatus === "queued");
+  const showPartialBanner = !showBusyBanner && failedCount > 0;
   const hasContent =
     allSectionsOrdered.length > 0 || blocks.length > 0 || orphanBlocks.length > 0;
 
@@ -192,13 +219,17 @@ export function PaperContent({
       </header>
 
       {/* Processing Status */}
-      {isProcessing && (
+      {showBusyBanner && (
         <div className={styles.processingBanner}>
           <span className={styles.processingSpinner} />
           <span>
             {paper.processingStatus === "extracting" && "テキストを抽出中..."}
             {paper.processingStatus === "structuring" && "構造を解析中..."}
-            {paper.processingStatus === "translating" && (
+            {(paper.processingStatus === "translating" || unfinishedCount > 0) &&
+              paper.processingStatus !== "extracting" &&
+              paper.processingStatus !== "structuring" &&
+              paper.processingStatus !== "glossary" &&
+              paper.processingStatus !== "queued" && (
               <>
                 翻訳中
                 {totalCount > 0 ? `... (${translatedCount}/${totalCount})` : "..."}
@@ -207,6 +238,11 @@ export function PaperContent({
             {paper.processingStatus === "glossary" && "用語集を生成中..."}
             {paper.processingStatus === "queued" && "処理待ち..."}
           </span>
+        </div>
+      )}
+      {showPartialBanner && (
+        <div className={styles.partialBanner}>
+          一部の段落の翻訳に失敗しています（{failedCount}件）。該当箇所から再試行できます。
         </div>
       )}
 
@@ -221,7 +257,7 @@ export function PaperContent({
           </>
         ) : (
           <div className={styles.emptyContent}>
-            {isProcessing ? (
+            {showBusyBanner ? (
               <p>コンテンツを準備中です。しばらくお待ちください...</p>
             ) : paper.processingStatus === "failed" ? (
               <p>処理に失敗しました。再度インポートしてください。</p>

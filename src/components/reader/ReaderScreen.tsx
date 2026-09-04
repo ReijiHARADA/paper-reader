@@ -5,12 +5,14 @@ import {
   Search,
   Settings2,
   ExternalLink,
+  StickyNote,
 } from "lucide-react";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
-import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting } from "../../services/database";
-import { resumeIncompleteTranslation } from "../../services/importServiceV2";
+import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation } from "../../services/database";
+import { resumeIncompleteTranslation, shouldTranslateBlock } from "../../services/importServiceV2";
 import type { ImportConfig } from "../../services/importServiceV2";
 import type { PaperBlock, Section } from "../../types/paper";
+import type { Annotation } from "../../types/annotation";
 import {
   mergePreferTranslated,
   mergePreferTranslatedSections,
@@ -19,14 +21,41 @@ import {
 } from "../../utils/mergePaperData";
 import { displayPaperTitle, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
 import { useProjectStore } from "../../stores/projectStore";
+import { translationManager, READER_PRIORITY_DEBOUNCE_MS } from "../../services/translation";
+import { openSourcePdf, sourcePdfExists } from "../../services/sourcePdf";
+import {
+  createAnnotation,
+  deleteAnnotation,
+  listAnnotationsForPaper,
+  updateAnnotationNote,
+} from "../../services/annotationService";
 import { PaperContent } from "./PaperContent";
 import { Outline } from "./Outline";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel";
 import { SearchPanel } from "./SearchPanel";
+import { NotesPanel } from "./notes/NotesPanel";
+import { SelectionActionMenu } from "./selection/SelectionActionMenu";
+import { useTextSelection } from "./selection/useTextSelection";
+import type { TranslationSelection } from "./selection/selectionAnchor";
 import styles from "./ReaderScreen.module.css";
 
 const EMPTY_BLOCKS: PaperBlock[] = [];
 const EMPTY_SECTIONS: Section[] = [];
+
+function findVisibleBlockId(content: HTMLElement): { id: string; offset: number } | null {
+  const blockElements = content.querySelectorAll("[id^='block-']");
+  const contentRect = content.getBoundingClientRect();
+  for (const elem of blockElements) {
+    const rect = elem.getBoundingClientRect();
+    if (rect.top >= contentRect.top && rect.top < contentRect.bottom) {
+      return {
+        id: elem.id.replace("block-", ""),
+        offset: contentRect.top - rect.top,
+      };
+    }
+  }
+  return null;
+}
 
 export function ReaderScreen() {
   const navigate = useNavigate();
@@ -78,13 +107,31 @@ export function ReaderScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [activeAnnotationIds, setActiveAnnotationIds] = useState<string[]>([]);
+  const [flashAnnotationIds, setFlashAnnotationIds] = useState<string[]>([]);
+  const [draft, setDraft] = useState<{
+    selection: TranslationSelection;
+    note: string;
+  } | null>(null);
+  const [editing, setEditing] = useState<Annotation | null>(null);
+  const [undo, setUndo] = useState<Annotation | null>(null);
+  const [hasSourcePdf, setHasSourcePdf] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
+  const priorityTimeoutRef = useRef<number | null>(null);
+  const lastPriorityBlockRef = useRef<string | null>(null);
+  const flashTimeoutRef = useRef<number | null>(null);
+  const undoTimeoutRef = useRef<number | null>(null);
 
   const paper = papers.find((p) => p.id === paperId);
+  const { result: selectionResult, dismiss: dismissSelection } = useTextSelection(
+    contentRef,
+    !isLoading
+  );
 
-  // Determine which project we navigated from (for breadcrumb)
   const activeProject = useMemo(() => {
     const qid = searchParams.get("project");
     if (qid) return projects.find((p) => p.id === qid) ?? null;
@@ -94,7 +141,32 @@ export function ReaderScreen() {
     return null;
   }, [searchParams, projects, memberships, paperId]);
 
-  // All hooks must be called before any conditional returns
+  const annotationProjectId = searchParams.get("project")
+    ? activeProject?.id ?? null
+    : null;
+
+  const translatableIds = useMemo(() => {
+    const refIds = new Set(
+      storeSections
+        .filter(
+          (sec) =>
+            sec.normalizedKind === "references" ||
+            isReferencesHeading(sec.originalTitle)
+        )
+        .map((sec) => sec.id)
+    );
+    return [...storeBlocks]
+      .filter((b) => shouldTranslateBlock(b, refIds))
+      .sort((a, b) => a.order - b.order)
+      .map((b) => b.id);
+  }, [storeBlocks, storeSections]);
+
+  const reloadAnnotations = useCallback(async () => {
+    if (!paperId) return;
+    const list = await listAnnotationsForPaper(paperId, storeBlocks);
+    setAnnotations(list);
+  }, [paperId, storeBlocks]);
+
   const handleBlockUpdated = useCallback(
     (updatedBlock: PaperBlock) => {
       if (!paperId) return;
@@ -103,49 +175,51 @@ export function ReaderScreen() {
     [paperId, updateBlockInStore]
   );
 
+  const prioritizeVisible = useCallback(
+    (blockId: string) => {
+      if (!paperId) return;
+      if (lastPriorityBlockRef.current === blockId) return;
+      lastPriorityBlockRef.current = blockId;
+      translationManager.prioritizeAroundBlock(paperId, blockId, translatableIds);
+    },
+    [paperId, translatableIds]
+  );
+
   const handleScroll = useCallback(() => {
     if (!paperId || !contentRef.current) return;
 
     if (saveTimeoutRef.current) {
       window.clearTimeout(saveTimeoutRef.current);
     }
+    if (priorityTimeoutRef.current) {
+      window.clearTimeout(priorityTimeoutRef.current);
+    }
+
+    const visible = findVisibleBlockId(contentRef.current);
+    if (visible) {
+      priorityTimeoutRef.current = window.setTimeout(() => {
+        prioritizeVisible(visible.id);
+      }, READER_PRIORITY_DEBOUNCE_MS);
+    }
 
     saveTimeoutRef.current = window.setTimeout(async () => {
       const content = contentRef.current;
       if (!content) return;
-
-      const blockElements = content.querySelectorAll("[id^='block-']");
-      let visibleBlockId: string | null = null;
-      let offset = 0;
-
-      for (const elem of blockElements) {
-        const rect = elem.getBoundingClientRect();
-        const contentRect = content.getBoundingClientRect();
-
-        if (rect.top >= contentRect.top && rect.top < contentRect.bottom) {
-          visibleBlockId = elem.id.replace("block-", "");
-          offset = contentRect.top - rect.top;
-          break;
-        }
-      }
-
-      if (visibleBlockId) {
-        try {
-          await saveReadingPosition(paperId, visibleBlockId, offset);
-          updatePaper(paperId, {
-            lastReadBlockId: visibleBlockId,
-            lastReadOffset: offset,
-            updatedAt: new Date().toISOString(),
-          });
-        } catch (e) {
-          console.error("Failed to save reading position:", e);
-        }
+      const next = findVisibleBlockId(content);
+      if (!next) return;
+      try {
+        await saveReadingPosition(paperId, next.id, next.offset);
+        updatePaper(paperId, {
+          lastReadBlockId: next.id,
+          lastReadOffset: next.offset,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("Failed to save reading position:", e);
       }
     }, 1000);
-  }, [paperId, updatePaper]);
+  }, [paperId, updatePaper, prioritizeVisible]);
 
-  // Load from IndexedDB once. Do not depend on the whole store object —
-  // that used to re-fetch stale pending blocks and overwrite live translations.
   useEffect(() => {
     let cancelled = false;
 
@@ -173,6 +247,8 @@ export function ReaderScreen() {
         if (dbBlocks.length > 0) {
           setBlocksInStore(paperId, (prev) => mergePreferTranslated(prev, dbBlocks));
         }
+        const exists = await sourcePdfExists(paperId);
+        if (!cancelled) setHasSourcePdf(exists || Boolean(dbPaper?.sourceStoredPath));
       } catch (e) {
         console.error("Failed to load paper data:", e);
       }
@@ -185,10 +261,14 @@ export function ReaderScreen() {
     };
   }, [paperId, setSectionsInStore, setBlocksInStore, updatePaper]);
 
-  // Poll IndexedDB while translation is still in flight
   useEffect(() => {
     if (!paperId || isLoading) return;
-    if (pendingCount === 0 && paper?.processingStatus === "ready") return;
+    void reloadAnnotations();
+  }, [paperId, isLoading, reloadAnnotations]);
+
+  useEffect(() => {
+    if (!paperId || isLoading) return;
+    if (pendingCount === 0 && (paper?.processingStatus === "ready" || paper?.processingStatus === "partial" || paper?.processingStatus === "failed")) return;
 
     const interval = window.setInterval(async () => {
       try {
@@ -198,7 +278,7 @@ export function ReaderScreen() {
           getSectionsByPaper(paperId),
         ]);
         if (dbPaper) {
-          updatePaper(dbPaper.id, dbPaper);
+          updatePaper(paperId, dbPaper);
         }
         setBlocksInStore(paperId, (prev) => mergePreferTranslated(prev, dbBlocks));
         if (dbSections.length > 0) {
@@ -224,7 +304,6 @@ export function ReaderScreen() {
 
   const resumeStartedFor = useRef<string | null>(null);
 
-  // Resume translation for papers left pending after a crash / reload
   useEffect(() => {
     if (!paperId || isLoading) return;
     if (resumeStartedFor.current === paperId) return;
@@ -256,7 +335,6 @@ export function ReaderScreen() {
     };
   }, [paperId, isLoading, setBlocksInStore, updatePaper, setSectionsInStore]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
@@ -273,22 +351,36 @@ export function ReaderScreen() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showSearch]);
 
-  // Restore reading position
+  const restoredScrollForPaper = useRef<string | null>(null);
+
+  useEffect(() => {
+    restoredScrollForPaper.current = null;
+  }, [paperId]);
+
+  // Restore once per paper. Do not re-run when translation polling
+  // recreates callbacks or updates lastReadBlockId during reading.
   useEffect(() => {
     if (!paper || !contentRef.current || isLoading) return;
-
-    if (paper.lastReadBlockId) {
-      const element = document.getElementById(`block-${paper.lastReadBlockId}`);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ block: "start" });
-          if (paper.lastReadOffset) {
-            contentRef.current?.scrollBy(0, paper.lastReadOffset);
-          }
-        }, 100);
-      }
+    if (restoredScrollForPaper.current === paper.id) return;
+    if (!paper.lastReadBlockId) {
+      restoredScrollForPaper.current = paper.id;
+      return;
     }
-  }, [paper?.lastReadBlockId, isLoading]);
+
+    const element = document.getElementById(`block-${paper.lastReadBlockId}`);
+    if (!element) return;
+
+    restoredScrollForPaper.current = paper.id;
+    const blockId = paper.lastReadBlockId;
+    const offset = paper.lastReadOffset;
+    window.setTimeout(() => {
+      element.scrollIntoView({ block: "start" });
+      if (offset) {
+        contentRef.current?.scrollBy(0, offset);
+      }
+      prioritizeVisible(blockId);
+    }, 100);
+  }, [paper, isLoading, storeBlocks.length, prioritizeVisible]);
 
   useEffect(() => {
     const content = contentRef.current;
@@ -300,17 +392,141 @@ export function ReaderScreen() {
       if (saveTimeoutRef.current) {
         window.clearTimeout(saveTimeoutRef.current);
       }
+      if (priorityTimeoutRef.current) {
+        window.clearTimeout(priorityTimeoutRef.current);
+      }
     };
   }, [handleScroll]);
 
-  // Redirect if paper not found
   useEffect(() => {
     if (!paper && paperId && !isLoading) {
       navigate("/");
     }
   }, [paper, paperId, navigate, isLoading]);
 
-  // Conditional returns after all hooks
+  const handleOpenSourcePdf = useCallback(
+    async (page?: number) => {
+      if (!paperId) return;
+      try {
+        await openSourcePdf({ paperId, page });
+      } catch (e) {
+        console.error("Failed to open source PDF:", e);
+      }
+    },
+    [paperId]
+  );
+
+  const handleAddMemo = useCallback((selection: TranslationSelection) => {
+    setDraft({ selection, note: "" });
+    setEditing(null);
+    setNotesOpen(true);
+    setActiveAnnotationIds([]);
+    dismissSelection();
+    window.getSelection()?.removeAllRanges();
+  }, [dismissSelection]);
+
+  useEffect(() => {
+    if (selectionResult?.kind !== "ok") return;
+    const selection = selectionResult.selection;
+    const covering = annotations.filter(
+      (a) =>
+        a.blockId === selection.blockId &&
+        a.status !== "orphaned" &&
+        a.startOffset < selection.endOffset &&
+        a.endOffset > selection.startOffset
+    );
+    if (covering.length > 0) {
+      setDraft(null);
+      setEditing(null);
+      setActiveAnnotationIds(covering.map((a) => a.id));
+      setNotesOpen(true);
+      dismissSelection();
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
+    handleAddMemo(selection);
+  }, [selectionResult, handleAddMemo, annotations, dismissSelection]);
+
+  const showNotesList = useCallback(() => {
+    const alreadyList = notesOpen && !draft && !editing;
+    if (alreadyList) {
+      setNotesOpen(false);
+      return;
+    }
+    setDraft(null);
+    setEditing(null);
+    setActiveAnnotationIds([]);
+    setNotesOpen(true);
+  }, [notesOpen, draft, editing]);
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!paperId || !draft) return;
+    const block = storeBlocks.find((b) => b.id === draft.selection.blockId);
+    if (!block?.translated) return;
+    const created = await createAnnotation({
+      paperId,
+      projectId: annotationProjectId,
+      blockId: draft.selection.blockId,
+      translated: block.translated,
+      startOffset: draft.selection.startOffset,
+      endOffset: draft.selection.endOffset,
+      selectedText: draft.selection.selectedText,
+      note: draft.note,
+    });
+    setDraft(null);
+    setEditing(null);
+    setActiveAnnotationIds([created.id]);
+    await reloadAnnotations();
+  }, [paperId, draft, storeBlocks, annotationProjectId, reloadAnnotations]);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editing) return;
+    const updated = await updateAnnotationNote(editing, editing.note);
+    setEditing(updated);
+    await reloadAnnotations();
+  }, [editing, reloadAnnotations]);
+
+  const handleSelectAnnotation = useCallback((annotation: Annotation) => {
+    setEditing(annotation);
+    setDraft(null);
+    setNotesOpen(true);
+    setActiveAnnotationIds([annotation.id]);
+    const element = document.getElementById(`block-${annotation.blockId}`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashAnnotationIds([annotation.id]);
+    if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
+    flashTimeoutRef.current = window.setTimeout(() => {
+      setFlashAnnotationIds([]);
+    }, 2500);
+  }, []);
+
+  const handleHighlightClick = useCallback((ids: string[]) => {
+    setNotesOpen(true);
+    setActiveAnnotationIds(ids);
+    setEditing(null);
+    setDraft(null);
+  }, []);
+
+  const handleDeleteAnnotation = useCallback(
+    async (annotation: Annotation) => {
+      await deleteAnnotation(annotation.id);
+      setUndo(annotation);
+      if (editing?.id === annotation.id) setEditing(null);
+      setActiveAnnotationIds((ids) => ids.filter((id) => id !== annotation.id));
+      await reloadAnnotations();
+      if (undoTimeoutRef.current) window.clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = window.setTimeout(() => setUndo(null), 5000);
+    },
+    [editing, reloadAnnotations]
+  );
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!undo) return;
+    await saveAnnotation(undo);
+    setUndo(null);
+    await reloadAnnotations();
+  }, [undo, reloadAnnotations]);
+
   if (isLoading) {
     return (
       <div className={styles.container}>
@@ -389,6 +605,13 @@ export function ReaderScreen() {
         </div>
         <div className={styles.headerRight}>
           <button
+            className={`${styles.iconButton} ${notesOpen ? styles.active : ""}`}
+            onClick={showNotesList}
+            title="メモ一覧"
+          >
+            <StickyNote size={20} />
+          </button>
+          <button
             className={`${styles.iconButton} ${showSearch ? styles.active : ""}`}
             onClick={() => setShowSearch(!showSearch)}
             title="検索 (⌘F)"
@@ -402,7 +625,12 @@ export function ReaderScreen() {
           >
             <Settings2 size={20} />
           </button>
-          <button className={styles.iconButton} title="元PDFを開く">
+          <button
+            className={styles.iconButton}
+            title={hasSourcePdf ? "元PDFを開く" : "保存された元PDFがありません"}
+            disabled={!hasSourcePdf}
+            onClick={() => void handleOpenSourcePdf()}
+          >
             <ExternalLink size={20} />
           </button>
         </div>
@@ -427,9 +655,52 @@ export function ReaderScreen() {
             onSectionVisible={setActiveSection}
             highlightText={searchQuery}
             onBlockUpdated={handleBlockUpdated}
+            annotations={annotations}
+            flashAnnotationIds={flashAnnotationIds}
+            onHighlightClick={handleHighlightClick}
+            onOpenSourcePdf={(block) => void handleOpenSourcePdf(block.pageStart)}
           />
         </main>
+
+        {notesOpen && (
+          <NotesPanel
+            annotations={annotations}
+            draft={
+              draft
+                ? { selectedText: draft.selection.selectedText, note: draft.note }
+                : null
+            }
+            editing={draft ? null : editing}
+            activeIds={activeAnnotationIds}
+            undoLabel={undo ? "メモを削除しました" : null}
+            onDraftNoteChange={(note) =>
+              setDraft((prev) => (prev ? { ...prev, note } : prev))
+            }
+            onSaveDraft={() => void handleSaveDraft()}
+            onEditNoteChange={(note) =>
+              setEditing((prev) => (prev ? { ...prev, note } : prev))
+            }
+            onSaveEdit={() => void handleSaveEdit()}
+            onSelect={handleSelectAnnotation}
+            onDelete={(annotation) => void handleDeleteAnnotation(annotation)}
+            onUndoDelete={() => void handleUndoDelete()}
+            onClose={() => {
+              setNotesOpen(false);
+              setDraft(null);
+              setEditing(null);
+            }}
+          />
+        )}
       </div>
+
+      {selectionResult?.kind === "cross-block" && (
+        <SelectionActionMenu
+          rect={selectionResult.rect}
+          selection={null}
+          crossBlock
+          onAddMemo={handleAddMemo}
+        />
+      )}
 
       {showSettings && (
         <DisplaySettingsPanel onClose={() => setShowSettings(false)} />
@@ -447,4 +718,3 @@ export function ReaderScreen() {
     </div>
   );
 }
-

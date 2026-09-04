@@ -1,0 +1,13 @@
+{
+  "name": "basic-two-column",
+  "tokensInOrder": [
+    "LEFTCOL_A",
+    "LEFTCOL_H",
+    "RIGHTCOL_A",
+    "RIGHTCOL_H"
+  ],
+  "detect": [
+    "left-then-right",
+    "no-line-interleave"
+  ]
+}
