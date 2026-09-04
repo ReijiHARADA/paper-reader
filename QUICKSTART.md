@@ -97,9 +97,10 @@ open "src-tauri/target/release/bundle/macos/Paper Reader.app"
 ```bash
 npm test
 npm run lint
+npm run bench:pdf-extraction
 ```
 
-実論文の読み順テスト用 PDF はリポジトリに入れません。カタログは `test-fixtures/real-papers/catalog.json`、キャッシュは gitignore の `test-data/real-papers/` です。
+実論文の読み順テスト用 PDF はリポジトリに入れません。カタログは `test-fixtures/real-papers/catalog.json`、キャッシュは gitignore の `test-data/real-papers/` です。catalog の formatFamily は評価用 Ground Truth です。
 
 ```bash
 npm run fetch:real-papers

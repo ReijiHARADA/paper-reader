@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch:real-papers": "node scripts/fetch-real-papers.mjs",
+    "bench:pdf-extraction": "npx tsx scripts/benchmark-pdf-extraction.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

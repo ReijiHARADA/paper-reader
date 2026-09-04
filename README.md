@@ -8,6 +8,7 @@
 - これからやること・未達項目: [ROADMAP.md](./ROADMAP.md)
 - 開発時の起動手順: [QUICKSTART.md](./QUICKSTART.md)
 - 翻訳速度の実測: [translation-server/SPEED_BENCH.md](./translation-server/SPEED_BENCH.md)
+- 学術 PDF 構造抽出の調査と PoC: [ACADEMIC_PDF_EXTRACTION_RESEARCH.md](./ACADEMIC_PDF_EXTRACTION_RESEARCH.md)
 
 いま動いていることはこの README、未達は ROADMAP を正とする。実装を変えたら両方を同じ作業で現状に合わせる。
 
@@ -106,7 +107,7 @@ npm test
 npm run lint
 ```
 
-読み順の回帰テストは合成 PDF（`test-fixtures/`）と、jewelry-first-computing の論文リストから集めた実 PDF（gitignore の `test-data/real-papers/`、`npm run fetch:real-papers`）を使います。実論文 PDF はリポジトリに入れません。jewelry-first-computing 側のディレクトリやデータは変更しません。助成番号（`016.128.303` のように先頭が 0 または 3 桁以上の点区切り）は節番号見出しにせず、直前の `grant number` 行と同一段落にまとめます。訳文に残った原文の固有名詞・番号は、ラテン文字比率の判定から除外します。
+読み順の回帰テストは合成 PDF（`test-fixtures/`）と、jewelry-first-computing の論文リストから集めた実 PDF（gitignore の `test-data/real-papers/`、`npm run fetch:real-papers`）を使います。実論文 PDF はリポジトリに入れません。jewelry-first-computing 側のディレクトリやデータは変更しません。catalog の `publisher` / `formatFamily` は評価用 Ground Truth であり、本番の format 判定には使いません。助成番号（`016.128.303` のように先頭が 0 または 3 桁以上の点区切り）は節番号見出しにせず、直前の `grant number` 行と同一段落にまとめます。訳文に残った原文の固有名詞・番号は、ラテン文字比率の判定から除外します。学術 PDF の Format Profile / GROBID / layout 統合は import 経路の外の PoC（`src/services/pdfExtraction/`、`npm run bench:pdf-extraction`）に置き、現行 `pdfLayout.ts` は置き換えていません。詳細は [ACADEMIC_PDF_EXTRACTION_RESEARCH.md](./ACADEMIC_PDF_EXTRACTION_RESEARCH.md)。
 
 レイアウト・キャプション・表・数式・脚注の抽出はインポート時に決まるため、既存の論文へ適用するには再インポートが必要です。
 
@@ -142,6 +143,7 @@ paper-reader/
 │   │   ├── llm/               # Ollama（用語集）
 │   │   ├── pdfjsRuntime.ts    # WKWebView 向け pdf.js 3.11
 │   │   ├── pdfLayout.ts       # 2段組の読み順推定
+│   │   ├── pdfExtraction/     # Format Profile 等の PoC（import 未接続）
 │   │   ├── extractionConfidence.ts
 │   │   ├── citations.ts
 │   │   ├── ocrService.ts
@@ -154,6 +156,8 @@ paper-reader/
 ├── test-fixtures/             # 読み順回帰用の合成 PDF と実論文カタログ
 ├── test-data/real-papers/     # 実論文 PDF（gitignore。`npm run fetch:real-papers`）
 ├── scripts/fetch-real-papers.mjs
+├── scripts/benchmark-pdf-extraction.ts
+├── ACADEMIC_PDF_EXTRACTION_RESEARCH.md
 ├── scripts/bundle-python.sh   # リリース時に venv を同梱
 ├── restart-translation-server.sh
 └── QUICKSTART.md
