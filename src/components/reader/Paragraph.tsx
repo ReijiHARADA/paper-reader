@@ -125,14 +125,15 @@ export function Paragraph({
       const target = uniqueCitationTarget(group.keys, referenceIndex!);
       const cited = text.slice(group.start, group.end);
       if (target) {
+        const href = target.startsWith("ref-") ? `#${target}` : `#block-${target}`;
         parts.push(
           <a
             key={`c-${i}`}
             className={styles.citation}
-            href={`#block-${target}`}
+            href={href}
             onClick={(e) => {
               e.preventDefault();
-              document.getElementById(`block-${target}`)?.scrollIntoView({
+              document.getElementById(target.startsWith("ref-") ? target : `block-${target}`)?.scrollIntoView({
                 behavior: "smooth",
                 block: "center",
               });

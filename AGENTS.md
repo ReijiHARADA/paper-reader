@@ -31,12 +31,16 @@
 
 ## Local data
 
-- Original PDFs are copied to the Tauri app data directory as `papers/<paperId>/source.pdf`. They are not stored in IndexedDB.
-- Annotations live in IndexedDB (`annotations` store) and stay on-device.
+- Paper body source of truth is the Paper Package at `<AppData>/papers/<paperId>/` (`source.pdf`, `paper.json`, `original.md`, `ja.md`, `structure.json`, optional `layout.json.gz`, `assets/`). Do not store paper bodies only in IndexedDB or SQLite.
+- SQLite (`library.sqlite`) holds the library index, workspace tree, annotations, reading positions, glossaries, translation cache, and rebuildable FTS/LIKE search. See `DATA_ARCHITECTURE.md`.
+- Original PDFs stay in the package as `source.pdf`.
+- Annotations live in SQLite, anchored to stable block IDs. Re-anchor still uses selectedText + prefix + suffix.
+- IndexedDB `paper-reader` v4 is a read-only backup after migration. Do not delete it in the same release that introduces the new store.
 - Assign papers to a Project by dragging a library card onto the sidebar item. Drag onto Inbox to remove all project memberships. Do not use HTML5 drag-and-drop for this: WKWebView often starts a drag but never fires `drop`. Use pointer tracking and `elementFromPoint`.
 - Import a PDF by dropping it onto the app window. Use Tauri `onDragDropEvent` in the desktop app (HTML5 `drop` does not receive files in WKWebView). Browser `npm run dev` can keep HTML5 file drop. A drop on `/project/:id` attaches the paper to that project.
 - Project delete lives on the project screen header (trash icon), not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox. The “論文を追加” button sits in the header next to the title on Project, All Papers, and Inbox.
 - Reading-order regression fixtures: `test-fixtures/` (synthetic PDFs only). Real papers from the jewelry-first-computing index live in gitignored `test-data/real-papers/` (`npm run fetch:real-papers`). Do not copy those PDFs into the repo or edit jewelry-first-computing.
-- Academic PDF extraction: CanonicalDocument is the source of truth. Entry point is `extractAcademicPdf` / `extractFromPages`. Import projects Canonical → Paper/Section/PaperBlock. `pdfLayout.ts` remains the generic heuristic engine (do not rewrite column left→right). Format Profile apply thresholds stay APPLY_MIN=0.75 / APPLY_MARGIN=0.12. Do not use catalog.json formatFamily for production detection. Do not upgrade pdfjs-dist to 6.x. GROBID/Docling are optional enrichers, not required dependencies.
+- Academic PDF extraction: CanonicalDocument is the extraction source of truth. Persist as Paper Package (Markdown + structure). Import calls `extractAcademicPdf` then writes the package. Reader consumes Document AST / projection, not pdfLayout or GROBID internals. `pdfLayout.ts` remains the generic heuristic engine (do not rewrite column left→right). Format Profile apply thresholds stay APPLY_MIN=0.75 / APPLY_MARGIN=0.12. Do not use catalog.json formatFamily for production detection. Do not upgrade pdfjs-dist to 6.x. GROBID/Docling are optional enrichers, not required dependencies. Reuse block IDs on re-extract; do not mint a fresh UUID for every block.
+- Workspace: Folder organizes only. Project holds paper membership. Project-under-project is forbidden. Papers are never copied per project.
 - Dotted grant identifiers (`016.128.303`) are not section headings or paper titles. Wrap them into the preceding `grant number` paragraph. Latin-ratio quality checks ignore source proper nouns and numeric ids.
 - After any product or behavior change, update `README.md` and `ROADMAP.md` in the same turn so they match the current code. Move finished work out of ROADMAP section 3. Put remaining gaps only. Update `QUICKSTART.md` or `AGENTS.md` when launch steps or constraints change.

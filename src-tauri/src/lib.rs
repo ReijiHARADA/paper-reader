@@ -1,4 +1,5 @@
 mod ocr;
+mod paper_fs;
 mod source_pdf;
 
 use std::path::PathBuf;
@@ -154,6 +155,12 @@ pub fn run() {
             source_pdf::delete_source_pdf,
             source_pdf::source_pdf_exists,
             source_pdf::read_dropped_pdf,
+            paper_fs::read_app_file,
+            paper_fs::write_app_file,
+            paper_fs::app_file_exists,
+            paper_fs::remove_app_file,
+            paper_fs::rename_app_file,
+            paper_fs::list_app_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

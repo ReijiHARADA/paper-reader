@@ -10,6 +10,7 @@
 - 翻訳速度の実測: [translation-server/SPEED_BENCH.md](./translation-server/SPEED_BENCH.md)
 - 学術 PDF 構造抽出の調査: [ACADEMIC_PDF_EXTRACTION_RESEARCH.md](./ACADEMIC_PDF_EXTRACTION_RESEARCH.md)
 - Production 抽出アーキテクチャ: [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)
+- 永続化・Paper Package: [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
 
 いま動いていることはこの README、未達は ROADMAP を正とする。実装を変えたら両方を同じ作業で現状に合わせる。
 
@@ -18,14 +19,15 @@
 - **macOS アプリ**: Tauri 2 で `.app` / `.dmg` をビルドできる。配布版は翻訳サーバーを同梱して自動起動する
 - **論文ライブラリ**: All Papers / Inbox / Favorites / Recently Read / Project の論文カードは同じレイアウト（正方形アイコン、訳題、原題、著者、処理状態、最終閲覧）。カードの「一部失敗」は本文で再試行できる段落失敗だけを見る。All Papers / Inbox / Project の追加はタイトル右の「論文を追加」。カードから論文を削除できる（アプリ内データと複製 PDF。Finder 上の原本は消さない）。Project のゴミ箱はそのプロジェクトから外すだけで、論文レコードは消さない。PDF をアプリ画面にドロップしてもインポートできる（Project 画面ならその Project に所属する）
 - **設定**: 左サイドバー最下部から、ライブラリと同じ画面遷移で開く。本文は一般 / 翻訳 / 読書 / ストレージ / 診断に分かれ、リーダーのアウトラインと同じ目次で同一ページ内を移動する。サンプル論文の追加は一般。表示設定はリーダーと共通。翻訳キャッシュだけを消せる。接続確認は診断（および翻訳の詳細設定）。変更は自動保存
-- **Project**: 研究テーマごとに論文をまとめる（論文実体は 1 つ。所属は多対多）。カードをサイドバーのプロジェクトへドラッグして追加し、Inbox へドラッグして戻す。同じ Project へ再度落とすと「すでに入っています」と出す。プロジェクト画面の「論文を追加」から PDF を入れるとその Project に所属する。削除は右上のゴミ箱から行い、論文レコードは残す
+- **Project / Folder**: Folder は整理だけ、Project は論文所属を持つ。Folder の下に Folder / Project を置ける。Project の下に Project は置けない。論文実体は 1 つ（所属は多対多）。カードをサイドバーのプロジェクトへドラッグして追加し、Inbox へドラッグして戻す。同じ Project へ再度落とすと「すでに入っています」と出す。プロジェクト画面の「論文を追加」から PDF を入れるとその Project に所属する。削除は右上のゴミ箱、またはサイドバーで右クリックして確認のあと。Folder に子があるときは確認を出す。論文レコードは消さない
 - **日本語リーダー**: 1 カラム表示、段落ごとの原文展開、アウトライン、検索（⌘F。矢印または Enter で次のヒット、Shift+Enter / ↑ で前へ）、表示設定（文字サイズ・行間・本文幅・ライト／ダーク／システム）、読書位置の保存と復元。論文タイトルは 1 ページ目で本文より大きい行から取る。著者・所属は見出しにせず、リーダー本文にも出さない。日本語の節番号（`1 はじめに`、`2.1` など）と `参考文献` を目次にする。英語副題やローマ字著者行は目次に出さない
 - **途中から読む**: 構造解析が終わった時点でリーダーを開ける。翻訳はタイトル → 見出し → Abstract → 本文の順。いま読んでいる付近を優先して訳す。未完了の翻訳は次回起動時に再開する
 - **メモ**: 訳文を選択すると近くに「メモを追加」が出る。クリックしたときだけ Notes が開き、黄色ハイライトとメモを残せる。既存ハイライトをクリックすると対応するメモが開く。Notes と用語集の右パネルは同時には出さない。再翻訳で位置がずれたメモは orphan 扱い
 - **翻訳**: 文単位バッチ（既定 24）で MPS 上の MADLAD を呼ぶ。複数段落のリクエストはサーバー側で合流する。段落単位の再試行あり。本文の過半が日本語の論文は翻訳せずレイアウトだけ作る。References・著者・所属・著作権表示・数式・CCS / Index Terms などの分類カタログ行は訳さない。訳さないブロックは「翻訳待ち」にせず原文のまま出す。見出しの訳はアウトライン／セクションタイトル側で行い、画面に出ない見出しブロックの失敗はエラーバナーに出さない。degenerate な訳は破棄する
 - **スキャン PDF**: テキストがほぼ無い PDF は Apple Vision で OCR（デスクトップアプリのみ）。日本語 CID フォントは CMap でテキスト抽出し、OCR に頼らない
 - **図表・表・数式・脚注**: 図と表は本文位置に画像とキャプションを出す。英語の Figure/Table に加え、日本語の `図 n:` / `表 n:` もキャプションとして切り出す。キャプションは翻訳し、原文を展開できる。埋め込み画像は切り出し領域との重なり面積が最大のキャプションへ 1 対 1 で割り当て、隣の図まで合成しない。検出できたブロック数式は原文のまま残す。脚注は本文位置に出し、原文を展開できる。ハイフンでつながった英文や参考文献 URL は数式にしない
-- **引用**: `[12]` は参考文献が1件に特定できるときだけ、その項目へ飛ぶ。特定できなければリンクしない
+- **引用**: `[12]` は参考文献が1件に特定できるときだけ、その項目へ飛ぶ（表示番号と `ref-…` ID は別）。特定できなければリンクしない
+- **Markdown 書き出し**: リーダーから訳文 Markdown を書き出せる。Reader と export は同じ Markdown / Document AST。内部の `<!-- pr:block -->` は書き出し時に外せる
 - **元 PDF**: インポート時にアプリ管理領域へ複製する。リーダーから別表示で開ける。読み順が不確かな段落からは元 PDF への導線を常時出す
 - **抽出信頼度**: 読み順や構造に自信が低い段落には警告を出し、原文／元 PDF へ誘導する
 - **用語集**: Ollama が起動していれば専門用語を抽出して保存する（未起動でも翻訳・読書は可能）。生成した用語は訳の後処理と再翻訳に使う。リーダーから閲覧・訳の修正・追加ができる
@@ -75,7 +77,7 @@ All Papers / Inbox / Favorites / Recently Read のカードを、左サイドバ
 - プロジェクト画面の「論文を追加」は PDF をインポートし、その Project に所属させます。All Papers / Inbox も同じ位置・同じ文言のボタンです
 - Finder から PDF をアプリ画面へドロップしてもインポートできます。Project を開いているときはその Project に入ります
 
-カードの「Add to Project」ボタンはありません。Project の新規作成はサイドバーの New Project です。
+カードの「Add to Project」ボタンはありません。Project の新規作成はサイドバーの New Project、Folder は New Folder です。Folder の削除はサイドバーで右クリックして確認します。
 
 ### 開発
 
@@ -123,8 +125,7 @@ pdf.js 3.11（デジタル） / Apple Vision OCR（スキャン）
  ├─ MADLAD 3B（MPS + bfloat16、文バッチ、用語集は訳後置換）
  └─ Ollama（任意: 用語集の生成。未起動でも翻訳は進む）
  ↓
-IndexedDB（論文・Project・翻訳キャッシュ・メモ）
-アプリ管理領域（papers/<paperId>/source.pdf）
+Paper Package（papers/<paperId>/）+ SQLite（library.sqlite）
  ↓
 Reader UI（React + Tauri）
 ```
@@ -151,6 +152,7 @@ paper-reader/
 │   │   ├── projectService.ts
 │   │   ├── annotationService.ts
 │   │   └── importServiceV2.ts
+│   ├── data/                  # Paper Package / SQLite / Markdown AST
 │   └── stores/
 ├── src-tauri/                 # Tauri 2（サーバー起動、Vision OCR、元PDF）
 ├── translation-server/        # FastAPI + MADLAD
@@ -160,6 +162,7 @@ paper-reader/
 ├── scripts/benchmark-pdf-extraction.ts
 ├── ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md
 ├── ACADEMIC_PDF_EXTRACTION_RESEARCH.md
+├── DATA_ARCHITECTURE.md
 ├── scripts/bundle-python.sh   # リリース時に venv を同梱
 ├── restart-translation-server.sh
 └── QUICKSTART.md
@@ -167,8 +170,9 @@ paper-reader/
 
 永続化:
 
-- IndexedDB（`paper-reader`、schema v4）: 論文メタデータ、セクション、ブロック、Project、メモ、翻訳キャッシュ、用語集。設定の「翻訳キャッシュを削除」は `translationCache` だけを消す
-- アプリデータディレクトリ: `papers/<paperId>/source.pdf`
+- Paper Package（`<AppData>/papers/<paperId>/`）: `source.pdf`、`paper.json`、`original.md`、`ja.md`、`structure.json`、任意の `layout.json.gz`、`assets/`
+- SQLite（`<AppData>/library.sqlite`）: 論文 index、Folder / Project ツリー、所属、Annotation、読書位置、用語集、翻訳キャッシュ、検索 index。本文の正本ではない
+- 旧 IndexedDB（`paper-reader` v4）: 起動時に一度移行し、バックアップとして残す。設定の「翻訳キャッシュを削除」は SQLite の cache だけを消す
 - 表示設定: Zustand persist（`paper-reader-storage`）
 
 

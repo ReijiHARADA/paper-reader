@@ -191,6 +191,15 @@
   background: var(--color-accent-light);
 }
 
+.folderItem {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
 /* ────────────────────────────────────────────────
    Section
 ──────────────────────────────────────────────── */

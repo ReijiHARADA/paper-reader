@@ -50,6 +50,8 @@ Paper Reader 本体のソースコードは [MIT License](./LICENSE) です。
 | lucide-react               | ISC（`package.json` および `LICENSE`）             |
 | uuid                       | MIT（`package.json` および `LICENSE.md`）          |
 | zustand                    | MIT（`package.json` および `LICENSE`）             |
+| sql.js                     | MIT（`package.json`）                           |
+| fflate                     | MIT（`package.json`）                           |
 | Vite（開発・ビルド）               | MIT（`package.json`）                           |
 
 

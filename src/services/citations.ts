@@ -55,7 +55,11 @@ export function indexReferenceBlocks(
     const key = referenceKeyFromText(source);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
-    if (!index.has(key)) index.set(key, block.id);
+    const target =
+      typeof block.metadata.referenceId === "string" && block.metadata.referenceId
+        ? block.metadata.referenceId
+        : block.id;
+    if (!index.has(key)) index.set(key, target);
   }
   for (const [key, count] of counts) {
     if (count !== 1) index.delete(key);

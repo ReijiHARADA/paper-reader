@@ -1,348 +1,85 @@
-import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Paper, Section, PaperBlock } from "../types/paper";
 import type { Project, ProjectPaper } from "../types/project";
 import type { Annotation } from "../types/annotation";
 import type { GlossaryEntry } from "./llm/types";
 import type { TranslationCacheEntry } from "./translation/types";
+import type { BenchmarkEntry } from "../data/types/benchmark";
+import { getStorage } from "../data/runtime";
+import { migrateIndexedDbV4IfNeeded } from "../data/migration/migrate";
+import {
+  deletePaperIndex,
+  getAllPaperIndexes,
+  getPaperIndex,
+  getPaperIndexByHash,
+  indexPaperText,
+  saveReadingPositionRow,
+  upsertPaperIndex,
+} from "../data/repositories/paperRepository";
+import {
+  forgetDocument,
+  getDocumentBlocks,
+  getDocumentSections,
+  peekDocument,
+  persistDocumentPackage,
+  rememberDocument,
+  saveDocumentBlocks,
+  saveDocumentSections,
+  updateBlockTranslationText,
+  updateDocumentBlock,
+} from "../data/repositories/documentRepository";
+import {
+  deleteProjectPaperRow,
+  deleteWorkspaceNode,
+  getProjectFromNodes,
+  getProjectPaperRow,
+  listAllProjectPapers,
+  listProjectPapersByPaper,
+  listProjectPapersByProject,
+  listProjectsFromNodes,
+  saveProjectPaperRow,
+  upsertProjectMeta,
+  createWorkspaceNode,
+  renameWorkspaceNode,
+} from "../data/repositories/workspaceRepository";
+import {
+  deleteAnnotationRow,
+  getAnnotationRow,
+  listAnnotationsByBlock,
+  listAnnotationsByPaper,
+  saveAnnotationRow,
+} from "../data/repositories/annotationRepository";
+import {
+  clearTranslationCacheRows,
+  getCachedTranslationRow,
+  getGlossaryRow,
+  getSettingRow,
+  listAllBenchmarks,
+  listBenchmarksByModel,
+  listBenchmarksByPaper,
+  saveBenchmarkRow,
+  saveGlossaryRow,
+  saveSettingRow,
+  saveTranslationCacheRow,
+} from "../data/repositories/settingsRepository";
+import { paperDir } from "../data/package/persist";
 
-interface PaperReaderDB extends DBSchema {
-  papers: {
-    key: string;
-    value: Paper;
-    indexes: {
-      "by-hash": string;
-      "by-updated": string;
-    };
-  };
-  sections: {
-    key: string;
-    value: Section;
-    indexes: {
-      "by-paper": string;
-    };
-  };
-  blocks: {
-    key: string;
-    value: PaperBlock;
-    indexes: {
-      "by-paper": string;
-      "by-section": string;
-    };
-  };
-  settings: {
-    key: string;
-    value: unknown;
-  };
-  translationCache: {
-    key: string;
-    value: TranslationCacheEntry;
-    indexes: {
-      "by-hash": string;
-      "by-model": string;
-    };
-  };
-  glossaries: {
-    key: string;
-    value: {
-      paperId: string;
-      entries: GlossaryEntry[];
-      createdAt: string;
-      updatedAt: string;
-    };
-    indexes: {
-      "by-paper": string;
-    };
-  };
-  benchmarks: {
-    key: string;
-    value: {
-      id: string;
-      paperId: string;
-      model: string;
-      modelVersion: string;
-      inputChars: number;
-      inputTokens: number | null;
-      outputChars: number;
-      translationTimeMs: number;
-      charsPerSec: number;
-      tokensPerSec: number | null;
-      timestamp: string;
-    };
-    indexes: {
-      "by-paper": string;
-      "by-model": string;
-      "by-timestamp": string;
-    };
-  };
-  projects: {
-    key: string;
-    value: Project;
-    indexes: {
-      "by-updated": string;
-    };
-  };
-  projectPapers: {
-    key: [string, string];
-    value: ProjectPaper;
-    indexes: {
-      "by-project": string;
-      "by-paper": string;
-    };
-  };
-  annotations: {
-    key: string;
-    value: Annotation;
-    indexes: {
-      "by-paper": string;
-      "by-block": string;
-      "by-project": string;
-    };
-  };
-}
+export type { BenchmarkEntry };
 
-const DB_NAME = "paper-reader";
-const DB_VERSION = 4;
+let migrated = false;
 
-let dbPromise: Promise<IDBPDatabase<PaperReaderDB>> | null = null;
-
-function getDB(): Promise<IDBPDatabase<PaperReaderDB>> {
-  if (!dbPromise) {
-    dbPromise = openDB<PaperReaderDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
-        // Version 1: Original stores
-        if (oldVersion < 1) {
-          // Papers store
-          const paperStore = db.createObjectStore("papers", { keyPath: "id" });
-          paperStore.createIndex("by-hash", "sourceFileHash");
-          paperStore.createIndex("by-updated", "updatedAt");
-
-          // Sections store
-          const sectionStore = db.createObjectStore("sections", { keyPath: "id" });
-          sectionStore.createIndex("by-paper", "paperId");
-
-          // Blocks store
-          const blockStore = db.createObjectStore("blocks", { keyPath: "id" });
-          blockStore.createIndex("by-paper", "paperId");
-          blockStore.createIndex("by-section", "sectionId");
-
-          // Settings store
-          db.createObjectStore("settings", { keyPath: "key" });
-        }
-
-        // Version 2: Add cache, glossary, and benchmark stores
-        if (oldVersion < 2) {
-          // Translation cache store
-          if (!db.objectStoreNames.contains("translationCache")) {
-            const cacheStore = db.createObjectStore("translationCache", { keyPath: "textHash" });
-            cacheStore.createIndex("by-hash", "textHash");
-            cacheStore.createIndex("by-model", "model");
-          }
-
-          // Glossaries store
-          if (!db.objectStoreNames.contains("glossaries")) {
-            const glossaryStore = db.createObjectStore("glossaries", { keyPath: "paperId" });
-            glossaryStore.createIndex("by-paper", "paperId");
-          }
-
-          // Benchmarks store
-          if (!db.objectStoreNames.contains("benchmarks")) {
-            const benchmarkStore = db.createObjectStore("benchmarks", { keyPath: "id" });
-            benchmarkStore.createIndex("by-paper", "paperId");
-            benchmarkStore.createIndex("by-model", "model");
-            benchmarkStore.createIndex("by-timestamp", "timestamp");
-          }
-        }
-
-        if (oldVersion < 3) {
-          if (!db.objectStoreNames.contains("projects")) {
-            const projectStore = db.createObjectStore("projects", { keyPath: "id" });
-            projectStore.createIndex("by-updated", "updatedAt");
-          }
-          if (!db.objectStoreNames.contains("projectPapers")) {
-            const linkStore = db.createObjectStore("projectPapers", {
-              keyPath: ["projectId", "paperId"],
-            });
-            linkStore.createIndex("by-project", "projectId");
-            linkStore.createIndex("by-paper", "paperId");
-          }
-        }
-
-        if (oldVersion < 4) {
-          if (!db.objectStoreNames.contains("annotations")) {
-            const annotationStore = db.createObjectStore("annotations", {
-              keyPath: "id",
-            });
-            annotationStore.createIndex("by-paper", "paperId");
-            annotationStore.createIndex("by-block", "blockId");
-            annotationStore.createIndex("by-project", "projectId");
-          }
-        }
-      },
-    });
+async function ready() {
+  const storage = await getStorage();
+  if (!migrated) {
+    await migrateIndexedDbV4IfNeeded(storage.fs, storage.db);
+    migrated = true;
   }
-  return dbPromise;
+  return storage;
 }
 
-// ============================================================
-// Paper operations
-// ============================================================
-
-export async function savePaper(paper: Paper): Promise<void> {
-  const db = await getDB();
-  await db.put("papers", paper);
+export function resetDatabaseMigrationFlagForTests(): void {
+  migrated = false;
 }
 
-export async function getPaper(id: string): Promise<Paper | undefined> {
-  const db = await getDB();
-  return db.get("papers", id);
-}
-
-export async function getAllPapers(): Promise<Paper[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("papers", "by-updated");
-}
-
-export async function getPaperByHash(hash: string): Promise<Paper | undefined> {
-  const db = await getDB();
-  return db.getFromIndex("papers", "by-hash", hash);
-}
-
-export async function deletePaper(id: string): Promise<void> {
-  const db = await getDB();
-
-  const deleteIndex = async (
-    store:
-      | "sections"
-      | "blocks"
-      | "projectPapers"
-      | "annotations"
-      | "benchmarks",
-    indexName: "by-paper"
-  ) => {
-    if (!db.objectStoreNames.contains(store)) return;
-    const tx = db.transaction(store, "readwrite");
-    const keys = await tx.objectStore(store).index(indexName).getAllKeys(id);
-    for (const key of keys) {
-      await tx.objectStore(store).delete(key);
-    }
-    await tx.done;
-  };
-
-  await deleteIndex("annotations", "by-paper");
-  await deleteIndex("benchmarks", "by-paper");
-  await deleteIndex("blocks", "by-paper");
-  await deleteIndex("sections", "by-paper");
-  await deleteIndex("projectPapers", "by-paper");
-
-  if (db.objectStoreNames.contains("glossaries")) {
-    const tx = db.transaction("glossaries", "readwrite");
-    await tx.objectStore("glossaries").delete(id);
-    await tx.done;
-  }
-
-  const paperTx = db.transaction("papers", "readwrite");
-  await paperTx.objectStore("papers").delete(id);
-  await paperTx.done;
-}
-
-// ============================================================
-// Section operations
-// ============================================================
-
-export async function saveSections(sections: Section[]): Promise<void> {
-  const db = await getDB();
-  const tx = db.transaction("sections", "readwrite");
-  for (const section of sections) {
-    await tx.store.put(section);
-  }
-  await tx.done;
-}
-
-export async function getSectionsByPaper(paperId: string): Promise<Section[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("sections", "by-paper", paperId);
-}
-
-// ============================================================
-// Block operations
-// ============================================================
-
-export async function saveBlocks(blocks: PaperBlock[]): Promise<void> {
-  const db = await getDB();
-  const tx = db.transaction("blocks", "readwrite");
-  for (const block of blocks) {
-    await tx.store.put(block);
-  }
-  await tx.done;
-}
-
-export async function getBlocksByPaper(paperId: string): Promise<PaperBlock[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("blocks", "by-paper", paperId);
-}
-
-export async function updateBlock(block: PaperBlock): Promise<void> {
-  const db = await getDB();
-  await db.put("blocks", block);
-}
-
-export async function updateBlockTranslation(
-  blockId: string,
-  translated: string
-): Promise<void> {
-  const db = await getDB();
-  const block = await db.get("blocks", blockId);
-  if (block) {
-    block.translated = translated;
-    block.translationStatus = "completed";
-    await db.put("blocks", block);
-  }
-}
-
-// ============================================================
-// Settings operations
-// ============================================================
-
-export async function saveSetting(key: string, value: unknown): Promise<void> {
-  const db = await getDB();
-  await db.put("settings", { key, value });
-}
-
-export async function getSetting<T>(key: string): Promise<T | undefined> {
-  const db = await getDB();
-  const result = await db.get("settings", key);
-  if (result !== undefined && typeof result === "object" && result !== null && "value" in result) {
-    return (result as { key: string; value: unknown }).value as T;
-  }
-  return undefined;
-}
-
-// ============================================================
-// Reading position
-// ============================================================
-
-export async function saveReadingPosition(
-  paperId: string,
-  blockId: string,
-  offset: number
-): Promise<void> {
-  const db = await getDB();
-  const paper = await db.get("papers", paperId);
-  if (paper) {
-    paper.lastReadBlockId = blockId;
-    paper.lastReadOffset = offset;
-    paper.updatedAt = new Date().toISOString();
-    await db.put("papers", paper);
-  }
-}
-
-// ============================================================
-// Translation Cache operations
-// ============================================================
-
-/**
- * Compute a hash for text to use as cache key.
- */
 export async function computeTextHash(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
@@ -351,9 +88,107 @@ export async function computeTextHash(text: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Get cached translation if available.
- */
+export async function savePaper(paper: Paper): Promise<void> {
+  const { fs, db } = await ready();
+  upsertPaperIndex(db, paper);
+  const cached = peekDocument(paper.id);
+  rememberDocument(paper, cached?.sections, cached?.blocks);
+  if (cached?.blocks.length) {
+    await persistDocumentPackage(fs, db, paper.id);
+  }
+}
+
+export async function getPaper(id: string): Promise<Paper | undefined> {
+  const { db } = await ready();
+  return getPaperIndex(db, id) ?? peekDocument(id)?.paper;
+}
+
+export async function getAllPapers(): Promise<Paper[]> {
+  const { db } = await ready();
+  return getAllPaperIndexes(db);
+}
+
+export async function getPaperByHash(hash: string): Promise<Paper | undefined> {
+  const { db } = await ready();
+  return getPaperIndexByHash(db, hash);
+}
+
+export async function deletePaper(id: string): Promise<void> {
+  const { fs, db } = await ready();
+  deletePaperIndex(db, id);
+  forgetDocument(id);
+  await fs.remove(paperDir(id));
+}
+
+export async function saveSections(sections: Section[]): Promise<void> {
+  const { fs, db } = await ready();
+  if (sections[0]) {
+    const paper = getPaperIndex(db, sections[0].paperId) ?? peekDocument(sections[0].paperId)?.paper;
+    if (paper) rememberDocument(paper, sections, peekDocument(paper.id)?.blocks);
+  }
+  await saveDocumentSections(fs, db, sections);
+}
+
+export async function getSectionsByPaper(paperId: string): Promise<Section[]> {
+  const { fs, db } = await ready();
+  const paper = getPaperIndex(db, paperId) ?? peekDocument(paperId)?.paper;
+  if (!paper) return peekDocument(paperId)?.sections ?? [];
+  return getDocumentSections(fs, paper);
+}
+
+export async function saveBlocks(blocks: PaperBlock[]): Promise<void> {
+  const { fs, db } = await ready();
+  if (blocks[0]) {
+    const paper = getPaperIndex(db, blocks[0].paperId) ?? peekDocument(blocks[0].paperId)?.paper;
+    if (paper) rememberDocument(paper, peekDocument(paper.id)?.sections, blocks);
+  }
+  await saveDocumentBlocks(fs, db, blocks);
+}
+
+export async function getBlocksByPaper(paperId: string): Promise<PaperBlock[]> {
+  const { fs, db } = await ready();
+  const paper = getPaperIndex(db, paperId) ?? peekDocument(paperId)?.paper;
+  if (!paper) return peekDocument(paperId)?.blocks ?? [];
+  return getDocumentBlocks(fs, paper);
+}
+
+export async function updateBlock(block: PaperBlock): Promise<void> {
+  const { fs, db } = await ready();
+  await updateDocumentBlock(fs, db, block);
+}
+
+export async function updateBlockTranslation(blockId: string, translated: string): Promise<void> {
+  const { fs, db } = await ready();
+  await updateBlockTranslationText(fs, db, blockId, translated);
+}
+
+export async function saveSetting(key: string, value: unknown): Promise<void> {
+  const { db } = await ready();
+  saveSettingRow(db, key, value);
+}
+
+export async function getSetting<T>(key: string): Promise<T | undefined> {
+  const { db } = await ready();
+  return getSettingRow<T>(db, key);
+}
+
+export async function saveReadingPosition(
+  paperId: string,
+  blockId: string,
+  offset: number
+): Promise<void> {
+  const { db } = await ready();
+  saveReadingPositionRow(db, paperId, blockId, offset);
+  const paper = getPaperIndex(db, paperId);
+  if (paper) {
+    rememberDocument(
+      { ...paper, lastReadBlockId: blockId, lastReadOffset: offset },
+      peekDocument(paperId)?.sections,
+      peekDocument(paperId)?.blocks
+    );
+  }
+}
+
 export async function getCachedTranslation(
   textHash: string,
   model: string,
@@ -361,236 +196,147 @@ export async function getCachedTranslation(
   sourceLanguage: string,
   targetLanguage: string
 ): Promise<string | null> {
-  const db = await getDB();
-  const entry = await db.get("translationCache", textHash);
-  
-  if (
-    entry &&
-    entry.model === model &&
-    entry.modelVersion === modelVersion &&
-    entry.sourceLanguage === sourceLanguage &&
-    entry.targetLanguage === targetLanguage
-  ) {
-    return entry.translatedText;
-  }
-  
-  return null;
+  const { db } = await ready();
+  return getCachedTranslationRow(db, textHash, model, modelVersion, sourceLanguage, targetLanguage);
 }
 
-/**
- * Save translation to cache.
- */
 export async function saveTranslationCache(
   textHash: string,
   entry: Omit<TranslationCacheEntry, "textHash" | "cachedAt">
 ): Promise<void> {
-  const db = await getDB();
-  await db.put("translationCache", {
-    textHash,
-    ...entry,
-    cachedAt: Date.now(),
-  });
+  const { db } = await ready();
+  saveTranslationCacheRow(db, textHash, entry);
 }
 
-/**
- * Clear translations for a specific model (for re-translation).
- */
 export async function clearCacheByModel(model: string): Promise<number> {
-  const db = await getDB();
-  const entries = await db.getAllFromIndex("translationCache", "by-model", model);
-  const tx = db.transaction("translationCache", "readwrite");
-  
-  for (const entry of entries) {
-    await tx.store.delete(entry.textHash);
-  }
-  
-  await tx.done;
-  return entries.length;
+  const { db } = await ready();
+  return clearTranslationCacheRows(db, model);
 }
 
-/**
- * Clear only the translationCache object store.
- * Does not touch papers, blocks, annotations, glossaries, or settings.
- */
 export async function clearTranslationCache(): Promise<number> {
-  const db = await getDB();
-  const tx = db.transaction("translationCache", "readwrite");
-  const count = await tx.store.count();
-  await tx.store.clear();
-  await tx.done;
-  return count;
+  const { db } = await ready();
+  return clearTranslationCacheRows(db);
 }
 
-// ============================================================
-// Glossary operations
-// ============================================================
-
-/**
- * Save glossary for a paper.
- */
-export async function saveGlossary(
-  paperId: string,
-  entries: GlossaryEntry[]
-): Promise<void> {
-  const db = await getDB();
-  const existing = await db.get("glossaries", paperId);
-  
-  await db.put("glossaries", {
-    paperId,
-    entries,
-    createdAt: existing?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+export async function saveGlossary(paperId: string, entries: GlossaryEntry[]): Promise<void> {
+  const { db } = await ready();
+  saveGlossaryRow(db, paperId, entries);
 }
 
-/**
- * Get glossary for a paper.
- */
 export async function getGlossary(paperId: string): Promise<GlossaryEntry[]> {
-  const db = await getDB();
-  const entry = await db.get("glossaries", paperId);
-  return entry?.entries || [];
+  const { db } = await ready();
+  return getGlossaryRow(db, paperId);
 }
 
-// ============================================================
-// Benchmark operations
-// ============================================================
-
-export interface BenchmarkEntry {
-  id: string;
-  paperId: string;
-  model: string;
-  modelVersion: string;
-  inputChars: number;
-  inputTokens: number | null;
-  outputChars: number;
-  translationTimeMs: number;
-  charsPerSec: number;
-  tokensPerSec: number | null;
-  timestamp: string;
-}
-
-/**
- * Save benchmark entry.
- */
 export async function saveBenchmark(entry: BenchmarkEntry): Promise<void> {
-  const db = await getDB();
-  await db.put("benchmarks", entry);
+  const { db } = await ready();
+  saveBenchmarkRow(db, entry);
 }
 
-/**
- * Get benchmarks for a paper.
- */
 export async function getBenchmarksByPaper(paperId: string): Promise<BenchmarkEntry[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("benchmarks", "by-paper", paperId);
+  const { db } = await ready();
+  return listBenchmarksByPaper(db, paperId);
 }
 
-/**
- * Get benchmarks for a model.
- */
 export async function getBenchmarksByModel(model: string): Promise<BenchmarkEntry[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("benchmarks", "by-model", model);
+  const { db } = await ready();
+  return listBenchmarksByModel(db, model);
 }
 
-/**
- * Get all benchmarks ordered by timestamp.
- */
 export async function getAllBenchmarks(): Promise<BenchmarkEntry[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("benchmarks", "by-timestamp");
+  const { db } = await ready();
+  return listAllBenchmarks(db);
 }
-
-// ============================================================
-// Project operations
-// ============================================================
 
 export async function saveProject(project: Project): Promise<void> {
-  const db = await getDB();
-  await db.put("projects", project);
+  const { db } = await ready();
+  const existing = getProjectFromNodes(db, project.id);
+  if (!existing) {
+    createWorkspaceNode(db, {
+      id: project.id,
+      kind: "project",
+      name: project.name,
+      parentId: null,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    });
+  } else if (existing.name !== project.name) {
+    renameWorkspaceNode(db, project.id, project.name);
+  }
+  upsertProjectMeta(db, project);
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
-  const db = await getDB();
-  return db.get("projects", id);
+  const { db } = await ready();
+  return getProjectFromNodes(db, id);
 }
 
 export async function getAllProjects(): Promise<Project[]> {
-  const db = await getDB();
-  const projects = await db.getAll("projects");
-  return projects.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) * -1);
+  const { db } = await ready();
+  return listProjectsFromNodes(db);
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const db = await getDB();
-  const tx = db.transaction(["projects", "projectPapers"], "readwrite");
-  const links = await tx.objectStore("projectPapers").index("by-project").getAllKeys(id);
-  for (const key of links) {
-    await tx.objectStore("projectPapers").delete(key);
-  }
-  await tx.objectStore("projects").delete(id);
-  await tx.done;
+  const { db } = await ready();
+  deleteWorkspaceNode(db, id);
 }
 
 export async function saveProjectPaper(link: ProjectPaper): Promise<void> {
-  const db = await getDB();
-  await db.put("projectPapers", link);
+  const { db } = await ready();
+  saveProjectPaperRow(db, link);
 }
 
 export async function getProjectPaper(
   projectId: string,
   paperId: string
 ): Promise<ProjectPaper | undefined> {
-  const db = await getDB();
-  return db.get("projectPapers", [projectId, paperId]);
+  const { db } = await ready();
+  return getProjectPaperRow(db, projectId, paperId);
 }
 
 export async function getProjectPapersByProject(projectId: string): Promise<ProjectPaper[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("projectPapers", "by-project", projectId);
+  const { db } = await ready();
+  return listProjectPapersByProject(db, projectId);
 }
 
 export async function getProjectPapersByPaper(paperId: string): Promise<ProjectPaper[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("projectPapers", "by-paper", paperId);
+  const { db } = await ready();
+  return listProjectPapersByPaper(db, paperId);
 }
 
 export async function getAllProjectPapers(): Promise<ProjectPaper[]> {
-  const db = await getDB();
-  return db.getAll("projectPapers");
+  const { db } = await ready();
+  return listAllProjectPapers(db);
 }
 
 export async function deleteProjectPaper(projectId: string, paperId: string): Promise<void> {
-  const db = await getDB();
-  await db.delete("projectPapers", [projectId, paperId]);
+  const { db } = await ready();
+  deleteProjectPaperRow(db, projectId, paperId);
 }
 
-// ============================================================
-// Annotation operations
-// ============================================================
-
 export async function saveAnnotation(annotation: Annotation): Promise<void> {
-  const db = await getDB();
-  await db.put("annotations", annotation);
+  const { db } = await ready();
+  saveAnnotationRow(db, annotation);
 }
 
 export async function getAnnotation(id: string): Promise<Annotation | undefined> {
-  const db = await getDB();
-  return db.get("annotations", id);
+  const { db } = await ready();
+  return getAnnotationRow(db, id);
 }
 
 export async function getAnnotationsByPaper(paperId: string): Promise<Annotation[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("annotations", "by-paper", paperId);
+  const { db } = await ready();
+  return listAnnotationsByPaper(db, paperId);
 }
 
 export async function getAnnotationsByBlock(blockId: string): Promise<Annotation[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("annotations", "by-block", blockId);
+  const { db } = await ready();
+  return listAnnotationsByBlock(db, blockId);
 }
 
 export async function deleteAnnotation(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete("annotations", id);
+  const { db } = await ready();
+  deleteAnnotationRow(db, id);
 }
+
+export { indexPaperText };

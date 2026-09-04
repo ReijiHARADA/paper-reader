@@ -1,6 +1,6 @@
 # Paper Reader ロードマップ
 
-> Version 0.4 / 2026-09-04  
+> Version 0.5 / 2026-09-05  
 > プロダクト原則と、現行実装では未達の項目の基準文書  
 > **いま動いていること**は [README.md](./README.md) を正とする
 
@@ -50,7 +50,7 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 詳細は README。ここは残作業の前提だけ書く。
 
 - Tauri 2 の macOS `.app`。MADLAD サイドカーを同梱起動。ライブラリはサーバー待ちせずすぐ出す
-- ライブラリ（All Papers / Inbox / Favorites / Recently Read / Project）。論文カードは共通レイアウト。一覧の横幅は Project と同じく画面幅いっぱいに出す。All Papers / Inbox / Project の追加はタイトル右の「論文を追加」。Project はドラッグで所属（多対多）
+- ライブラリ（All Papers / Inbox / Favorites / Recently Read / Project）。論文カードは共通レイアウト。一覧の横幅は Project と同じく画面幅いっぱいに出す。All Papers / Inbox / Project の追加はタイトル右の「論文を追加」。Project はドラッグで所属（多対多）。Folder で入れ子整理できる（Project は leaf）
 - 設定は左サイドバー最下部から、ライブラリと同じ画面遷移で開く。目次は一般 / 翻訳 / 読書 / ストレージ / 診断。サンプル論文は一般、表示設定はリーダーと共通、翻訳キャッシュ削除はストレージ
 - 日本語 1 カラム、原文インライン展開、アウトライン、⌘F 検索（矢印 / Enter でヒット間移動）、表示設定、読書位置復元
 - 訳文選択で「メモを追加」を出し、クリック後に Notes。Notes と用語集の右パネルは排他
@@ -72,6 +72,9 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準
 - プロジェクト画面の「論文を追加」で PDF をその Project に入れる。削除は右上のゴミ箱と確認ダイアログ
 - Finder から PDF をアプリ画面へドロップしてインポートできる（Tauri のファイルドロップ。Project 画面ならその Project に所属する）
+- 論文本文の正本は Paper Package（Markdown + structure + assets）。SQLite は index / Annotation / Folder・Project / cache。旧 IndexedDB v4 は起動時に移行して残す。詳細は [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
+- リーダーから訳文 Markdown を書き出せる。Reader と export は同じ Document AST
+- 抽出時に page / bbox / line / span を `structure.json` と `layout.json.gz` へ残す（translated-layout.pdf 本体は未実装）
 
 ## 3. 未達・これから必要なこと
 
@@ -141,6 +144,7 @@ Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACA
 - **読書進捗**: カードは最終閲覧日だけ。セクションまたはブロック進捗を出す
 - **重複 PDF**: ハッシュ一致で打ち切るが、既存論文を開く導線が弱い。通知して既存を開く
 - **Project メタデータ**: `researchQuestion` / `keywords` / 所属の status・decision・tags は型だけ。UI は名前と説明の作成に留める。必要になるまで UI を増やさない
+- **Folder / Project ツリー**: 入れ子・移動禁止（cycle）・削除確認はある。ノードの drag reorder は sibling 並べ替え API まで。サイドバー上の連続ドラッグ並べ替えは残作業
 - **論文カードの一時停止**: 処理中の一時停止は未実装。キャンセルより再開できる停止の方がよい
 
 論文削除はアプリ内データと複製 PDF を消す。OS 上の原本は消さない（現行どおり）。削除時に原本まで消すかは聞かない。原本はコピー元でありアプリの所有物ではない。
@@ -196,14 +200,14 @@ Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACA
 利用実態を見るまで着手しない。常設 AI チャットは今後も置かない。AI を足すなら選択箇所への短い操作にする。
 
 - 図表画像内 OCR と図中文字の翻訳
-- DeepL のような元レイアウト維持型 PDF 書き出し
+- DeepL のような元レイアウト維持型 PDF 書き出し（provenance は保存済み。exporter 本体は未着手）
 - Word、EPUB、HTML 入力
 - 手書きメモ
 - 論文要約、RQ 抽出、批判的評価
 - クラウド同期、複数端末同期、共同編集
 - 選択文の説明、「この文の役割」などの文脈理解支援
 - 参考文献の外部リンク
-- 読書メモの Markdown 書き出し
+- メモ付き Markdown 書き出し（canonical export は実装済み。Annotation を `> [!NOTE]` にするパスは構造だけ）
 - 論文メタデータの横断自動取得
 - Windows 版
 

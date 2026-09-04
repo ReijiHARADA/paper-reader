@@ -5,6 +5,7 @@ import {
   Search,
   Settings2,
   ExternalLink,
+  FileDown,
   StickyNote,
   BookMarked,
 } from "lucide-react";
@@ -525,6 +526,28 @@ export function ReaderScreen() {
     [paperId]
   );
 
+  const handleExportMarkdown = useCallback(async () => {
+    if (!paperId) return;
+    try {
+      const { getStorage } = await import("../../data/runtime");
+      const { exportPaperMarkdown } = await import("../../data/export/markdownExport");
+      const { fs } = await getStorage();
+      const result = await exportPaperMarkdown(fs, paperId, {
+        language: "ja",
+        stripBlockIds: true,
+      });
+      const blob = new Blob([result.markdown], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${result.fileName}.md`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export markdown:", error);
+    }
+  }, [paperId]);
+
   const handleAddMemo = useCallback((selection: TranslationSelection) => {
     setDraft({ selection, note: "" });
     setEditing(null);
@@ -700,6 +723,13 @@ export function ReaderScreen() {
             title="表示設定"
           >
             <Settings2 size={20} />
+          </button>
+          <button
+            className={styles.iconButton}
+            title="Markdown を書き出す"
+            onClick={() => void handleExportMarkdown()}
+          >
+            <FileDown size={20} />
           </button>
           <button
             className={styles.iconButton}

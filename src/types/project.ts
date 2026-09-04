@@ -33,3 +33,5 @@ export type ProjectCorpus = {
 };
 
 export type LibraryView = "all" | "inbox" | "favorites" | "recent" | "project";
+
+export type { WorkspaceNode, WorkspaceTreeNode } from "../data/types/workspace";

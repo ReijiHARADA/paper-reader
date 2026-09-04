@@ -125,13 +125,16 @@ export function PaperContent({
         content = <Footnote block={block} />;
         break;
 
-      case "reference":
+      case "reference": {
+        const referenceId =
+          typeof block.metadata.referenceId === "string" ? block.metadata.referenceId : undefined;
         content = (
-          <p className={styles.reference}>
+          <p id={referenceId} className={styles.reference}>
             {block.original}
           </p>
         );
         break;
+      }
 
       default:
         return null;

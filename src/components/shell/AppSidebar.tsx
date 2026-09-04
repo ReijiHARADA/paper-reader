@@ -10,27 +10,32 @@ import {
   Settings,
   Star,
 } from "lucide-react";
-import type { Project } from "../../types/project";
+import type { WorkspaceNode } from "../../types/project";
 import {
   INBOX_DROP_ID,
   usePaperDragStore,
 } from "../../stores/paperDragStore";
+import { WorkspaceTree } from "./WorkspaceTree";
 import styles from "./AppSidebar.module.css";
 
 type AppSidebarProps = {
-  projects: Project[];
+  workspaceNodes: WorkspaceNode[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNewProject: () => void;
+  onNewFolder: () => void;
+  onDeleteNode: (node: WorkspaceNode) => void;
   activeProjectId?: string | null;
   inboxCount: number;
 };
 
 export function AppSidebar({
-  projects,
+  workspaceNodes,
   searchQuery,
   onSearchChange,
   onNewProject,
+  onNewFolder,
+  onDeleteNode,
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
@@ -87,38 +92,23 @@ export function AppSidebar({
         <Plus size={16} className={styles.icon} />
         <span className={styles.label}>New Project</span>
       </button>
+      <button type="button" className={styles.newProject} onClick={onNewFolder} title="New Folder">
+        <Folder size={16} className={styles.icon} />
+        <span className={styles.label}>New Folder</span>
+      </button>
 
       <div className={styles.scroll}>
         <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.label}>Projects</span>
         </h2>
-        {projects.length === 0 && (
-          <p className={`${styles.empty} ${styles.label}`}>研究テーマを追加</p>
-        )}
-        <nav className={styles.nav}>
-          {projects.map((project) => (
-            <NavLink
-              key={project.id}
-              to={`/project/${project.id}`}
-              data-project-drop-id={project.id}
-              className={({ isActive }) =>
-                `${styles.item} ${
-                  isActive || activeProjectId === project.id ? styles.active : ""
-                } ${dropTargetId === project.id ? styles.dropTarget : ""}`
-              }
-              title={project.name}
-              onClick={(event) => {
-                if (draggingPaperId) event.preventDefault();
-              }}
-            >
-              <span className={styles.icon}>
-                <Folder size={16} />
-              </span>
-              <span className={styles.itemLabel}>{project.name}</span>
-            </NavLink>
-          ))}
-        </nav>
+        <WorkspaceTree
+          nodes={workspaceNodes}
+          activeProjectId={activeProjectId}
+          dropTargetId={dropTargetId}
+          draggingPaperId={draggingPaperId}
+          onDelete={onDeleteNode}
+        />
       </section>
 
       <section className={styles.section}>

@@ -12,10 +12,14 @@ import {
 } from "../../services/database";
 import {
   createProject,
+  createFolder,
   addPaperToProject,
   DuplicateProjectPaperError,
   removePaperFromAllProjects,
+  listWorkspace,
+  removeWorkspaceItem,
 } from "../../services/projectService";
+import type { WorkspaceNode } from "../../types/project";
 import {
   mergePreferTranslated,
   mergePreferTranslatedSections,
@@ -38,33 +42,40 @@ export function AppShell() {
   const setBlocks = usePaperDataStore((state) => state.setBlocks);
   const {
     projects,
+    workspaceNodes,
     memberships,
     searchQuery,
     setLoaded,
     setSearchQuery,
     setProjects,
+    setWorkspaceNodes,
     setMemberships,
     upsertProject,
+    upsertWorkspaceNode,
     upsertMembership,
     removeMembershipsForPaper,
+    removeWorkspaceNodesLocal,
   } = useProjectStore();
 
   const toast = usePaperDragStore((state) => state.toast);
   const showToast = usePaperDragStore((state) => state.showToast);
   const clearToast = usePaperDragStore((state) => state.clearToast);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showNewFolder, setShowNewFolder] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [dbPapers, dbProjects, dbLinks] = await Promise.all([
+        const [dbPapers, dbProjects, dbLinks, dbNodes] = await Promise.all([
           getAllPapers(),
           getAllProjects(),
           getAllProjectPapers(),
+          listWorkspace(),
         ]);
         if (cancelled) return;
         setProjects(dbProjects);
+        setWorkspaceNodes(dbNodes);
         setMemberships(dbLinks);
         setPapers(dbPapers);
         for (const paper of dbPapers) {
@@ -100,7 +111,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections, updatePaper]);
+  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections, setWorkspaceNodes, updatePaper]);
 
   const searchParams = new URLSearchParams(location.search);
   const queryProjectId = searchParams.get("project");
@@ -124,7 +135,28 @@ export function AppShell() {
   const handleCreate = async (input: { name: string; description?: string }) => {
     const project = await createProject(input);
     upsertProject(project);
+    const nodes = await listWorkspace();
+    setWorkspaceNodes(nodes);
     navigate(`/project/${project.id}`);
+  };
+
+  const handleCreateFolder = async (input: { name: string }) => {
+    const folder = await createFolder(input.name);
+    upsertWorkspaceNode(folder);
+  };
+
+  const handleDeleteNode = async (node: WorkspaceNode) => {
+    const childCount = workspaceNodes.filter((item) => item.parentId === node.id).length;
+    const message =
+      node.kind === "folder" && childCount > 0
+        ? `フォルダ「${node.name}」とその中の ${childCount} 件を削除しますか？論文ファイルは消えません。`
+        : `「${node.name}」を削除しますか？`;
+    if (!window.confirm(message)) return;
+    const removed = await removeWorkspaceItem(node.id);
+    removeWorkspaceNodesLocal(removed);
+    if (node.kind === "project" && location.pathname.includes(node.id)) {
+      navigate("/inbox");
+    }
   };
 
   const handleDropPaper = useCallback(async (targetId: string, paperId: string) => {
@@ -181,10 +213,12 @@ export function AppShell() {
   return (
     <div className={styles.shell}>
       <AppSidebar
-        projects={projects}
+        workspaceNodes={workspaceNodes}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onNewProject={() => setShowNewProject(true)}
+        onNewFolder={() => setShowNewFolder(true)}
+        onDeleteNode={(node) => void handleDeleteNode(node)}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
       />
@@ -209,6 +243,14 @@ export function AppShell() {
         <NewProjectModal
           onClose={() => setShowNewProject(false)}
           onCreate={handleCreate}
+        />
+      )}
+      {showNewFolder && (
+        <NewProjectModal
+          title="New Folder"
+          nameLabel="フォルダ名"
+          onClose={() => setShowNewFolder(false)}
+          onCreate={handleCreateFolder}
         />
       )}
     </div>

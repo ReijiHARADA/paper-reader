@@ -318,7 +318,9 @@ export async function importPDFV2(
       },
     });
 
-    const { paper, sections, blocks } = extracted;
+    const { paper, sections, blocks: extractedBlocks } = extracted;
+    const { attachLinesToBlocks, layoutFileFromNative } = await import("../data/package/layoutFromExtraction");
+    const blocks = attachLinesToBlocks(extractedBlocks, extracted.layoutBlocks);
     paper.sourceFileName = file.name;
     try {
       paper.sourceStoredPath = await persistSourcePdf(paperId, file);
@@ -341,6 +343,16 @@ export async function importPDFV2(
     await savePaper(paper);
     await saveSections(sections);
     await saveBlocks(blocks);
+    try {
+      const { getStorage } = await import("../data/runtime");
+      const { loadPaperPackage, persistPaperPackage } = await import("../data/package/persist");
+      const { fs } = await getStorage();
+      const pkg = await loadPaperPackage(fs, paperId);
+      pkg.layout = layoutFileFromNative(extracted.native, blocks);
+      await persistPaperPackage(fs, pkg);
+    } catch (error) {
+      console.warn("Failed to persist layout provenance:", error);
+    }
 
     // Notify that partial data is ready (can start viewing)
     callbacks.onPartialReady(paper, sections, blocks);

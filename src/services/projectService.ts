@@ -7,6 +7,7 @@ import type {
   ProjectPaperDecision,
   ProjectPaperStatus,
 } from "../types/project";
+import type { WorkspaceNode } from "../types/project";
 import {
   deleteProject as deleteProjectRecord,
   deleteProjectPaper,
@@ -21,12 +22,22 @@ import {
   saveProject,
   saveProjectPaper,
 } from "./database";
+import { getStorage } from "../data/runtime";
+import {
+  createWorkspaceNode,
+  deleteWorkspaceNode,
+  listWorkspaceNodes,
+  moveWorkspaceNode,
+  renameWorkspaceNode,
+  reorderWorkspaceSiblings,
+} from "../data/repositories/workspaceRepository";
 
 export type CreateProjectInput = {
   name: string;
   description?: string;
   researchQuestion?: string;
   keywords?: string[];
+  parentId?: string | null;
 };
 
 export type AddPaperToProjectInput = {
@@ -59,8 +70,47 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     createdAt: stamp,
     updatedAt: stamp,
   };
+  const { db } = await getStorage();
+  createWorkspaceNode(db, {
+    id: project.id,
+    kind: "project",
+    name,
+    parentId: input.parentId ?? null,
+    createdAt: stamp,
+    updatedAt: stamp,
+  });
   await saveProject(project);
   return project;
+}
+
+export async function createFolder(name: string, parentId?: string | null): Promise<WorkspaceNode> {
+  const { db } = await getStorage();
+  return createWorkspaceNode(db, { kind: "folder", name, parentId: parentId ?? null });
+}
+
+export async function renameWorkspaceItem(id: string, name: string): Promise<WorkspaceNode> {
+  const { db } = await getStorage();
+  return renameWorkspaceNode(db, id, name);
+}
+
+export async function moveWorkspaceItem(id: string, parentId: string | null): Promise<WorkspaceNode> {
+  const { db } = await getStorage();
+  return moveWorkspaceNode(db, id, parentId);
+}
+
+export async function reorderWorkspaceItems(parentId: string | null, orderedIds: string[]): Promise<void> {
+  const { db } = await getStorage();
+  reorderWorkspaceSiblings(db, parentId, orderedIds);
+}
+
+export async function removeWorkspaceItem(id: string): Promise<string[]> {
+  const { db } = await getStorage();
+  return deleteWorkspaceNode(db, id);
+}
+
+export async function listWorkspace(): Promise<WorkspaceNode[]> {
+  const { db } = await getStorage();
+  return listWorkspaceNodes(db);
 }
 
 export async function updateProject(

@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import type {
   Paper,
   Section,
@@ -8,6 +7,7 @@ import type {
   TableMetadata,
   EquationMetadata,
 } from "../../../types/paper";
+import { fingerprintText, stableBlockId, uniqueId } from "../../../data/package/ids";
 import {
   displayHeadingText,
   figureLookupKey,
@@ -152,6 +152,7 @@ export function projectCanonicalToPaper(input: {
   let blockOrder = 0;
   let sectionOrder = 0;
 
+  const usedIds = new Set<string>();
   const skip = new Set(["header", "footer", "title", "copyright", "author", "affiliation", "figure", "table"]);
 
   const readable = canonical.nodes.filter((n) => !skip.has(n.role));
@@ -173,7 +174,15 @@ export function projectCanonicalToPaper(input: {
       ? scoreLayoutBlock(layout, pageLayout)
       : { score: node.confidence, diagnostics: canonical.diagnostics };
     blocks.push({
-      id: uuidv4(),
+      id: uniqueId(
+        stableBlockId({
+          type: partial.type,
+          page: node.pageStart,
+          text: node.text ?? "",
+          order: blockOrder,
+        }),
+        usedIds
+      ),
       paperId,
       order: blockOrder++,
       extractionConfidence: scored.score,
@@ -231,7 +240,10 @@ export function projectCanonicalToPaper(input: {
         layout?.lines[0]?.fontSize ?? baseFontSize,
         baseFontSize
       );
-      const sectionId = uuidv4();
+      const sectionId = uniqueId(
+        `s-${fingerprintText(`${headingText}|${node.pageStart}|${sectionOrder}`)}`,
+        usedIds
+      );
       const kind = normalizeSection(headingText);
       const parentHeadingId = parentByHeading.get(node.id);
       const parentSectionId = parentHeadingId

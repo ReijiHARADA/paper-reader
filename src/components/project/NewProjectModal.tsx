@@ -3,11 +3,18 @@ import { X } from "lucide-react";
 import styles from "./ProjectModal.module.css";
 
 type NewProjectModalProps = {
+  title?: string;
+  nameLabel?: string;
   onClose: () => void;
   onCreate: (input: { name: string; description?: string }) => Promise<void>;
 };
 
-export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
+export function NewProjectModal({
+  title = "New Project",
+  nameLabel = "研究テーマ",
+  onClose,
+  onCreate,
+}: NewProjectModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -44,7 +51,7 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
       >
         <header className={styles.header}>
           <h2 id="new-project-title" className={styles.title}>
-            New Project
+            {title}
           </h2>
           <button className={styles.closeButton} onClick={onClose} title="閉じる">
             <X size={18} />
@@ -52,7 +59,7 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
         </header>
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label}>
-            研究テーマ
+            {nameLabel}
             <input
               className={styles.input}
               value={name}

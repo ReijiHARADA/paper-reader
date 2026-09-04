@@ -18,12 +18,14 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
+    "fflate": "^0.8.3",
     "idb": "^8.0.3",
     "lucide-react": "^1.39.0",
     "pdfjs-dist": "^3.11.174",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
+    "sql.js": "^1.14.2",
     "uuid": "^14.0.2",
     "zustand": "^5.0.15"
   },
@@ -32,12 +34,13 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/sql.js": "^1.4.11",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.1.0",
+    "fake-indexeddb": "^6.2.2",
     "oxlint": "^1.79.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
-    "vitest": "^3.2.4",
-    "fake-indexeddb": "^6.2.2"
+    "vitest": "^3.2.4"
   }
 }
