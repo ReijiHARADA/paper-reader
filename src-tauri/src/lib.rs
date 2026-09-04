@@ -153,6 +153,7 @@ pub fn run() {
             source_pdf::open_source_pdf,
             source_pdf::delete_source_pdf,
             source_pdf::source_pdf_exists,
+            source_pdf::read_dropped_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Upload, Plus, Inbox } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { useProjectStore } from "../../stores/projectStore";
-import { checkMADLADAvailability } from "../../services/importServiceV2";
-import { setPendingImportFile } from "../../services/pendingImport";
+import { tryStartPdfImport } from "../../services/pdfImport";
 import { PaperDeleteControls } from "./PaperDeleteControls";
 import { PaperCard } from "./PaperCard";
 import { useDeletePaper } from "../../hooks/useDeletePaper";
@@ -24,14 +23,7 @@ export function InboxScreen() {
   const inboxPapers = papers.filter((p) => !assigned.has(p.id));
 
   const handleFileSelect = useCallback(async (file: File) => {
-    if (!file.type.includes("pdf")) { alert("PDFファイルのみ対応しています"); return; }
-    const madladStatus = await checkMADLADAvailability();
-    if (!madladStatus.available) {
-      alert("翻訳サーバーに接続できません。\ntranslation-server で `python server.py` を実行してください。");
-      return;
-    }
-    setPendingImportFile(file);
-    navigate("/import");
+    await tryStartPdfImport(file, navigate);
   }, [navigate]);
 
   const handleOpen = (paper: Paper) => {
@@ -56,8 +48,14 @@ export function InboxScreen() {
           <h1 className={styles.title}>Inbox</h1>
         </div>
         <div className={styles.headerRight}>
-          <button className={styles.settingsButton} onClick={() => fileInputRef.current?.click()} title="PDFを追加">
-            <Plus size={20} />
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => fileInputRef.current?.click()}
+            title="論文を追加"
+          >
+            <Plus size={18} />
+            論文を追加
           </button>
         </div>
       </header>
@@ -68,43 +66,31 @@ export function InboxScreen() {
             <div className={styles.emptyIcon}><Upload size={64} strokeWidth={1} /></div>
             <h2 className={styles.emptyTitle}>Inboxは空です</h2>
             <p className={styles.emptyDescription}>
-              どのプロジェクトにも属さない論文がここに入ります。カードをサイドバーのプロジェクトへドラッグすると追加できます。プロジェクトから戻すときは、この Inbox へドロップします。
+              どのプロジェクトにも属さない論文がここに入ります。右上の「論文を追加」か、PDF をこの画面にドロップしてください。カードをサイドバーのプロジェクトへドラッグすると追加できます。プロジェクトから戻すときは、この Inbox へドロップします。
             </p>
-            <div className={styles.emptyActions}>
-              <button className={styles.primaryButton} onClick={() => fileInputRef.current?.click()}>
-                <Plus size={20} />PDFを追加
-              </button>
-            </div>
           </div>
         ) : (
-          <>
-            <div className={styles.toolbar}>
-              <button className={styles.addButton} onClick={() => fileInputRef.current?.click()}>
-                <Plus size={20} />PDFを追加
-              </button>
-            </div>
-            <div className={styles.paperList}>
-              {inboxPapers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  enabled={pendingId !== paper.id}
-                  onOpen={() => handleOpen(paper)}
-                  actions={
-                    <PaperDeleteControls
-                      paperId={paper.id}
-                      pendingId={pendingId}
-                      error={error}
-                      busy={busy}
-                      onRequest={requestDelete}
-                      onConfirm={confirmDelete}
-                      onCancel={cancelDelete}
-                    />
-                  }
-                />
-              ))}
-            </div>
-          </>
+          <div className={styles.paperList}>
+            {inboxPapers.map((paper) => (
+              <PaperCard
+                key={paper.id}
+                paper={paper}
+                enabled={pendingId !== paper.id}
+                onOpen={() => handleOpen(paper)}
+                actions={
+                  <PaperDeleteControls
+                    paperId={paper.id}
+                    pendingId={pendingId}
+                    error={error}
+                    busy={busy}
+                    onRequest={requestDelete}
+                    onConfirm={confirmDelete}
+                    onCancel={cancelDelete}
+                  />
+                }
+              />
+            ))}
+          </div>
         )}
       </main>
     </div>

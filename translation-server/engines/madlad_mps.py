@@ -13,6 +13,7 @@ import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from .base import TranslationEngine, TranslationResult, EngineStatus
+from .citation_protect import protect_citations, restore_citations
 
 
 class MADLADEngine(TranslationEngine):
@@ -277,9 +278,11 @@ class MADLADEngine(TranslationEngine):
                     flush=True,
                 )
 
-                pieces, input_tokens, output_tokens = self._translate_chunks(
+                pieces, in_toks, out_toks = self._translate_chunks(
                     chunks, target_language
                 )
+                input_tokens = sum(in_toks)
+                output_tokens = sum(out_toks)
 
                 translated_text = self._join_translated_chunks(
                     chunks, pieces, target_language
@@ -452,25 +455,25 @@ class MADLADEngine(TranslationEngine):
 
     def _translate_chunks(
         self, chunks: list[str], target_language: str
-    ) -> tuple[list[str], int, int]:
+    ) -> tuple[list[str], list[int], list[int]]:
         if self._batch_size <= 1 or len(chunks) <= 1:
             pieces: list[str] = []
-            input_tokens = 0
-            output_tokens = 0
+            in_toks: list[int] = []
+            out_toks: list[int] = []
             for chunk in chunks:
                 piece, in_tok, out_tok = self._translate_chunk(chunk, target_language)
                 pieces.append(piece)
-                input_tokens += in_tok
-                output_tokens += out_tok
-            return pieces, input_tokens, output_tokens
+                in_toks.append(in_tok)
+                out_toks.append(out_tok)
+            return pieces, in_toks, out_toks
 
         pieces = []
-        input_tokens = 0
-        output_tokens = 0
+        in_toks = []
+        out_toks = []
         for start in range(0, len(chunks), self._batch_size):
             group = chunks[start : start + self._batch_size]
             try:
-                group_pieces, in_tok, out_tok = self._translate_chunk_batch(
+                group_pieces, group_in, group_out = self._translate_chunk_batch(
                     group, target_language
                 )
             except Exception as exc:
@@ -480,29 +483,36 @@ class MADLADEngine(TranslationEngine):
                     flush=True,
                 )
                 group_pieces = []
-                in_tok = 0
-                out_tok = 0
+                group_in = []
+                group_out = []
                 for chunk in group:
                     piece, one_in, one_out = self._translate_chunk(
                         chunk, target_language
                     )
                     group_pieces.append(piece)
-                    in_tok += one_in
-                    out_tok += one_out
+                    group_in.append(one_in)
+                    group_out.append(one_out)
             pieces.extend(group_pieces)
-            input_tokens += in_tok
-            output_tokens += out_tok
-        return pieces, input_tokens, output_tokens
+            in_toks.extend(group_in)
+            out_toks.extend(group_out)
+        return pieces, in_toks, out_toks
 
     def _translate_chunk_batch(
         self, chunks: list[str], target_language: str
-    ) -> tuple[list[str], int, int]:
+    ) -> tuple[list[str], list[int], list[int]]:
+        protected_chunks: list[str] = []
+        cite_maps: list[tuple[list[str], int]] = []
+        for chunk in chunks:
+            protected, cites, nonce = protect_citations(chunk)
+            protected_chunks.append(protected)
+            cite_maps.append((cites, nonce))
+
         lang_token = f"<2{target_language}>"
         if self._tokenizer.convert_tokens_to_ids(lang_token) == self._tokenizer.unk_token_id:
             raise ValueError(f"Unknown MADLAD language tag: {lang_token}")
 
         encoded = self._tokenizer(
-            [f"{lang_token} {chunk}" for chunk in chunks],
+            [f"{lang_token} {chunk}" for chunk in protected_chunks],
             return_tensors="pt",
             truncation=True,
             max_length=512,
@@ -530,10 +540,12 @@ class MADLADEngine(TranslationEngine):
             )
 
         pieces: list[str] = []
-        output_tokens = 0
+        out_toks: list[int] = []
         for i, chunk in enumerate(chunks):
             seq = outputs[i]
             piece = self._tokenizer.decode(seq, skip_special_tokens=True).strip()
+            cites, nonce = cite_maps[i]
+            piece = restore_citations(piece, cites, nonce)
             if self._is_degenerate(piece, chunk, target_language):
                 print(f"[TRANSLATE] Rejected batch chunk: {piece[:120]!r}", flush=True)
                 raise ValueError("degenerate translation output")
@@ -543,15 +555,16 @@ class MADLADEngine(TranslationEngine):
             )
             pieces.append(piece)
             if pad_id is None:
-                output_tokens += int(seq.shape[0])
+                out_toks.append(int(seq.shape[0]))
             else:
-                output_tokens += int((seq != pad_id).sum().item())
-        return pieces, sum(in_toks), output_tokens
+                out_toks.append(int((seq != pad_id).sum().item()))
+        return pieces, in_toks, out_toks
 
     def _translate_chunk(
         self, text: str, target_language: str
     ) -> tuple[str, int, int]:
-        inputs = self._encode_translation_inputs(text, target_language)
+        protected, cites, nonce = protect_citations(text)
+        inputs = self._encode_translation_inputs(protected, target_language)
         input_tokens = inputs["input_ids"].shape[1]
         max_new_tokens = min(max(input_tokens * 3 + 24, 48), 256)
         decoder_start = self._model.config.decoder_start_token_id
@@ -572,6 +585,7 @@ class MADLADEngine(TranslationEngine):
             outputs[0],
             skip_special_tokens=True,
         ).strip()
+        translated_text = restore_citations(translated_text, cites, nonce)
         if self._is_degenerate(translated_text, text, target_language):
             print(f"[TRANSLATE] Rejected chunk: {translated_text[:120]!r}", flush=True)
             raise ValueError("degenerate translation output")

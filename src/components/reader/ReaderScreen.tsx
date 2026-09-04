@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -34,12 +34,22 @@ import { PaperContent } from "./PaperContent";
 import { Outline } from "./Outline";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel";
 import { SearchPanel } from "./SearchPanel";
+import {
+  listSearchHits,
+  paintCurrentSearchHit,
+  scrollToSearchHit,
+  wrapSearchHitIndex,
+} from "../../utils/searchHits";
 import { NotesPanel } from "./notes/NotesPanel";
 import { GlossaryPanel } from "./GlossaryPanel";
 import type { GlossaryEntry } from "../../services/llm/types";
 import { SelectionActionMenu } from "./selection/SelectionActionMenu";
 import { useTextSelection } from "./selection/useTextSelection";
 import type { TranslationSelection } from "./selection/selectionAnchor";
+import {
+  toggleReaderRightPanel,
+  type ReaderRightPanel,
+} from "../../utils/readerRightPanel";
 import styles from "./ReaderScreen.module.css";
 
 const EMPTY_BLOCKS: PaperBlock[] = [];
@@ -97,10 +107,16 @@ export function ReaderScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchHitIndex, setSearchHitIndex] = useState(0);
+  const [searchHitCount, setSearchHitCount] = useState(0);
+  const searchHitIndexRef = useRef(0);
+  const searchQueryRef = useRef(searchQuery);
+  const showSearchRef = useRef(showSearch);
+  searchQueryRef.current = searchQuery;
+  showSearchRef.current = showSearch;
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [rightPanel, setRightPanel] = useState<ReaderRightPanel>("none");
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotationIds, setActiveAnnotationIds] = useState<string[]>([]);
@@ -347,6 +363,103 @@ export function ReaderScreen() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showSearch]);
 
+  const applySearchHits = useCallback(
+    (opts: { reset?: boolean; delta?: number; scroll?: boolean }) => {
+      const root = contentRef.current;
+      const query = searchQueryRef.current;
+      const open = showSearchRef.current;
+      if (!root || !open || query.length < 2) {
+        searchHitIndexRef.current = 0;
+        setSearchHitIndex(0);
+        setSearchHitCount(0);
+        return;
+      }
+
+      const hits = listSearchHits(root);
+      setSearchHitCount(hits.length);
+
+      let next = searchHitIndexRef.current;
+      if (opts.reset) next = 0;
+      if (typeof opts.delta === "number" && hits.length > 0) {
+        next = wrapSearchHitIndex(next, hits.length, opts.delta);
+      }
+      if (hits.length === 0) next = 0;
+      else next = Math.min(Math.max(0, next), hits.length - 1);
+
+      searchHitIndexRef.current = next;
+      setSearchHitIndex(next);
+      if (hits.length === 0) return;
+      if (opts.scroll) scrollToSearchHit(hits, next);
+      else paintCurrentSearchHit(hits, next);
+    },
+    []
+  );
+
+  useLayoutEffect(() => {
+    applySearchHits({ reset: true, scroll: searchQuery.length >= 2 });
+  }, [searchQuery, showSearch, applySearchHits]);
+
+  useLayoutEffect(() => {
+    if (!showSearch || searchQuery.length < 2) return;
+    applySearchHits({ scroll: false });
+  }, [storeBlocks, showSearch, searchQuery, applySearchHits]);
+
+  useEffect(() => {
+    if (!showSearch) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const target = e.target;
+      if (target instanceof HTMLElement) {
+        const inSearchPanel = Boolean(target.closest("[data-search-panel]"));
+        const tag = target.tagName;
+        const typingElsewhere =
+          !inSearchPanel &&
+          (tag === "TEXTAREA" || tag === "INPUT" || target.isContentEditable);
+        if (typingElsewhere) return;
+      }
+
+      if (searchQueryRef.current.length < 2) return;
+
+      if (e.key === "ArrowDown" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        applySearchHits({ delta: 1, scroll: true });
+      } else if (e.key === "ArrowUp" || (e.key === "Enter" && e.shiftKey)) {
+        e.preventDefault();
+        applySearchHits({ delta: -1, scroll: true });
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [showSearch, applySearchHits]);
+
+  const handleSearchResultClick = useCallback((blockId: string) => {
+    const root = contentRef.current;
+    const blockEl = document.getElementById(`block-${blockId}`);
+    if (root && blockEl) {
+      const firstHit = blockEl.querySelector<HTMLElement>("[data-search-hit]");
+      if (firstHit) {
+        const hits = listSearchHits(root);
+        const index = hits.indexOf(firstHit);
+        if (index >= 0) {
+          searchHitIndexRef.current = index;
+          setSearchHitIndex(index);
+          scrollToSearchHit(hits, index);
+          return;
+        }
+      }
+    }
+    blockEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const handleSearchClose = useCallback(() => {
+    setShowSearch(false);
+    setSearchQuery("");
+  }, []);
+
   const restoredScrollForPaper = useRef<string | null>(null);
 
   useEffect(() => {
@@ -415,45 +528,15 @@ export function ReaderScreen() {
   const handleAddMemo = useCallback((selection: TranslationSelection) => {
     setDraft({ selection, note: "" });
     setEditing(null);
-    setNotesOpen(true);
+    setRightPanel("notes");
     setActiveAnnotationIds([]);
     dismissSelection();
     window.getSelection()?.removeAllRanges();
   }, [dismissSelection]);
 
-  useEffect(() => {
-    if (selectionResult?.kind !== "ok") return;
-    const selection = selectionResult.selection;
-    const covering = annotations.filter(
-      (a) =>
-        a.blockId === selection.blockId &&
-        a.status !== "orphaned" &&
-        a.startOffset < selection.endOffset &&
-        a.endOffset > selection.startOffset
-    );
-    if (covering.length > 0) {
-      setDraft(null);
-      setEditing(null);
-      setActiveAnnotationIds(covering.map((a) => a.id));
-      setNotesOpen(true);
-      dismissSelection();
-      window.getSelection()?.removeAllRanges();
-      return;
-    }
-    handleAddMemo(selection);
-  }, [selectionResult, handleAddMemo, annotations, dismissSelection]);
-
   const showNotesList = useCallback(() => {
-    const alreadyList = notesOpen && !draft && !editing;
-    if (alreadyList) {
-      setNotesOpen(false);
-      return;
-    }
-    setDraft(null);
-    setEditing(null);
-    setActiveAnnotationIds([]);
-    setNotesOpen(true);
-  }, [notesOpen, draft, editing]);
+    setRightPanel((current) => toggleReaderRightPanel(current, "notes"));
+  }, []);
 
   const handleSaveDraft = useCallback(async () => {
     if (!paperId || !draft) return;
@@ -485,7 +568,7 @@ export function ReaderScreen() {
   const handleSelectAnnotation = useCallback((annotation: Annotation) => {
     setEditing(annotation);
     setDraft(null);
-    setNotesOpen(true);
+    setRightPanel("notes");
     setActiveAnnotationIds([annotation.id]);
     const element = document.getElementById(`block-${annotation.blockId}`);
     element?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -497,7 +580,7 @@ export function ReaderScreen() {
   }, []);
 
   const handleHighlightClick = useCallback((ids: string[]) => {
-    setNotesOpen(true);
+    setRightPanel("notes");
     setActiveAnnotationIds(ids);
     setEditing(null);
     setDraft(null);
@@ -554,18 +637,6 @@ export function ReaderScreen() {
     }
   };
 
-  const handleSearchResultClick = (blockId: string) => {
-    const element = document.getElementById(`block-${blockId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  };
-
-  const handleSearchClose = () => {
-    setShowSearch(false);
-    setSearchQuery("");
-  };
-
   const contentStyle = {
     "--content-font-size": `${displaySettings.fontSize}px`,
     "--content-line-height": displaySettings.lineHeight,
@@ -601,19 +672,16 @@ export function ReaderScreen() {
         </div>
         <div className={styles.headerRight}>
           <button
-            className={`${styles.iconButton} ${glossaryOpen ? styles.active : ""}`}
-            onClick={() => {
-              setGlossaryOpen((open) => !open);
-              if (!glossaryOpen) {
-                setNotesOpen(false);
-              }
-            }}
+            className={`${styles.iconButton} ${rightPanel === "glossary" ? styles.active : ""}`}
+            onClick={() =>
+              setRightPanel((current) => toggleReaderRightPanel(current, "glossary"))
+            }
             title="用語集"
           >
             <BookMarked size={20} />
           </button>
           <button
-            className={`${styles.iconButton} ${notesOpen ? styles.active : ""}`}
+            className={`${styles.iconButton} ${rightPanel === "notes" ? styles.active : ""}`}
             onClick={showNotesList}
             title="メモ一覧"
           >
@@ -670,17 +738,17 @@ export function ReaderScreen() {
           />
         </main>
 
-        {glossaryOpen && (
+        {rightPanel === "glossary" && (
           <GlossaryPanel
             entries={glossary}
             onChange={(entries) => {
               setGlossary(entries);
               if (paperId) void saveGlossary(paperId, entries);
             }}
-            onClose={() => setGlossaryOpen(false)}
+            onClose={() => setRightPanel("none")}
           />
         )}
-        {notesOpen && (
+        {rightPanel === "notes" && (
           <NotesPanel
             annotations={annotations}
             draft={
@@ -702,20 +770,19 @@ export function ReaderScreen() {
             onSelect={handleSelectAnnotation}
             onDelete={(annotation) => void handleDeleteAnnotation(annotation)}
             onUndoDelete={() => void handleUndoDelete()}
-            onClose={() => {
-              setNotesOpen(false);
-              setDraft(null);
-              setEditing(null);
-            }}
+            onClose={() => setRightPanel("none")}
           />
         )}
       </div>
 
-      {selectionResult?.kind === "cross-block" && (
+      {(selectionResult?.kind === "ok" ||
+        selectionResult?.kind === "cross-block") && (
         <SelectionActionMenu
           rect={selectionResult.rect}
-          selection={null}
-          crossBlock
+          selection={
+            selectionResult.kind === "ok" ? selectionResult.selection : null
+          }
+          crossBlock={selectionResult.kind === "cross-block"}
           onAddMemo={handleAddMemo}
         />
       )}
@@ -728,9 +795,12 @@ export function ReaderScreen() {
         <SearchPanel
           blocks={storeBlocks}
           sections={storeSections}
+          hitIndex={searchHitIndex}
+          hitCount={searchHitCount}
           onClose={handleSearchClose}
           onResultClick={handleSearchResultClick}
           onSearchChange={setSearchQuery}
+          onStep={(delta) => applySearchHits({ delta, scroll: true })}
         />
       )}
     </div>

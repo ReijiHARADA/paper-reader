@@ -699,7 +699,7 @@ export async function importPDFV2(
     await saveSections(sections);
 
     paper.processingStatus = finalizedTranslationStatus(blocks, (block) =>
-      shouldTranslateBlock(block, refSectionIds)
+      isRetryableTranslationFailure(block, refSectionIds)
     );
     paper.updatedAt = new Date().toISOString();
     await savePaper(paper);
@@ -787,7 +787,7 @@ export async function resumeIncompleteTranslation(
 
     if (!pendingBlocks.length && !pendingTitle && pendingSections.length === 0) {
       const nextStatus = finalizedTranslationStatus(blocks, (block) =>
-        shouldTranslateBlock(block, refSectionIds)
+        isRetryableTranslationFailure(block, refSectionIds)
       );
       if (paper.processingStatus !== nextStatus) {
         paper.processingStatus = nextStatus;
@@ -894,7 +894,7 @@ export async function resumeIncompleteTranslation(
     await allDone;
 
     paper.processingStatus = finalizedTranslationStatus(blocks, (block) =>
-      shouldTranslateBlock(block, refSectionIds)
+      isRetryableTranslationFailure(block, refSectionIds)
     );
     paper.updatedAt = new Date().toISOString();
     await savePaper(paper);

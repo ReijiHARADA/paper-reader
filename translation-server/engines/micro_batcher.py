@@ -26,6 +26,7 @@ class _Pending:
     heading_num: str | None
     future: Future
     queued_at: float
+    request_index: int = -1
 
 
 class MicroBatchScheduler:
@@ -111,19 +112,16 @@ class MicroBatchScheduler:
                     heading_num=heading_num,
                     future=Future(),
                     queued_at=time.time(),
+                    request_index=i,
                 )
             )
         flushed = self._flush_items(pending) if pending else []
-        by_text: dict[str, TranslationResult] = {}
+        by_index: dict[int, TranslationResult] = dict(done)
         for item, result in zip(pending, flushed):
-            by_text[item.text] = result
-        out: list[TranslationResult] = []
-        for i, text in enumerate(texts):
-            if i in done:
-                out.append(done[i])
-            else:
-                out.append(by_text[text])
-        return out
+            if result is None:
+                item.future.result()
+            by_index[item.request_index] = result
+        return [by_index[i] for i in range(len(texts))]
 
     @staticmethod
     def _named_result(
@@ -177,19 +175,46 @@ class MicroBatchScheduler:
                     if not item.future.done():
                         item.future.set_exception(exc)
 
-    def _flush_items(self, items: list[_Pending]) -> list[TranslationResult]:
+    def _flush_items(self, items: list[_Pending]) -> list[TranslationResult | None]:
         if not items:
             return []
         with self._flush_lock:
             return self._flush_items_locked(items)
 
-    def _flush_items_locked(self, items: list[_Pending]) -> list[TranslationResult]:
+    @staticmethod
+    def _language_groups(items: list[_Pending]) -> list[list[_Pending]]:
+        groups: dict[tuple[str, str], list[_Pending]] = {}
+        order: list[tuple[str, str]] = []
+        for item in items:
+            key = (item.source_language, item.target_language)
+            if key not in groups:
+                order.append(key)
+                groups[key] = []
+            groups[key].append(item)
+        return [groups[key] for key in order]
+
+    def _flush_items_locked(self, items: list[_Pending]) -> list[TranslationResult | None]:
+        if not items:
+            return []
+        engine = self._engine
+        if not engine._model_loaded:
+            engine.load_model()
+
+        by_id: dict[int, TranslationResult | None] = {}
+        for group in self._language_groups(items):
+            group_results = self._translate_language_group(group)
+            for item, result in zip(group, group_results):
+                by_id[id(item)] = result
+        return [by_id[id(item)] for item in items]
+
+    def _translate_language_group(
+        self, items: list[_Pending]
+    ) -> list[TranslationResult | None]:
         if not items:
             return []
         t0 = time.time()
         engine = self._engine
-        if not engine._model_loaded:
-            engine.load_model()
+        target_language = items[0].target_language
 
         chunk_texts: list[str] = []
         spans: list[tuple[_Pending, list[str]]] = []
@@ -199,24 +224,27 @@ class MicroBatchScheduler:
             chunk_texts.extend(chunks)
 
         with engine._lock:
-            pieces, in_tok, out_tok = engine._translate_chunks(
-                chunk_texts, items[0].target_language
+            pieces, in_toks, out_toks = engine._translate_chunks(
+                chunk_texts, target_language
             )
 
-        results: list[TranslationResult] = []
-        cursor = 0
         occupied = len(chunk_texts)
         if self._debug:
             print(
-                f"[MICROBATCH] requests={len(items)} chunks={occupied} "
+                f"[MICROBATCH] pair={items[0].source_language}->{target_language} "
+                f"requests={len(items)} chunks={occupied} "
                 f"batch_size={engine._batch_size} window_ms={self._window_ms} "
                 f"generate_groups={(occupied + engine._batch_size - 1) // max(engine._batch_size, 1)}",
                 flush=True,
             )
 
+        results: list[TranslationResult | None] = []
+        cursor = 0
         for item, chunks in spans:
             n = len(chunks)
             part = pieces[cursor : cursor + n]
+            item_in = sum(in_toks[cursor : cursor + n])
+            item_out = sum(out_toks[cursor : cursor + n])
             cursor += n
             try:
                 translated = MADLADEngine._join_translated_chunks(
@@ -235,17 +263,17 @@ class MicroBatchScheduler:
                     model_version=engine.MODEL_VERSION,
                     input_chars=len(item.text),
                     output_chars=len(translated),
-                    input_tokens=in_tok,
-                    output_tokens=out_tok,
+                    input_tokens=item_in,
+                    output_tokens=item_out,
                     translation_time_ms=elapsed_ms,
                 )
                 results.append(result)
                 if not item.future.done():
                     item.future.set_result(result)
             except Exception as exc:
+                results.append(None)
                 if not item.future.done():
                     item.future.set_exception(exc)
-                raise
         return results
 
 

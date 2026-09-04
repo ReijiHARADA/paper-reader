@@ -29,10 +29,11 @@ function highlightMatches(text: string, query: string): ReactNode {
 
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
   const parts = text.split(regex);
+  if (parts.length === 1) return text;
 
   return parts.map((part, i) =>
-    regex.test(part) ? (
-      <mark key={i} className={styles.highlight}>
+    i % 2 === 1 ? (
+      <mark key={i} className={styles.highlight} data-search-hit="">
         {part}
       </mark>
     ) : (

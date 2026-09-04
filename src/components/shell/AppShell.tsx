@@ -8,6 +8,7 @@ import {
   getAllProjects,
   getBlocksByPaper,
   getSectionsByPaper,
+  savePaper,
 } from "../../services/database";
 import {
   createProject,
@@ -23,6 +24,8 @@ import { AppSidebar } from "./AppSidebar";
 import { PaperDragPreview } from "./PaperDragPreview";
 import { NewProjectModal } from "../project/NewProjectModal";
 import { setPaperDropHandler, INBOX_DROP_ID, usePaperDragStore } from "../../stores/paperDragStore";
+import { displayProcessingStatus } from "../../services/paperStatus";
+import { isRetryableTranslationFailure } from "../../services/importServiceV2";
 import styles from "./AppShell.module.css";
 
 export function AppShell() {
@@ -30,6 +33,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const { paperId } = useParams<{ paperId?: string }>();
   const setPapers = useAppStore((state) => state.setPapers);
+  const updatePaper = useAppStore((state) => state.updatePaper);
   const setSections = usePaperDataStore((state) => state.setSections);
   const setBlocks = usePaperDataStore((state) => state.setBlocks);
   const {
@@ -76,6 +80,15 @@ export function AppShell() {
             mergePreferTranslatedSections(prev, sections)
           );
           setBlocks(paper.id, (prev) => mergePreferTranslated(prev, blocks));
+          const nextStatus = displayProcessingStatus(
+            paper.processingStatus,
+            blocks,
+            isRetryableTranslationFailure
+          );
+          if (nextStatus !== paper.processingStatus) {
+            await savePaper({ ...paper, processingStatus: nextStatus });
+            updatePaper(paper.id, { processingStatus: nextStatus });
+          }
         }
       } catch (error) {
         console.error("Failed to load library:", error);
@@ -87,7 +100,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections]);
+  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections, updatePaper]);
 
   const searchParams = new URLSearchParams(location.search);
   const queryProjectId = searchParams.get("project");

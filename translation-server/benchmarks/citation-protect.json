@@ -1,0 +1,18 @@
+{
+  "health": {
+    "status": "ok",
+    "model_loaded": true
+  },
+  "wall_s": 3.662,
+  "input_tokens": 81,
+  "output_tokens": 104,
+  "translation": "ヴァン・ダイクらの研究に沿って, 人間の価値観と実践を重視した「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。[8]。これらの論証は, 後の体内相互作用([12])と体上設計([3])においても現れる。",
+  "source_citations": [
+    "[8]",
+    "[12]",
+    "[3]"
+  ],
+  "missing_citations": [],
+  "placeholder_roundtrip": true,
+  "protected_preview": "In line with van Dijk et al. ZZCIT1ZZ we see it as ‘our challenge to orchestrate social, human and technological resources’ with an emphasis on human values and practices. Similar arguments appear in later work on embodied interaction ZZCIT2ZZ and on-body design ZZCIT3ZZ."
+}

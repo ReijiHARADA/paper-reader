@@ -7,7 +7,13 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Paper } from "../../types/paper";
-import { processingStatusLabel, isBusyProcessingStatus } from "../../services/paperStatus";
+import { usePaperDataStore } from "../../stores/appStore";
+import {
+  processingStatusLabel,
+  isBusyProcessingStatus,
+  displayProcessingStatus,
+} from "../../services/paperStatus";
+import { isRetryableTranslationFailure } from "../../services/importServiceV2";
 import {
   displayPaperTitle,
   usableTranslatedText,
@@ -48,6 +54,12 @@ function formatDate(dateString: string) {
 
 export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardProps) {
   const lastViewed = paper.lastOpenedAt ?? paper.updatedAt;
+  const blocks = usePaperDataStore((state) => state.blocks[paper.id]);
+  const status = displayProcessingStatus(
+    paper.processingStatus,
+    blocks,
+    isRetryableTranslationFailure
+  );
 
   return (
     <DraggablePaperArticle
@@ -75,8 +87,8 @@ export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardP
         )}
         <div className={styles.meta}>
           <span className={styles.status}>
-            {getStatusIcon(paper.processingStatus)}
-            {processingStatusLabel(paper.processingStatus)}
+            {getStatusIcon(status)}
+            {processingStatusLabel(status)}
           </span>
           <span className={styles.date}>最終閲覧: {formatDate(lastViewed)}</span>
         </div>

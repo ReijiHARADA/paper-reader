@@ -5,10 +5,6 @@
   position: relative;
 }
 
-.container.dragging {
-  pointer-events: none;
-}
-
 .hiddenInput {
   display: none;
 }
@@ -34,25 +30,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.dropOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(26, 115, 232, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  gap: var(--spacing-md);
-  font-size: 1.25rem;
-  font-weight: 500;
-  z-index: 1000;
-  pointer-events: none;
 }
 
 .header {
@@ -163,29 +140,24 @@
   background-color: var(--color-accent-hover);
 }
 
-/* Toolbar */
-.toolbar {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
-}
-
 .addButton {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-accent);
+  background: var(--color-accent);
   color: white;
   border: none;
   border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.875rem;
   font-weight: 500;
-  transition: background-color var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .addButton:hover {
-  background-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
 }
 
 /* Paper List */

@@ -14,17 +14,23 @@ type SearchResult = {
 type SearchPanelProps = {
   blocks: PaperBlock[];
   sections: Section[];
+  hitIndex: number;
+  hitCount: number;
   onClose: () => void;
   onResultClick: (blockId: string) => void;
   onSearchChange: (query: string) => void;
+  onStep: (delta: number) => void;
 };
 
 export function SearchPanel({
   blocks,
   sections,
+  hitIndex,
+  hitCount,
   onClose,
   onResultClick,
   onSearchChange,
+  onStep,
 }: SearchPanelProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -95,20 +101,16 @@ export function SearchPanel({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
+      if (e.nativeEvent.isComposing) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && results[selectedIndex]) {
-        e.preventDefault();
-        onResultClick(results[selectedIndex].block.id);
-      } else if (e.key === "Escape") {
+        return;
+      }
+      if (e.key === "Escape") {
         onClose();
       }
     },
-    [results, selectedIndex, onResultClick, onClose]
+    [onClose]
   );
 
   const highlightMatch = (text: string): React.ReactNode => {
@@ -116,7 +118,7 @@ export function SearchPanel({
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
     const parts = text.split(regex);
     return parts.map((part, i) =>
-      regex.test(part) ? (
+      i % 2 === 1 ? (
         <mark key={i} className={styles.highlight}>
           {part}
         </mark>
@@ -127,7 +129,7 @@ export function SearchPanel({
   };
 
   return (
-    <div className={styles.panel}>
+    <div className={styles.panel} data-search-panel="">
       <div className={styles.header}>
         <div className={styles.inputWrapper}>
           <Search size={16} className={styles.searchIcon} />
@@ -162,7 +164,9 @@ export function SearchPanel({
           ) : (
             <>
               <p className={styles.resultCount}>
-                {results.length}件の結果
+                {hitCount > 0
+                  ? `${hitIndex + 1} / ${hitCount} 件`
+                  : `${results.length}件の結果`}
                 {results.length === 50 && " (最初の50件を表示)"}
               </p>
               <ul className={styles.resultList}>
@@ -172,7 +176,10 @@ export function SearchPanel({
                     className={`${styles.resultItem} ${
                       index === selectedIndex ? styles.selected : ""
                     }`}
-                    onClick={() => onResultClick(result.block.id)}
+                    onClick={() => {
+                      setSelectedIndex(index);
+                      onResultClick(result.block.id);
+                    }}
                   >
                     {result.section && (
                       <span className={styles.sectionName}>
@@ -195,11 +202,27 @@ export function SearchPanel({
 
       <div className={styles.footer}>
         <div className={styles.hint}>
-          <ChevronUp size={12} />
-          <ChevronDown size={12} />
-          <span>で移動</span>
+          <button
+            type="button"
+            className={styles.stepButton}
+            onClick={() => onStep(-1)}
+            disabled={hitCount === 0}
+            title="前のヒット"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            type="button"
+            className={styles.stepButton}
+            onClick={() => onStep(1)}
+            disabled={hitCount === 0}
+            title="次のヒット"
+          >
+            <ChevronDown size={14} />
+          </button>
+          <span>↑↓ / Enter で次へ</span>
           <span className={styles.separator}>|</span>
-          <span>Enter で移動</span>
+          <span>Shift+Enter で前へ</span>
           <span className={styles.separator}>|</span>
           <span>Esc で閉じる</span>
         </div>

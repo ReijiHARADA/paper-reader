@@ -14,16 +14,11 @@ import {
   listPapersForProject,
   removeProject,
 } from "../../services/projectService";
-import { checkMADLADAvailability } from "../../services/importServiceV2";
-import { setPendingImportFile } from "../../services/pendingImport";
+import { tryStartPdfImport } from "../../services/pdfImport";
 import { PaperCard } from "../library/PaperCard";
 import type { Paper } from "../../types/paper";
 import styles from "./ProjectScreen.module.css";
 import cardStyles from "../library/PaperCard.module.css";
-
-function isPdfFile(file: File): boolean {
-  return file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
-}
 
 export function ProjectScreen() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -60,19 +55,7 @@ export function ProjectScreen() {
 
   const handleFileSelect = useCallback(
     async (file: File) => {
-      if (!isPdfFile(file)) {
-        alert("PDFファイルのみ対応しています");
-        return;
-      }
-      const madladStatus = await checkMADLADAvailability();
-      if (!madladStatus.available) {
-        alert(
-          "翻訳サーバーに接続できません。\ntranslation-server で `python server.py` を実行してください。"
-        );
-        return;
-      }
-      setPendingImportFile(file, { projectId });
-      navigate("/import");
+      await tryStartPdfImport(file, navigate, { projectId });
     },
     [navigate, projectId]
   );
@@ -208,7 +191,7 @@ export function ProjectScreen() {
           <FileText size={48} strokeWidth={1} />
           <p>まだ論文がありません</p>
           <p className={styles.hint}>
-            右上の「論文を追加」から PDF を入れるか、Inbox や All Papers のカードをサイドバーのこのプロジェクトへドラッグできます。戻すときは Inbox へドラッグします。
+            右上の「論文を追加」か、PDF をこの画面にドロップするとこのプロジェクトに入ります。Inbox や All Papers のカードをサイドバーへドラッグしても追加できます。戻すときは Inbox へドラッグします。
           </p>
         </div>
       ) : (

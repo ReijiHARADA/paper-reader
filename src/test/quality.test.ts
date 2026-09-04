@@ -11,6 +11,10 @@ import {
   isRetryableTranslationFailure,
   shouldTranslateBlock,
 } from "../services/importServiceV2";
+import {
+  displayProcessingStatus,
+  finalizedTranslationStatus,
+} from "../services/paperStatus";
 import { FIXTURES } from "./readingOrder/builders";
 import type { PaperBlock } from "../types/paper";
 
@@ -123,5 +127,25 @@ describe("isRetryableTranslationFailure", () => {
     });
     expect(shouldTranslateBlock(block)).toBe(false);
     expect(isRetryableTranslationFailure(block)).toBe(false);
+  });
+
+  it("does not count failed figure captions that the reader shows as original", () => {
+    const block = makeBlock({
+      type: "figure",
+      original: "Figure 1. A wearable prototype on a table.",
+    });
+    expect(isRetryableTranslationFailure(block)).toBe(false);
+    expect(
+      finalizedTranslationStatus([block], isRetryableTranslationFailure)
+    ).toBe("ready");
+    expect(
+      displayProcessingStatus("partial", [block], isRetryableTranslationFailure)
+    ).toBe("ready");
+  });
+
+  it("keeps stored partial until blocks are loaded", () => {
+    expect(
+      displayProcessingStatus("partial", undefined, isRetryableTranslationFailure)
+    ).toBe("partial");
   });
 });

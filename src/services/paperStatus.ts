@@ -33,10 +33,26 @@ export function processingStatusLabel(status: ProcessingStatus): string {
 
 export function finalizedTranslationStatus(
   blocks: PaperBlock[],
-  isTranslatable: (block: PaperBlock) => boolean
+  isRetryableFailure: (block: PaperBlock) => boolean
 ): "ready" | "partial" {
-  const failed = blocks.some(
-    (block) => isTranslatable(block) && block.translationStatus === "failed"
-  );
-  return failed ? "partial" : "ready";
+  return blocks.some(isRetryableFailure) ? "partial" : "ready";
+}
+
+/**
+ * Library cards must match the reader: busy/failed stays as stored,
+ * otherwise "一部失敗" only when a visible paragraph can be retried.
+ * `blocks === undefined` means they are not loaded yet, so keep the stored value.
+ */
+export function displayProcessingStatus(
+  stored: ProcessingStatus,
+  blocks: PaperBlock[] | undefined,
+  isRetryableFailure: (block: PaperBlock) => boolean
+): ProcessingStatus {
+  if (isBusyProcessingStatus(stored) || stored === "failed") {
+    return stored;
+  }
+  if (blocks === undefined) {
+    return stored;
+  }
+  return finalizedTranslationStatus(blocks, isRetryableFailure);
 }

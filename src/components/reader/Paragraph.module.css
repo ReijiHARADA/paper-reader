@@ -199,11 +199,24 @@
   background-color: #fff59d;
   padding: 0 2px;
   border-radius: 2px;
+  scroll-margin-top: calc(var(--header-height) + 16px);
+  scroll-margin-bottom: 16px;
+}
+
+.highlight[data-search-current] {
+  background-color: #ffb74d;
+  box-shadow: 0 0 0 2px #f57c00;
 }
 
 [data-theme="dark"] .highlight {
   background-color: #5d4037;
   color: #fff59d;
+}
+
+[data-theme="dark"] .highlight[data-search-current] {
+  background-color: #e65100;
+  color: #fff8e1;
+  box-shadow: 0 0 0 2px #ffb74d;
 }
 
 .annotationMark {

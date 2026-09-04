@@ -9,6 +9,7 @@ import { RecentScreen } from "./components/library/RecentScreen";
 import { ReaderScreen } from "./components/reader/ReaderScreen";
 import { ImportScreen } from "./components/import/ImportScreen";
 import { SettingsScreen } from "./components/settings/SettingsScreen";
+import { PdfFileDropLayer } from "./components/shell/PdfFileDropLayer";
 import { useAppStore } from "./stores/appStore";
 import { isTauriApp, waitForServer } from "./utils/serverReady";
 
@@ -104,6 +105,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <PdfFileDropLayer />
       <Routes>
         {/* Import は shell の外（フルスクリーン） */}
         <Route path="/import" element={<ImportScreen />} />
