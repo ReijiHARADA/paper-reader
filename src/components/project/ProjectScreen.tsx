@@ -1,13 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   FileText,
   Plus,
   Trash2,
   Loader2,
-  CheckCircle,
-  AlertCircle,
-  Clock,
   FolderX,
 } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
@@ -17,28 +14,15 @@ import {
   listPapersForProject,
   removeProject,
 } from "../../services/projectService";
-import { displayPaperTitle } from "../../services/translation/quality";
-import {
-  isBusyProcessingStatus,
-  processingStatusLabel,
-} from "../../services/paperStatus";
-import { DraggablePaperArticle } from "../library/DraggablePaperArticle";
+import { checkMADLADAvailability } from "../../services/importServiceV2";
+import { setPendingImportFile } from "../../services/pendingImport";
+import { PaperCard } from "../library/PaperCard";
 import type { Paper } from "../../types/paper";
 import styles from "./ProjectScreen.module.css";
+import cardStyles from "../library/PaperCard.module.css";
 
-function getStatusIcon(status: Paper["processingStatus"]) {
-  if (isBusyProcessingStatus(status)) {
-    return <Loader2 size={14} className={styles.statusProcessing} />;
-  }
-  switch (status) {
-    case "ready":
-      return <CheckCircle size={14} className={styles.statusReady} />;
-    case "partial":
-    case "failed":
-      return <AlertCircle size={14} className={styles.statusFailed} />;
-    default:
-      return <Clock size={14} className={styles.statusPending} />;
-  }
+function isPdfFile(file: File): boolean {
+  return file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
 }
 
 export function ProjectScreen() {
@@ -64,6 +48,34 @@ export function ProjectScreen() {
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [projectId, memberships]);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !deleting) setConfirmDelete(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmDelete, deleting]);
+
+  const handleFileSelect = useCallback(
+    async (file: File) => {
+      if (!isPdfFile(file)) {
+        alert("PDFファイルのみ対応しています");
+        return;
+      }
+      const madladStatus = await checkMADLADAvailability();
+      if (!madladStatus.available) {
+        alert(
+          "翻訳サーバーに接続できません。\ntranslation-server で `python server.py` を実行してください。"
+        );
+        return;
+      }
+      setPendingImportFile(file, { projectId });
+      navigate("/import");
+    },
+    [navigate, projectId]
+  );
 
   const handleOpen = (paperId: string) => {
     setCurrentPaper(paperId);
@@ -100,7 +112,17 @@ export function ProjectScreen() {
 
   return (
     <div className={styles.container}>
-      <input ref={fileInputRef} type="file" accept=".pdf" className={styles.hiddenInput} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className={styles.hiddenInput}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleFileSelect(file);
+          event.target.value = "";
+        }}
+      />
 
       <header className={styles.header}>
         <div>
@@ -111,6 +133,7 @@ export function ProjectScreen() {
         </div>
         <div className={styles.headerActions}>
           <button
+            type="button"
             className={styles.addButton}
             onClick={() => fileInputRef.current?.click()}
             title="このProjectへPDFを追加"
@@ -118,39 +141,61 @@ export function ProjectScreen() {
             <Plus size={18} />
             論文を追加
           </button>
+          <button
+            type="button"
+            className={styles.deleteIconButton}
+            onClick={() => setConfirmDelete(true)}
+            title="プロジェクトを削除"
+          >
+            <Trash2 size={18} />
+          </button>
         </div>
       </header>
 
-      {confirmDelete ? (
-        <div className={styles.deleteConfirm}>
-          <p>
-            「{project?.name}」を削除します。論文ファイルは残ります。このプロジェクトにしか入っていない論文は Inbox に戻ります。
-          </p>
-          <button
-            type="button"
-            className={styles.deleteConfirmYes}
-            disabled={deleting}
-            onClick={() => void handleDeleteProject()}
-          >
-            {deleting ? "削除中..." : "削除する"}
-          </button>
-          <button
-            type="button"
-            className={styles.deleteConfirmNo}
-            disabled={deleting}
-            onClick={() => setConfirmDelete(false)}
-          >
-            キャンセル
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className={styles.deleteProject}
-          onClick={() => setConfirmDelete(true)}
+      {confirmDelete && (
+        <div
+          className={styles.deleteOverlay}
+          role="presentation"
+          onClick={() => {
+            if (!deleting) setConfirmDelete(false);
+          }}
         >
-          プロジェクトを削除
-        </button>
+          <div
+            className={styles.deleteDialog}
+            role="dialog"
+            aria-labelledby="delete-project-title"
+            aria-describedby="delete-project-body"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.deleteDialogIcon}>
+              <Trash2 size={22} />
+            </div>
+            <h2 id="delete-project-title" className={styles.deleteDialogTitle}>
+              「{project?.name}」を削除しますか？
+            </h2>
+            <p id="delete-project-body" className={styles.deleteDialogBody}>
+              論文ファイルは残ります。このプロジェクトにしか入っていない論文は Inbox に戻ります。
+            </p>
+            <div className={styles.deleteDialogActions}>
+              <button
+                type="button"
+                className={styles.deleteConfirmNo}
+                disabled={deleting}
+                onClick={() => setConfirmDelete(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className={styles.deleteConfirmYes}
+                disabled={deleting}
+                onClick={() => void handleDeleteProject()}
+              >
+                {deleting ? "削除中..." : "削除する"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {isLoading ? (
@@ -162,38 +207,21 @@ export function ProjectScreen() {
         <div className={styles.emptyState}>
           <FileText size={48} strokeWidth={1} />
           <p>まだ論文がありません</p>
-          <p className={styles.hint}>Inbox や All Papers のカードを、サイドバーのこのプロジェクトへドラッグして追加できます。戻すときは Inbox へドラッグします。</p>
+          <p className={styles.hint}>
+            右上の「論文を追加」から PDF を入れるか、Inbox や All Papers のカードをサイドバーのこのプロジェクトへドラッグできます。戻すときは Inbox へドラッグします。
+          </p>
         </div>
       ) : (
         <div className={styles.list}>
           {projectPapers.map((paper) => (
-            <DraggablePaperArticle
+            <PaperCard
               key={paper.id}
-              paperId={paper.id}
-              label={displayPaperTitle(paper)}
-              className={styles.card}
+              paper={paper}
               onOpen={() => handleOpen(paper.id)}
-            >
-              <div className={styles.cardIcon}>
-                <FileText size={28} strokeWidth={1.5} />
-              </div>
-              <div className={styles.cardInfo}>
-                <h3 className={styles.cardTitle}>{displayPaperTitle(paper)}</h3>
-                {paper.authors.length > 0 && (
-                  <p className={styles.cardAuthors}>
-                    {paper.authors.slice(0, 3).join(", ")}
-                    {paper.authors.length > 3 && " ほか"}
-                  </p>
-                )}
-                <div className={styles.cardMeta}>
-                  {getStatusIcon(paper.processingStatus)}
-                  <span>{processingStatusLabel(paper.processingStatus)}</span>
-                  <span className={styles.cardYear}>{paper.year ?? ""}</span>
-                </div>
-              </div>
-              <div className={styles.actions}>
+              actions={
                 <button
-                  className={styles.removeButton}
+                  type="button"
+                  className={cardStyles.actionButton}
                   title="このProjectから外す"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -202,8 +230,8 @@ export function ProjectScreen() {
                 >
                   <Trash2 size={16} />
                 </button>
-              </div>
-            </DraggablePaperArticle>
+              }
+            />
           ))}
         </div>
       )}

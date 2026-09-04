@@ -6,7 +6,7 @@ import { useAppStore } from "../../stores/appStore";
 import { updateBlock, getGlossary, getSetting } from "../../services/database";
 import { MADLADEngine } from "../../services/translation/madladEngine";
 import type { ImportConfig } from "../../services/importServiceV2";
-import { usableTranslatedText, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
+import { usableTranslatedText, looksLikeBibliographyEntry, isReferencesHeading, shouldTranslateParagraph } from "../../services/translation/quality";
 import { isLowExtractionConfidence } from "../../services/extractionConfidence";
 import { splitHighlightedText } from "../../services/highlightRanges";
 import { parseCitationGroups, uniqueCitationTarget } from "../../services/citations";
@@ -56,8 +56,10 @@ export function Paragraph({
 
   const isExpanded = expandedOriginalBlocks.has(block.id);
   const skipTranslation =
+    block.translationStatus === "skipped" ||
     looksLikeBibliographyEntry(block.original || "") ||
-    isReferencesHeading(block.original || "");
+    isReferencesHeading(block.original || "") ||
+    !shouldTranslateParagraph(block.original || "");
   const translated = skipTranslation
     ? null
     : usableTranslatedText(block.translated, block.original);

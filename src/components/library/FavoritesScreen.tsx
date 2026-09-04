@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Star, FileText } from "lucide-react";
+import { Star } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
-import { displayPaperTitle } from "../../services/translation/quality";
 import { PaperDeleteControls } from "./PaperDeleteControls";
-import { DraggablePaperArticle } from "./DraggablePaperArticle";
+import { PaperCard } from "./PaperCard";
 import { useDeletePaper } from "../../hooks/useDeletePaper";
 import styles from "./LibraryScreen.module.css";
 
@@ -39,33 +38,23 @@ export function FavoritesScreen() {
         ) : (
           <div className={styles.paperList}>
             {favorites.map((paper) => (
-              <DraggablePaperArticle
+              <PaperCard
                 key={paper.id}
-                paperId={paper.id}
-                label={displayPaperTitle(paper)}
-                className={styles.paperCard}
+                paper={paper}
                 enabled={pendingId !== paper.id}
                 onOpen={() => handleOpen(paper.id)}
-              >
-                <div className={styles.paperIcon}><FileText size={32} strokeWidth={1.5} /></div>
-                <div className={styles.paperInfo}>
-                  <h3 className={styles.paperTitle}>{displayPaperTitle(paper)}</h3>
-                  {paper.authors.length > 0 && (
-                    <p className={styles.paperAuthors}>
-                      {paper.authors.slice(0, 3).join(", ")}{paper.authors.length > 3 && " ほか"}
-                    </p>
-                  )}
-                </div>
-                <PaperDeleteControls
-                  paperId={paper.id}
-                  pendingId={pendingId}
-                  error={error}
-                  busy={busy}
-                  onRequest={requestDelete}
-                  onConfirm={confirmDelete}
-                  onCancel={cancelDelete}
-                />
-              </DraggablePaperArticle>
+                actions={
+                  <PaperDeleteControls
+                    paperId={paper.id}
+                    pendingId={pendingId}
+                    error={error}
+                    busy={busy}
+                    onRequest={requestDelete}
+                    onConfirm={confirmDelete}
+                    onCancel={cancelDelete}
+                  />
+                }
+              />
             ))}
           </div>
         )}

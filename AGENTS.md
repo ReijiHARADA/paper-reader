@@ -33,7 +33,7 @@
 - Original PDFs are copied to the Tauri app data directory as `papers/<paperId>/source.pdf`. They are not stored in IndexedDB.
 - Annotations live in IndexedDB (`annotations` store) and stay on-device.
 - Assign papers to a Project by dragging a library card onto the sidebar item. Drag onto Inbox to remove all project memberships. Do not use HTML5 drag-and-drop for this: WKWebView often starts a drag but never fires `drop`. Use pointer tracking and `elementFromPoint`.
-- Project delete lives on the project screen, not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox.
+- Project delete lives on the project screen header (trash icon), not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox. The project screen “論文を追加” button imports a PDF into that project.
 - Reading-order regression fixtures: `test-fixtures/` (synthetic PDFs only). Real papers from the jewelry-first-computing index live in gitignored `test-data/real-papers/` (`npm run fetch:real-papers`). Do not copy those PDFs into the repo or edit jewelry-first-computing.
 - Dotted grant identifiers (`016.128.303`) are not section headings or paper titles. Wrap them into the preceding `grant number` paragraph. Latin-ratio quality checks ignore source proper nouns and numeric ids.
 - After any product or behavior change, update `README.md` and `ROADMAP.md` in the same turn so they match the current code. Move finished work out of ROADMAP section 3. Put remaining gaps only. Update `QUICKSTART.md` or `AGENTS.md` when launch steps or constraints change.

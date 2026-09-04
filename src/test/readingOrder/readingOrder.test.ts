@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconstructDocument, type LayoutBlock } from "../../services/pdfLayout";
+import { reconstructDocument, type LayoutBlock, isEquationLine } from "../../services/pdfLayout";
 import { FIXTURES } from "./builders";
 
 function tokensInOrder(haystack: string, tokens: string[]): void {
@@ -39,6 +39,37 @@ function assertNoLineInterleave(runs: string[]): void {
     `column sequence ${runs.join(",")} looks interleaved`
   ).toBeLessThanOrEqual(4);
 }
+
+describe("isEquationLine", () => {
+  it("keeps a numbered displayed equation", () => {
+    expect(isEquationLine("P = I × V ± Δ (1)")).toBe(true);
+  });
+
+  it("rejects hyphenated English, query strings, and bibliography URLs", () => {
+    const samples = [
+      "take into account a jewellery-, memory- and interaction-",
+      "not yet been worn as ‘jewellery-to-be’ and states ‘the term ‘jewellery-to-be’ also carries with it notions of the jewel",
+      "Unger-de Boer formulated a multi-disciplinary framework",
+      "The jewellery-, interaction- and memory-perspective",
+      "implications of this from a jewellery-, interaction- and",
+      "interaction-, jewellery- and memory-perspective.",
+      "on the hand-palm-side of the ring. To take a picture one",
+      "rather expect a rubbing- or polishing-like action. The",
+      "is a dot on the milky-way-like interface of the uploading",
+      "integrate the jewellery-, interaction- and memory-",
+      "proposals uses state-of-the-art technology when it comes to",
+      "qualities, instead of using state-of-the-art technology",
+      "golsteijn.pdf?ip=131.155.2.68&id=2639194&acc=AC",
+      "CFID=556020003&CFTOKEN=28091657&__acm__=",
+      "http://www.tednoten.com/work/portfolio/haunted-by-",
+      "153–169. http://doi.org/10.1007/s00779-009-0279-7",
+      "https://www.artefactgroup.com/content/work/purple-awearable-locket-for-the-21st-century/",
+    ];
+    for (const sample of samples) {
+      expect(isEquationLine(sample), sample).toBe(false);
+    }
+  });
+});
 
 describe("PDF reading order regression", () => {
   it("single-column keeps linear order", () => {
@@ -227,6 +258,62 @@ describe("PDF reading order regression", () => {
       (b) => b.role === "heading" && /^acknowledgements?$/i.test(b.text.trim())
     );
     expect(ackHeading).toBeDefined();
+  });
+
+  it("page-1 title is a title, not a heading, and emails stay in the masthead", () => {
+    const { blocks } = reconstructDocument(FIXTURES["ACM-style-two-column"]());
+    const title = blocks.find((b) => b.role === "title");
+    expect(title?.text).toMatch(/ACMSTYLE Interactive Jewelry/);
+    expect(
+      blocks.some(
+        (b) => b.role === "heading" && /ACMSTYLE Interactive Jewelry/.test(b.text)
+      )
+    ).toBe(false);
+    expect(
+      blocks.some((b) => b.role === "heading" && /@example\.ac\.uk/.test(b.text))
+    ).toBe(false);
+    expect(blocks.some((b) => b.role === "author" && /Ada Lovelace/.test(b.text))).toBe(
+      true
+    );
+    expect(
+      blocks.some((b) => b.role === "affiliation" && /University of Example/.test(b.text))
+    ).toBe(true);
+  });
+
+  it("hyphenated English and bibliography URLs are not displayed equations", () => {
+    const { blocks } = reconstructDocument(FIXTURES["hyphenated-prose"]());
+    expect(blocks.some((b) => b.role === "equation")).toBe(false);
+    const prose = blocks.find(
+      (b) =>
+        b.role === "paragraph" &&
+        /jewellery-, memory- and interaction-/.test(b.text)
+    );
+    expect(prose?.text).toMatch(/interaction-perspectives/);
+    expect(
+      blocks.some(
+        (b) => b.role === "paragraph" && /Unger-de Boer formulated/.test(b.text)
+      )
+    ).toBe(true);
+    expect(
+      blocks.some((b) => b.role === "paragraph" && /doi\.org\/10\.1007/.test(b.text))
+    ).toBe(true);
+  });
+
+  it("ACM classification catalog lines are paragraphs, not section headings", () => {
+    const { blocks } = reconstructDocument(FIXTURES["classification-index"]());
+    const catalog = blocks.find((b) => /H\.5\.m/.test(b.text));
+    expect(catalog?.role).toBe("paragraph");
+    expect(
+      blocks.some((b) => b.role === "heading" && /H\.5\.m/.test(b.text))
+    ).toBe(false);
+    expect(
+      blocks.some(
+        (b) =>
+          b.role === "heading" && /^ACM Classification Keywords$/i.test(b.text.trim())
+      )
+    ).toBe(true);
+    const prose = blocks.find((b) => /CLASSIFIX_INTRO/.test(b.text));
+    expect(prose?.role).toBe("paragraph");
   });
 
   it("every named fixture produces at least one block", () => {

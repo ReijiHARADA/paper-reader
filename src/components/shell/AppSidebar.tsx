@@ -6,6 +6,7 @@ import {
   Library,
   Plus,
   Search,
+  Settings,
   Star,
 } from "lucide-react";
 import type { Project } from "../../types/project";
@@ -20,6 +21,8 @@ type AppSidebarProps = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNewProject: () => void;
+  onOpenSettings: () => void;
+  settingsOpen?: boolean;
   activeProjectId?: string | null;
   inboxCount: number;
 };
@@ -29,6 +32,8 @@ export function AppSidebar({
   searchQuery,
   onSearchChange,
   onNewProject,
+  onOpenSettings,
+  settingsOpen = false,
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
@@ -63,7 +68,8 @@ export function AppSidebar({
         <span className={styles.label}>New Project</span>
       </button>
 
-      <section className={styles.section}>
+      <div className={styles.scroll}>
+        <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.label}>Projects</span>
         </h2>
@@ -114,6 +120,21 @@ export function AppSidebar({
           <LibItem to="/recent" icon={<Clock size={16} />} label="Recently Read" />
         </nav>
       </section>
+      </div>
+
+      <div className={styles.footer}>
+        <button
+          type="button"
+          className={`${styles.item} ${styles.footerButton} ${settingsOpen ? styles.active : ""}`}
+          title="設定"
+          onClick={onOpenSettings}
+        >
+          <span className={styles.icon}>
+            <Settings size={16} />
+          </span>
+          <span className={styles.itemLabel}>設定</span>
+        </button>
+      </div>
     </aside>
   );
 }

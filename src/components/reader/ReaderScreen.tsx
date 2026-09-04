@@ -20,7 +20,7 @@ import {
   upsertBlock,
   upsertSection,
 } from "../../utils/mergePaperData";
-import { displayPaperTitle, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
+import { displayPaperTitle, isReferencesHeading } from "../../services/translation/quality";
 import { useProjectStore } from "../../stores/projectStore";
 import { translationManager, READER_PRIORITY_DEBOUNCE_MS } from "../../services/translation";
 import { openSourcePdf, sourcePdfExists } from "../../services/sourcePdf";
@@ -89,23 +89,8 @@ export function ReaderScreen() {
         )
         .map((sec) => sec.id)
     );
-    return list.filter(
-      (b) =>
-        b.original &&
-        !b.translated &&
-        b.translationStatus !== "skipped" &&
-        b.translationStatus !== "failed" &&
-        (b.type === "paragraph" ||
-          b.type === "heading" ||
-          b.type === "footnote" ||
-          b.type === "figure" ||
-          b.type === "table") &&
-        !(b.sectionId && refIds.has(b.sectionId)) &&
-        !looksLikeBibliographyEntry(b.original) &&
-        !isReferencesHeading(b.original) &&
-        String(b.metadata?.role ?? "") !== "author" &&
-        String(b.metadata?.role ?? "") !== "affiliation"
-    ).length;
+    return list.filter((b) => shouldTranslateBlock(b, refIds) && !b.translated)
+      .length;
   });
 
   const [showOutline] = useState(true);

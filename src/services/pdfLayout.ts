@@ -9,7 +9,7 @@
 
 import type { BoundingBox } from "../types/paper";
 import type { ExtractedPage, ExtractedTextItem } from "./pdfService";
-import { isReferencesHeading } from "./translation/quality";
+import { isReferencesHeading, looksLikeSubjectClassification } from "./translation/quality";
 
 export type LayoutColumn = "left" | "right" | "spanning" | "single";
 
@@ -416,19 +416,62 @@ function isFootnoteLine(
   return /^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+\S/.test(t);
 }
 
-function isEquationLine(text: string): boolean {
+const BODY_START_HEADING =
+  /^(?:(?:\d+\.)\s*)?(abstract|introduction|author keywords?|ccs concepts|index terms|keywords)\s*$/i;
+
+function isBodyStartHeading(text: string): boolean {
+  return BODY_START_HEADING.test(text.trim());
+}
+
+export function looksLikeUrl(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/https?:\/\//i.test(t)) return true;
+  if (/\bdoi:\s*10\./i.test(t) || /\bdoi\.org\b/i.test(t)) return true;
+  if (/[?&][a-z_][a-z0-9_]*=/i.test(t)) return true;
+  if (/\.(?:pdf|html?|aspx?)\b/i.test(t) && /[/=?&]/.test(t)) return true;
+  return false;
+}
+
+const MATH_SYMBOLS = /[=+×÷∑∫√∞≈≠≤≥±∂∇]/g;
+const FUNCTION_WORD =
+  /^(the|a|an|of|and|or|to|in|on|for|from|with|when|that|this|is|as|by|into|account|not|yet|been|than|its|their)$/i;
+
+/**
+ * Displayed equations, not hyphenated English or bibliography URLs.
+ * ASCII "-" is a word hyphen far more often than a minus sign.
+ */
+export function isEquationLine(text: string): boolean {
   const t = text.trim();
   if (t.length < 3 || t.length > 140) return false;
   if (isFigureCaption(t) || isTableCaption(t)) return false;
+  if (looksLikeUrl(t) || looksLikeEmail(t)) return false;
   if (/^(abstract|introduction|references|acknowledgements?)\b/i.test(t)) {
     return false;
   }
-  const math = (t.match(/[=+\-−×÷∑∫√∞≈≠≤≥±∂∇α-ωΑ-Ω]/g) || []).length;
+
+  const mathSymbols = t.match(MATH_SYMBOLS)?.length ?? 0;
+  const minusOps =
+    t.match(
+      /(?:[A-Za-z0-9]\s+[−-]\s+[A-Za-z0-9]|[^\w]\s*−\s*[^\w])/g
+    )?.length ?? 0;
+  const greek = t.match(/[α-ωΑ-Ω](?![a-z])/g)?.length ?? 0;
+  const math = mathSymbols + minusOps + greek;
+  const hasEqNumber = /\(\s*\d{1,2}[a-z]?\s*\)\s*$/.test(t);
+
+  if (math === 0 && !hasEqNumber) return false;
+
+  const tokens = t.split(/\s+/);
+  const functionWords = tokens.filter((w) =>
+    FUNCTION_WORD.test(w.replace(/[^A-Za-z]/g, ""))
+  ).length;
+  if (functionWords >= 3) return false;
+
+  if (hasEqNumber && math >= 1) return true;
   if (math < 2) return false;
   const letters = (t.match(/[A-Za-z]/g) || []).length;
   if (letters > 48 && math < 3) return false;
-  if (/\(\s*\d{1,2}[a-z]?\s*\)\s*$/.test(t)) return true;
-  return t.split(/\s+/).length <= 24;
+  return tokens.length <= 24;
 }
 
 function captionShouldContinue(currentText: string, next: LayoutLine, baseFont: number): boolean {
@@ -528,7 +571,13 @@ function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
   if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
     return false;
   }
+  if (looksLikeSubjectClassification(text)) return false;
   if (isFigureCaption(text) || isTableCaption(text)) return false;
+  if (looksLikeEmail(text) || looksLikeUrl(text) || looksLikeAffiliation(text)) {
+    return false;
+  }
+  if (/^[a-z]/.test(text)) return false;
+  if (/[-–—]$/.test(text) && text.split(/\s+/).length >= 4) return false;
   if (/^\d+\.\s+[A-Z]/.test(text) && !/^\d+\.\d+/.test(text)) {
     // "6. Martin A. Conway..." is a bibliography item, not "6. Results"
     if (/\b(19|20)\d{2}\b/.test(text) || /\b[A-Z]\.\s+[A-Z]/.test(text)) {
@@ -546,8 +595,10 @@ function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
   const letters = text.replace(/[^A-Za-z]/g, "");
   const upper = text.replace(/[^A-Z]/g, "");
   if (letters.length >= 6 && upper.length / letters.length > 0.72) return true;
-  if (line.fontSize > baseFont * 1.18 && text.length < 80) {
+  if (line.fontSize > baseFont * 1.28 && text.length < 80 && text.split(/\s+/).length <= 12) {
     if (!/[A-Za-z]{3,}/.test(text)) return false;
+    if (/[.!?]$/.test(text) && text.split(/\s+/).length > 6) return false;
+    if (looksLikePersonName(text)) return false;
     return true;
   }
   return false;
@@ -558,18 +609,71 @@ function looksLikeEmail(text: string): boolean {
 }
 
 function looksLikeAffiliation(text: string): boolean {
-  return /(university|department|institute|college|faculty|laboratory|research (center|centre)|school of)/i.test(
+  return /(university|department|institute|college|faculty|laboratory|\blab\b|research (center|centre)|school of|architecture|industrial design|centre of excellence|faculty of|department of|\b(?:the )?(netherlands|australia|germany|france|japan|china|canada|sweden|denmark|finland|norway|italy|spain|switzerland|austria|belgium|ireland|scotland|england|wales)\b|\b(?:sydney|london|dundee|eindhoven|cambridge|oxford|toronto|melbourne|macquarie)\b)/i.test(
     text
   );
 }
 
+const NAME_PARTICLE = /^(van|von|de|den|der|di|da|la|le|du|del|st|ter|bin|al)$/i;
+const NAME_JOINER = /^(and|&)$/i;
+
 function looksLikePersonName(text: string): boolean {
-  if (looksLikeEmail(text) || looksLikeAffiliation(text)) return false;
-  if (text.length > 60 || text.length < 4) return false;
-  if (/^\d/.test(text)) return false;
-  const parts = text.split(/\s+/);
-  if (parts.length < 2 || parts.length > 6) return false;
-  return parts.every((p) => /^[A-Z][A-Za-z.'’-]*$/.test(p) || /^[A-Z]\.$/.test(p));
+  if (looksLikeEmail(text) || looksLikeAffiliation(text) || looksLikeUrl(text)) {
+    return false;
+  }
+  const cleaned = text
+    .replace(/[*,†‡§]/g, " ")
+    .replace(/(\p{L})\d+/gu, "$1")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length > 80 || cleaned.length < 4) return false;
+  if (/^\d/.test(cleaned)) return false;
+  const parts = cleaned.split(/\s+/);
+  if (parts.length < 2 || parts.length > 10) return false;
+  const nameParts = parts.filter((p) => !NAME_PARTICLE.test(p) && !NAME_JOINER.test(p));
+  if (nameParts.length < 2) return false;
+  return nameParts.every(
+    (p) => /^[A-Z][A-Za-z.'’-]*$/.test(p) || /^[A-Z]\.$/.test(p)
+  );
+}
+
+function detectTitleFont(lines: LayoutLine[], baseFont: number): number {
+  const pageOne = lines.filter((l) => l.page === 1 && l.text.trim().length >= 8);
+  if (pageOne.length === 0) return 0;
+  const maxFont = Math.max(...pageOne.map((l) => l.fontSize));
+  if (maxFont < baseFont * 1.28) return 0;
+  return maxFont;
+}
+
+function looksLikeTitleLine(
+  line: LayoutLine,
+  titleFont: number,
+  baseFont: number
+): boolean {
+  if (line.page !== 1 || titleFont <= 0) return false;
+  if (line.fontSize < titleFont * 0.9) return false;
+  if (line.fontSize < baseFont * 1.28) return false;
+  const text = line.text.trim();
+  if (text.length < 8 || text.length > 180) return false;
+  if (isBodyStartHeading(text) || NAMED_HEADINGS.some((re) => re.test(text))) {
+    return false;
+  }
+  if (looksLikeEmail(text) || looksLikeAffiliation(text) || looksLikeUrl(text)) {
+    return false;
+  }
+  return true;
+}
+
+function joinHyphenated(prev: string, next: string): string {
+  if (prev.endsWith("-") && /^[a-z]/.test(next)) {
+    // "jewellery-, memory- and interaction-" + "perspectives"
+    if (/(?:,|and)\s+[A-Za-z]+-$/i.test(prev)) {
+      return prev + next;
+    }
+    return prev.slice(0, -1) + next;
+  }
+  return `${prev} ${next}`;
 }
 
 function joinLines(lines: LayoutLine[]): string {
@@ -578,11 +682,7 @@ function joinLines(lines: LayoutLine[]): string {
   for (let i = 1; i < lines.length; i++) {
     const next = lines[i].text.trim();
     if (!next) continue;
-    if (text.endsWith("-") && /^[a-z]/.test(next)) {
-      text = text.slice(0, -1) + next;
-    } else {
-      text += " " + next;
-    }
+    text = joinHyphenated(text, next);
   }
   return text.replace(/\s+/g, " ").trim();
 }
@@ -680,19 +780,33 @@ function buildPageLines(
 function detectMastheadEnd(lines: LayoutLine[], baseFont: number): number {
   const pageOne = lines.filter((l) => l.page === 1);
   if (pageOne.length === 0) return -1;
-  const bodyStart = pageOne.find((l) => {
-    const t = l.text.trim();
-    if (/^(abstract|introduction|author keywords?)$/i.test(t)) return true;
-    return isHeadingLine(l, baseFont) && l.y > 70;
-  });
-  return bodyStart ? bodyStart.y : -1;
+
+  const named = pageOne.filter((l) => isBodyStartHeading(l.text));
+  if (named.length > 0) {
+    return Math.min(...named.map((l) => l.y));
+  }
+
+  const titleFont = detectTitleFont(pageOne, baseFont);
+  const title = pageOne.find((l) => looksLikeTitleLine(l, titleFont, baseFont));
+  const afterTitle = title ? title.y + Math.max(18, title.height) : 70;
+  const body = pageOne.find(
+    (l) =>
+      l.y > afterTitle &&
+      l.fontSize <= baseFont * 1.08 &&
+      l.text.trim().length > 50 &&
+      !looksLikeEmail(l.text) &&
+      !looksLikeAffiliation(l.text) &&
+      !looksLikePersonName(l.text)
+  );
+  return body ? body.y : -1;
 }
 
 function roleForLine(
   line: LayoutLine,
   baseFont: number,
   mastheadEndY: number,
-  inCopyright: boolean
+  inCopyright: boolean,
+  titleFont: number
 ): LayoutRole {
   const text = line.text.trim();
   if (isCopyright(text, line.fontSize, baseFont) || inCopyright) {
@@ -703,17 +817,16 @@ function roleForLine(
   if (isEquationLine(text)) return "equation";
   if (isFootnoteLine(line, line.pageHeight ?? 792, baseFont)) return "footnote";
 
+  if (looksLikeTitleLine(line, titleFont, baseFont)) return "title";
+
   const inMasthead =
     line.page === 1 && mastheadEndY >= 0 && line.y < mastheadEndY;
   if (inMasthead) {
     if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
       return "paragraph";
     }
-    if (line.fontSize > baseFont * 1.35 && text.length > 8) return "title";
-    if (looksLikeEmail(text)) return "author";
-    if (looksLikePersonName(text)) return "author";
-    if (looksLikeAffiliation(text)) return "affiliation";
-    return line.fontSize > baseFont * 1.05 ? "author" : "affiliation";
+    if (looksLikeEmail(text) || looksLikePersonName(text)) return "author";
+    return "affiliation";
   }
 
   if (isHeadingLine(line, baseFont)) return "heading";
@@ -733,6 +846,7 @@ function groupLinesIntoBlocks(
   baseFont: number
 ): LayoutBlock[] {
   const mastheadEndY = detectMastheadEnd(lines, baseFont);
+  const titleFont = detectTitleFont(lines, baseFont);
   const blocks: LayoutBlock[] = [];
   let current: LayoutLine[] = [];
   let currentRole: LayoutRole | null = null;
@@ -766,7 +880,7 @@ function groupLinesIntoBlocks(
       copyrightPage = line.page;
       copyrightColumn = line.column;
     }
-    const role = roleForLine(line, baseFont, mastheadEndY, copyrightStarted);
+    const role = roleForLine(line, baseFont, mastheadEndY, copyrightStarted, titleFont);
     if (isReferencesHeading(line.text)) {
       inReferences = true;
     }
@@ -795,9 +909,13 @@ function groupLinesIntoBlocks(
     }
 
     const sameRole = forcedRole === currentRole;
+    const authorKindOk =
+      currentRole !== "author" ||
+      looksLikeEmail(joinLines(current)) === looksLikeEmail(line.text);
     const mergeable =
       sameRole &&
       !atomic &&
+      authorKindOk &&
       currentRole !== "heading" &&
       currentRole !== "title" &&
       currentRole !== "figure_caption" &&
@@ -881,14 +999,7 @@ function mergeColumnContinuations(blocks: LayoutBlock[]): LayoutBlock[] {
       target.pageEnd === block.pageStart &&
       isSentenceContinuation(target.text, block.text)
     ) {
-      const glue =
-        target.text.endsWith("-") && /^[a-z]/.test(block.text.trim())
-          ? ""
-          : " ";
-      const left = target.text.endsWith("-")
-        ? target.text.slice(0, -1)
-        : target.text;
-      target.text = (left + glue + block.text).replace(/\s+/g, " ").trim();
+      target.text = joinHyphenated(target.text, block.text).replace(/\s+/g, " ").trim();
       target.lines = [...target.lines, ...block.lines];
       target.pageEnd = block.pageEnd;
       target.bbox = blockBbox(target.lines);

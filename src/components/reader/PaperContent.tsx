@@ -6,7 +6,8 @@ import { Figure } from "./Figure";
 import { Equation } from "./Equation";
 import { Table } from "./Table";
 import { Footnote } from "./Footnote";
-import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, looksLikeBibliographyEntry } from "../../services/translation/quality";
+import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, isReferencesHeading } from "../../services/translation/quality";
+import { shouldTranslateBlock } from "../../services/importServiceV2";
 import { isBusyProcessingStatus } from "../../services/paperStatus";
 import { indexReferenceBlocks } from "../../services/citations";
 import styles from "./PaperContent.module.css";
@@ -170,6 +171,15 @@ export function PaperContent({
 
   const allSectionsOrdered = [...sections].sort((a, b) => a.order - b.order);
   const sectionIds = new Set(allSectionsOrdered.map((s) => s.id));
+  const refSectionIds = new Set(
+    allSectionsOrdered
+      .filter(
+        (section) =>
+          section.normalizedKind === "references" ||
+          isReferencesHeading(section.originalTitle)
+      )
+      .map((section) => section.id)
+  );
   const orphanBlocks = blocks
     .filter((b) => {
       const role = String(b.metadata?.role ?? "");
@@ -180,19 +190,7 @@ export function PaperContent({
     })
     .sort((a, b) => a.order - b.order);
 
-  const translatableBlocks = blocks.filter(
-    (b) =>
-      b.original &&
-      (b.type === "paragraph" ||
-        b.type === "heading" ||
-        b.type === "footnote" ||
-        b.type === "figure" ||
-        b.type === "table") &&
-      b.translationStatus !== "skipped" &&
-      String(b.metadata?.role ?? "") !== "author" &&
-      String(b.metadata?.role ?? "") !== "affiliation" &&
-      !looksLikeBibliographyEntry(b.original)
-  );
+  const translatableBlocks = blocks.filter((b) => shouldTranslateBlock(b, refSectionIds));
   const translatedCount = translatableBlocks.filter((b) => b.translated).length;
   const totalCount = translatableBlocks.length;
   const unfinishedCount = translatableBlocks.filter(
@@ -215,28 +213,6 @@ export function PaperContent({
 
   return (
     <article className={styles.article}>
-      {/* Title */}
-      <header className={styles.header}>
-        <h1 className={styles.title}>
-          {displayPaperTitle(paper)}
-        </h1>
-        {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
-          paper.titleOriginal &&
-          !isGarbageTitle(paper.titleOriginal) && (
-          <p className={styles.originalTitle}>{paper.titleOriginal}</p>
-        )}
-        {paper.authors.length > 0 && (
-          <p className={styles.authors}>{paper.authors.join(", ")}</p>
-        )}
-        {paper.publication && (
-          <p className={styles.publication}>
-            {paper.publication}
-            {paper.year && ` (${paper.year})`}
-          </p>
-        )}
-      </header>
-
-      {/* Processing Status */}
       {showBusyBanner && (
         <div className={styles.processingBanner}>
           <span className={styles.processingSpinner} />
@@ -264,7 +240,26 @@ export function PaperContent({
         </div>
       )}
 
-      {/* Content */}
+      <header className={styles.header}>
+        <h1 className={styles.title}>
+          {displayPaperTitle(paper)}
+        </h1>
+        {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
+          paper.titleOriginal &&
+          !isGarbageTitle(paper.titleOriginal) && (
+          <p className={styles.originalTitle}>{paper.titleOriginal}</p>
+        )}
+        {paper.authors.length > 0 && (
+          <p className={styles.authors}>{paper.authors.join(", ")}</p>
+        )}
+        {paper.publication && (
+          <p className={styles.publication}>
+            {paper.publication}
+            {paper.year && ` (${paper.year})`}
+          </p>
+        )}
+      </header>
+
       <div className={styles.content}>
         {hasContent ? (
           <>

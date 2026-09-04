@@ -7,7 +7,45 @@ const KANA = /[\u3040-\u30FF]/;
 const KANJI = /[\u4E00-\u9FFF]/;
 const HANGUL = /[\uAC00-\uD7AF]/;
 const DATE_STAMP = /\d{4}-\d{2}-\d{2}/;
-const CCS_CONCEPT = /^[A-Z](?:\.\d+[a-z]?)+\b/;
+
+/** ACM CCS 1998-style classifier: H.5.2, H.5.m, I.2.10 */
+const CCS_CODE = /[A-K]\.\d+(?:\.\d+)*(?:\.[a-z])?/i;
+
+export function looksLikeFrontMatterLabel(text: string): boolean {
+  return /^(?:(?:\d+[.)]\s*)?(?:author\s+keywords?|keywords?|ccs\s+concepts?|acm\s+classification\s+keywords?|index\s+terms?|categories?(?:\s+and\s+subject\s+descriptors?)?))\s*$/i.test(
+    text.trim()
+  );
+}
+
+/**
+ * Subject-classification / CCS catalog lines, not body prose.
+ * Matches ACM CCS 1998 codes (including the miscellaneous letter suffix),
+ * CCS 2012 concept trees, and IEEE-style index-term labels.
+ */
+export function looksLikeSubjectClassification(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 320) return false;
+  if (/[→⟶]/.test(t) && /(?:^|[•·‣∙*])/.test(t)) return true;
+  if (
+    /^(?:index\s+terms?|keywords?|ccs\s+concepts?|acm\s+classification\s+keywords?)\s*[—–:\-]\s*\S/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+
+  const start = t.match(new RegExp(`^(${CCS_CODE.source})\\b`, "i"));
+  if (!start) return false;
+
+  const codes = t.match(new RegExp(CCS_CODE.source, "gi")) ?? [];
+  if (codes.length >= 2) return true;
+
+  const after = t.slice(start[0].length).replace(/^[.\s]+/, "");
+  if (!after) return true;
+  if (!/^[A-Z(]/.test(after)) return false;
+  if (after.split(/\s+/).length > 24) return false;
+  return true;
+}
 
 export function toHalfwidthAscii(text: string): string {
   return text
@@ -158,8 +196,8 @@ export function shouldTranslateHeading(text: string): boolean {
   if (isReferencesHeading(t)) return false;
   if (looksLikeBibliographyEntry(t)) return false;
   if (looksLikeNamedWorkHeading(t)) return false;
-  if (CCS_CONCEPT.test(t)) return false;
-  if (/^ccs\s+concepts?/i.test(t)) return false;
+  if (looksLikeFrontMatterLabel(t)) return false;
+  if (looksLikeSubjectClassification(t)) return false;
   if (/^[\d.\s]+$/.test(t)) return false;
   return /[A-Za-z]{3,}/.test(t);
 }
@@ -168,7 +206,7 @@ export function shouldTranslateParagraph(text: string): boolean {
   const t = text.trim();
   if (t.length < 28) return false;
   if (looksLikeBibliographyEntry(t)) return false;
-  if (CCS_CONCEPT.test(t)) return false;
+  if (looksLikeSubjectClassification(t)) return false;
   if (/@/.test(t)) return false;
   if (/https?:\/\//i.test(t)) return false;
   if (/permission to make digital/i.test(t)) return false;
@@ -240,6 +278,9 @@ export function sectionDisplayTitle(section: {
     isReferencesHeading(section.originalTitle) ||
     looksLikeBibliographyEntry(section.originalTitle)
   ) {
+    return section.originalTitle;
+  }
+  if (looksLikeFrontMatterLabel(section.originalTitle) || looksLikeSubjectClassification(section.originalTitle)) {
     return section.originalTitle;
   }
   if (looksLikeNamedWorkHeading(section.originalTitle)) {

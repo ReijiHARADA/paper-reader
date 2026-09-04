@@ -10,11 +10,16 @@ import {
 } from "lucide-react";
 import type { ImportProgress, ImportStage } from "../../services/importServiceV2";
 import { importPDFV2 } from "../../services/importServiceV2";
-import { takePendingImportFile } from "../../services/pendingImport";
+import { takePendingImport } from "../../services/pendingImport";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
+import { useProjectStore } from "../../stores/projectStore";
 import { getSetting } from "../../services/database";
 import type { ImportConfig } from "../../services/importServiceV2";
 import { upsertBlock, upsertSection } from "../../utils/mergePaperData";
+import {
+  addPaperToProject,
+  DuplicateProjectPaperError,
+} from "../../services/projectService";
 import styles from "./ImportScreen.module.css";
 
 const startedImportKeys = new Set<string>();
@@ -61,6 +66,7 @@ export function ImportScreen() {
   const location = useLocation();
   const { addPaper, updatePaper } = useAppStore();
   const { setSections, setBlocks } = usePaperDataStore();
+  const upsertMembership = useProjectStore((s) => s.upsertMembership);
 
   const [progress, setProgress] = useState<ImportProgress>({
     stage: "idle",
@@ -70,20 +76,38 @@ export function ImportScreen() {
   });
   const [isPartialReady, setIsPartialReady] = useState(false);
   const [paperId, setPaperId] = useState<string | null>(null);
+  const [returnProjectId, setReturnProjectId] = useState<string | null>(null);
 
   useEffect(() => {
-    const state = location.state as { file?: File } | null;
-    const file = takePendingImportFile() ?? state?.file;
+    const state = location.state as { file?: File; projectId?: string } | null;
+    const pending = takePendingImport();
+    const file = pending?.file ?? state?.file;
+    const projectId = pending?.projectId ?? state?.projectId ?? null;
     if (!file) {
       navigate("/");
       return;
     }
+    setReturnProjectId(projectId);
     const selectedFile = file;
     const importKey = `${selectedFile.name}:${selectedFile.size}:${selectedFile.lastModified}`;
     if (startedImportKeys.has(importKey)) {
       return;
     }
     startedImportKeys.add(importKey);
+
+    let attachedPaperId: string | null = null;
+    const attachToProject = async (id: string) => {
+      if (!projectId || attachedPaperId === id) return;
+      attachedPaperId = id;
+      try {
+        const link = await addPaperToProject({ projectId, paperId: id });
+        upsertMembership(link);
+      } catch (error) {
+        if (error instanceof DuplicateProjectPaperError) return;
+        attachedPaperId = null;
+        console.error("Failed to add imported paper to project:", error);
+      }
+    };
 
     async function startImport() {
       const settings = await getSetting<ImportConfig>("translationSettingsV2");
@@ -92,7 +116,14 @@ export function ImportScreen() {
       importPDFV2(
         selectedFile,
         {
-          onProgress: setProgress,
+          onProgress: (next) => {
+            setProgress(next);
+            if (next.stage === "completed" && next.paper) {
+              addPaper(next.paper);
+              setPaperId(next.paper.id);
+              void attachToProject(next.paper.id);
+            }
+          },
           onStageChange: (stage) => {
             setProgress((prev) => ({ ...prev, stage }));
           },
@@ -102,6 +133,7 @@ export function ImportScreen() {
             setBlocks(paper.id, blocks);
             setPaperId(paper.id);
             setIsPartialReady(true);
+            void attachToProject(paper.id);
           },
           onBlockTranslated: (block) => {
             if (block.paperId) {
@@ -122,6 +154,7 @@ export function ImportScreen() {
           setSections(result.paper.id, result.sections);
           setBlocks(result.paper.id, result.blocks);
           setPaperId(result.paper.id);
+          void attachToProject(result.paper.id);
         } else {
           startedImportKeys.delete(importKey);
         }
@@ -131,15 +164,19 @@ export function ImportScreen() {
     }
 
     startImport();
-  }, [location.state, navigate, addPaper, updatePaper, setSections, setBlocks]);
+  }, [location.state, navigate, addPaper, updatePaper, setSections, setBlocks, upsertMembership]);
 
   const handleBack = () => {
-    navigate("/");
+    navigate(returnProjectId ? `/project/${returnProjectId}` : "/");
   };
 
   const handleOpenReader = () => {
     if (paperId) {
-      navigate(`/reader/${paperId}`);
+      navigate(
+        returnProjectId
+          ? `/reader/${paperId}?project=${returnProjectId}`
+          : `/reader/${paperId}`
+      );
     }
   };
 
@@ -153,7 +190,7 @@ export function ImportScreen() {
       <header className={styles.header}>
         <button className={styles.backButton} onClick={handleBack}>
           <ArrowLeft size={20} />
-          <span>ライブラリに戻る</span>
+          <span>{returnProjectId ? "プロジェクトに戻る" : "ライブラリに戻る"}</span>
         </button>
       </header>
 
@@ -230,7 +267,7 @@ export function ImportScreen() {
 
             {progress.stage === "failed" && (
               <button className={styles.secondaryButton} onClick={handleBack}>
-                ライブラリに戻る
+                {returnProjectId ? "プロジェクトに戻る" : "ライブラリに戻る"}
               </button>
             )}
           </div>

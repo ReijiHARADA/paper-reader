@@ -18,6 +18,19 @@
         ],
         "tokensInOrderPage": 3,
         "headingContains": ["INTERACTIVE JEWELLERY: RELATED WORK"],
+        "titleContains": "Interactive Jewellery",
+        "forbidHeadingContains": [
+          "tue.nl",
+          "Industrial Design Architecture",
+          "College of Art and Centre"
+        ],
+        "forbidEquationContains": [
+          "jewellery-, memory-",
+          "Unger-de Boer",
+          "golsteijn.pdf",
+          "tednoten.com",
+          "artefactgroup.com"
+        ],
         "captionContains": ["Figure 2"],
         "forbidSameParagraph": [
           ["second half of the 20", "kinetic jewellery"]

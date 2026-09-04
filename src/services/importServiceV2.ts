@@ -170,6 +170,26 @@ export function shouldTranslateBlock(
   return false;
 }
 
+async function persistUntranslatableAsSkipped(
+  blocks: PaperBlock[],
+  refSectionIds: Set<string>
+): Promise<PaperBlock[]> {
+  const changed: PaperBlock[] = [];
+  for (const block of blocks) {
+    if (
+      block.translationStatus !== "pending" &&
+      block.translationStatus !== "processing"
+    ) {
+      continue;
+    }
+    if (shouldTranslateBlock(block, refSectionIds)) continue;
+    block.translationStatus = "skipped";
+    await updateBlock(block);
+    changed.push(block);
+  }
+  return changed;
+}
+
 function resolveConfig(config: ImportConfig): Required<ImportConfig> {
   const merged = { ...DEFAULT_CONFIG, ...config };
   merged.madladServerUrl = resolveMadladServerUrl(merged.madladServerUrl);
@@ -613,6 +633,8 @@ export async function importPDFV2(
     const abstractSection = sections.find((s) => s.normalizedKind === "abstract");
     const introSection = sections.find((s) => s.normalizedKind === "introduction");
 
+    await persistUntranslatableAsSkipped(blocks, refSectionIds);
+
     for (const block of blocks) {
       if (!shouldTranslateBlock(block, refSectionIds) || !block.original) {
         continue;
@@ -730,6 +752,10 @@ export async function resumeIncompleteTranslation(
     const blocks = await getBlocksByPaper(paperId);
     const sections = await getSectionsByPaper(paperId);
     const refSectionIds = referenceSectionIds(sections);
+    const skipped = await persistUntranslatableAsSkipped(blocks, refSectionIds);
+    for (const block of skipped) {
+      callbacks.onBlockTranslated?.(block);
+    }
     const pendingBlocks = blocks.filter(
       (b) =>
         shouldTranslateBlock(b, refSectionIds) &&

@@ -22,6 +22,7 @@ import {
 import { AppSidebar } from "./AppSidebar";
 import { PaperDragPreview } from "./PaperDragPreview";
 import { NewProjectModal } from "../project/NewProjectModal";
+import { SettingsModal } from "../settings/SettingsModal";
 import { setPaperDropHandler, INBOX_DROP_ID, usePaperDragStore } from "../../stores/paperDragStore";
 import styles from "./AppShell.module.css";
 
@@ -49,6 +50,7 @@ export function AppShell() {
   const showToast = usePaperDragStore((state) => state.showToast);
   const clearToast = usePaperDragStore((state) => state.clearToast);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +174,8 @@ export function AppShell() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onNewProject={() => setShowNewProject(true)}
+        onOpenSettings={() => setShowSettings(true)}
+        settingsOpen={showSettings}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
       />
@@ -198,6 +202,7 @@ export function AppShell() {
           onCreate={handleCreate}
         />
       )}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

@@ -16,6 +16,8 @@ type CatalogPaper = {
     headingContains?: string[];
     captionContains?: string[];
     tableCaptionContains?: string[];
+    forbidHeadingContains?: string[];
+    forbidEquationContains?: string[];
     forbidSameParagraph?: [string, string][];
     forbidCaptionInParagraph?: boolean;
     referencesHeading?: boolean;
@@ -93,6 +95,24 @@ describe("real jewelry-corpus PDFs", () => {
         );
       }
 
+      for (const forbidden of checks.forbidHeadingContains ?? []) {
+        expect(
+          headings.some((h) => h.toLowerCase().includes(forbidden.toLowerCase())),
+          `heading should not contain ${forbidden}`
+        ).toBe(false);
+      }
+
+      for (const forbidden of checks.forbidEquationContains ?? []) {
+        expect(
+          blocks.some(
+            (b) =>
+              b.role === "equation" &&
+              b.text.toLowerCase().includes(forbidden.toLowerCase())
+          ),
+          `equation should not contain ${forbidden}`
+        ).toBe(false);
+      }
+
       for (const caption of checks.captionContains ?? []) {
         expect(captions.some((c) => c.includes(caption))).toBe(true);
       }
@@ -102,12 +122,10 @@ describe("real jewelry-corpus PDFs", () => {
       }
 
       if (checks.titleContains) {
-        const blob = [
-          ...titles,
-          ...headings.slice(0, 6),
-          ...blocks.slice(0, 12).map((b) => b.text),
-        ].join(" ");
-        expect(blob.toLowerCase()).toContain(checks.titleContains.toLowerCase());
+        expect(
+          titles.join(" ").toLowerCase(),
+          `${paper.id} title role`
+        ).toContain(checks.titleContains.toLowerCase());
       }
 
       if (checks.referencesHeading) {

@@ -41,6 +41,7 @@
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .addButton:hover { background: var(--color-accent-hover); }
@@ -52,47 +53,98 @@
   flex-shrink: 0;
 }
 
-.deleteProject {
-  align-self: flex-start;
-  margin: var(--spacing-sm) var(--spacing-xl) 0;
+.deleteIconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
-  font-size: 0.75rem;
-  padding: 0;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
-.deleteProject:hover {
+.deleteIconButton:hover {
+  background: #fce8e6;
   color: #c5221f;
 }
 
-.deleteConfirm {
-  margin: var(--spacing-sm) var(--spacing-xl) 0;
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
+[data-theme="dark"] .deleteIconButton:hover {
+  background: #3c1f1e;
+  color: #f28b82;
+}
+
+.deleteOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: var(--spacing-xl);
+}
+
+.deleteDialog {
+  width: min(420px, 100%);
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px var(--color-shadow);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--spacing-sm);
 }
 
-.deleteConfirm p {
-  flex: 1 1 220px;
+.deleteDialogIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fce8e6;
+  color: #c5221f;
+  margin-bottom: var(--spacing-xs);
+}
+
+[data-theme="dark"] .deleteDialogIcon {
+  background: #3c1f1e;
+  color: #f28b82;
+}
+
+.deleteDialogTitle {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.deleteDialogBody {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: var(--color-text-secondary);
+}
+
+.deleteDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  width: 100%;
 }
 
 .deleteConfirmYes,
 .deleteConfirmNo {
   appearance: none;
   border: none;
-  font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
@@ -104,6 +156,10 @@
 .deleteConfirmNo {
   background: transparent;
   color: var(--color-text-secondary);
+}
+
+.deleteConfirmNo:hover {
+  background: var(--color-bg-secondary);
 }
 
 .deleteConfirmYes:disabled,
@@ -121,92 +177,10 @@
   gap: var(--spacing-md);
 }
 
-.card {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.card:active {
-  cursor: grabbing;
-}
-
-.card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 8px var(--color-shadow);
-}
-
-.cardIcon {
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-}
-
-.cardInfo { flex: 1; min-width: 0; }
-
-.cardTitle {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cardAuthors {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-}
-
-.cardMeta {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-top: 4px;
-}
-
-.cardYear { font-size: 0.75rem; color: var(--color-text-tertiary); }
-
-.statusReady { color: #34a853; }
-.statusProcessing { color: var(--color-accent); animation: spin 1s linear infinite; }
-.statusFailed { color: #ea4335; }
-.statusPending { color: var(--color-text-tertiary); }
-
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  flex-shrink: 0;
-}
-
-.removeButton {
-  opacity: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-tertiary);
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-sm);
-  transition: opacity var(--transition-fast);
-}
-
-.card:hover .removeButton { opacity: 1; }
-
-.removeButton:hover { background: #fce8e6; color: #c5221f; }
-
-[data-theme="dark"] .removeButton:hover { background: #3c1f1e; color: #f28b82; }
 
 .empty, .emptyState, .loadingWrap {
   flex: 1;

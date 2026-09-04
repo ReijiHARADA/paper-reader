@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 import { Trash2 } from "lucide-react";
-import styles from "./LibraryScreen.module.css";
+import styles from "./PaperCard.module.css";
 
 type PaperDeleteControlsProps = {
   paperId: string;
@@ -53,7 +53,7 @@ export function PaperDeleteControls({
   return (
     <button
       type="button"
-      className={styles.deleteButton}
+      className={styles.actionButton}
       title="削除"
       onClick={(event) => onRequest(event, paperId)}
     >

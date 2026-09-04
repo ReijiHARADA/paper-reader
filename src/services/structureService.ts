@@ -16,7 +16,7 @@ import {
   type LayoutBlock,
   type PageColumnLayout,
 } from "./pdfLayout";
-import { pickPaperTitle, pickPublication, isReferencesHeading } from "./translation/quality";
+import { pickPaperTitle, pickPublication, isReferencesHeading, shouldTranslateHeading, shouldTranslateParagraph } from "./translation/quality";
 import { scoreLayoutBlock } from "./extractionConfidence";
 
 function normalizeSection(title: string): NormalizedSectionKind {
@@ -78,7 +78,13 @@ export function analyzeStructure(
   const titleBlock = layoutBlocks.find((b) => b.role === "title");
   const authorNames = layoutBlocks
     .filter((b) => b.role === "author" && !/@/.test(b.text))
-    .map((b) => b.text);
+    .map((b) =>
+      b.text
+        .replace(/(\p{L})\d+/gu, "$1")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter(Boolean);
 
   const sections: Section[] = [];
   const blocks: PaperBlock[] = [];
@@ -161,7 +167,10 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: layout.text,
         translated: null,
-        translationStatus: kind === "references" ? "skipped" : "pending",
+        translationStatus:
+          kind === "references" || !shouldTranslateHeading(layout.text)
+            ? "skipped"
+            : "pending",
         parentBlockId: null,
         metadata: { column: layout.column, role: layout.role },
       });
@@ -247,7 +256,9 @@ export function analyzeStructure(
         boundingBoxes: boxes,
         original: layout.text,
         translated: null,
-        translationStatus: "pending",
+        translationStatus: shouldTranslateParagraph(layout.text)
+          ? "pending"
+          : "skipped",
         parentBlockId: null,
         metadata: { column: layout.column, role: "footnote" },
       });
@@ -263,7 +274,8 @@ export function analyzeStructure(
       boundingBoxes: boxes,
       original: layout.text,
       translated: null,
-      translationStatus: isRef ? "skipped" : "pending",
+      translationStatus:
+        isRef || !shouldTranslateParagraph(layout.text) ? "skipped" : "pending",
       parentBlockId: null,
       metadata: { column: layout.column, role: layout.role },
     });

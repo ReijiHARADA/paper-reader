@@ -181,9 +181,13 @@ export function acmStyleTwoColumnPages(): ExtractedPage[] {
       width: 280,
       fontSize: 11,
     }),
-    item("University of Example Department of Design", 54, 118, {
+    item("ada@example.ac.uk  c.babbage@example.ac.uk", 54, 112, {
+      width: 320,
+      fontSize: 12,
+    }),
+    item("University of Example Department of Design", 54, 124, {
       width: 360,
-      fontSize: 9,
+      fontSize: 12,
     }),
     item("Abstract", 54, 150, { width: 90, fontSize: 12 }),
     item(
@@ -607,6 +611,73 @@ export function falseCaptionSentencePages(): ExtractedPage[] {
   return [page(1, [...left, ...right])];
 }
 
+export function hyphenatedProsePages(): ExtractedPage[] {
+  const left = [
+    colLine("Introduction", LEFT_X, 80, 1, 12),
+    colLine("HYPHEN_L1 Wearable computing began as bulky prototypes worn on the body.", LEFT_X, 110),
+    colLine("HYPHEN_L2 Researchers then asked how jewelry and fashion might absorb computation.", LEFT_X, 140),
+    colLine("take into account a jewellery-, memory- and interaction-", LEFT_X, 170),
+    colLine("perspectives when developing wearables in daily life settings.", LEFT_X, 182),
+    colLine("HYPHEN_L3 Unger-de Boer formulated a multi-disciplinary framework for craft.", LEFT_X, 230),
+    colLine("HYPHEN_L4 Additional left text keeps the column detector sample populated.", LEFT_X, 260),
+    colLine("HYPHEN_L5 Left column still going with ordinary body sentences here.", LEFT_X, 290),
+    colLine("HYPHEN_L6 Another left paragraph line about workshop materials.", LEFT_X, 320),
+    colLine("HYPHEN_L7 Penultimate left body line before we reach the right column.", LEFT_X, 350),
+    colLine("HYPHEN_L8 Last left line about exhibition contexts and wearer interviews.", LEFT_X, 380),
+  ];
+  const right = [
+    colLine("HYPHEN_R1 Right column body stays separate from hyphenated left prose.", RIGHT_X, 110),
+    colLine("HYPHEN_R2 More right-column discussion of related prototypes.", RIGHT_X, 140),
+    colLine("HYPHEN_R3 Right column continues with method teaser sentences.", RIGHT_X, 170),
+    colLine("HYPHEN_R4 Extra right body lines keep the right peak populated.", RIGHT_X, 200),
+    colLine("HYPHEN_R5 Right column density line about sensors in lockets.", RIGHT_X, 230),
+    colLine("HYPHEN_R6 Right column still main text about craft practice.", RIGHT_X, 260),
+    colLine("153–169. http://doi.org/10.1007/s00779-009-0279-7", RIGHT_X, 290),
+    colLine("https://www.artefactgroup.com/content/work/purple-awearable-locket", RIGHT_X, 320),
+  ];
+  return [page(1, [...left, ...right])];
+}
+
+export function classificationIndexPages(): ExtractedPage[] {
+  return [
+    page(1, [
+      item("CLASSIFIX Wearable Catalog Interfaces", 54, 70, {
+        width: 500,
+        fontSize: 18,
+      }),
+      item("Ada Lovelace", 54, 100, { width: 160, fontSize: 11 }),
+      item("Abstract", 54, 140, { width: 90, fontSize: 13 }),
+      item(
+        "CLASSIFIX_ABS This abstract explains the study with enough body words for font detection and paragraph grouping on a single column page.",
+        54,
+        165,
+        { width: 500, fontSize: 10 }
+      ),
+      item("Author Keywords", 54, 230, { width: 140, fontSize: 12 }),
+      item(
+        "Tangible interaction; interactive jewellery; autobiographical memory; memento.",
+        54,
+        250,
+        { width: 500, fontSize: 10 }
+      ),
+      item("ACM Classification Keywords", 54, 280, { width: 220, fontSize: 12 }),
+      item(
+        "H.5.m. Information interfaces and presentation (e.g., HCI): Miscellaneous; H.5.2 User interfaces.",
+        54,
+        300,
+        { width: 500, fontSize: 10 }
+      ),
+      item("Introduction", 54, 350, { width: 120, fontSize: 13 }),
+      item(
+        "CLASSIFIX_INTRO However, H.5.2 style interfaces are common in this field of research today and deserve a full translated paragraph.",
+        54,
+        375,
+        { width: 500, fontSize: 10 }
+      ),
+    ]),
+  ];
+}
+
 export const FIXTURES: Record<string, () => ExtractedPage[]> = {
   "single-column": singleColumnPages,
   "basic-two-column": basicTwoColumnPages,
@@ -621,5 +692,7 @@ export const FIXTURES: Record<string, () => ExtractedPage[]> = {
   "table-caption": tableCaptionPages,
   equation: equationPages,
   "false-caption-sentence": falseCaptionSentencePages,
+  "hyphenated-prose": hyphenatedProsePages,
+  "classification-index": classificationIndexPages,
 };
 

@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { X, AlertCircle, CheckCircle, Loader2, RefreshCw, Server, Brain } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { X, AlertCircle, CheckCircle, Loader2, RefreshCw, Server, Brain, FileText } from "lucide-react";
 import { getSetting, saveSetting } from "../../services/database";
 import { checkMADLADServer } from "../../services/translation/madladEngine";
 import { checkOllamaAvailability } from "../../services/llm/ollamaProvider";
+import { addSamplePaper } from "../../services/samplePaper";
+import { useAppStore } from "../../stores/appStore";
+import { samplePaper } from "../../data/samplePaper";
 import styles from "./SettingsModal.module.css";
 
 type SettingsModalProps = {
@@ -36,8 +40,14 @@ const DEFAULT_SETTINGS: TranslationSettings = {
 };
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
+  const navigate = useNavigate();
+  const sampleAlreadyAdded = useAppStore((state) =>
+    state.papers.some((paper) => paper.id === samplePaper.id)
+  );
   const [settings, setSettings] = useState<TranslationSettings>(DEFAULT_SETTINGS);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAddingSample, setIsAddingSample] = useState(false);
+  const [sampleMessage, setSampleMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [madladStatus, setMadladStatus] = useState<ServiceStatus>({
@@ -110,6 +120,26 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setMessage({ type: "error", text: "保存に失敗しました" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddSample = async () => {
+    if (isAddingSample) return;
+    setIsAddingSample(true);
+    setSampleMessage(null);
+    try {
+      const result = await addSamplePaper();
+      if (result === "exists") {
+        setSampleMessage("すでにライブラリにあります");
+        return;
+      }
+      onClose();
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to add sample paper:", error);
+      setSampleMessage("追加に失敗しました");
+    } finally {
+      setIsAddingSample(false);
     }
   };
 
@@ -325,6 +355,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <span>翻訳結果をキャッシュ（再インポート時に高速化）</span>
               </label>
             </div>
+          </section>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>
+              <FileText size={16} />
+              サンプル論文
+            </h3>
+            <p className={styles.sectionDescription}>
+              翻訳済みの短いサンプルをライブラリに追加して、リーダーの操作を確認できます。
+            </p>
+            <button
+              type="button"
+              className={styles.sectionButton}
+              onClick={() => void handleAddSample()}
+              disabled={isAddingSample || sampleAlreadyAdded}
+            >
+              {sampleAlreadyAdded
+                ? "追加済み"
+                : isAddingSample
+                  ? "追加中..."
+                  : "ライブラリに追加"}
+            </button>
+            {sampleMessage && (
+              <p className={styles.sectionStatus}>{sampleMessage}</p>
+            )}
           </section>
         </div>
 
