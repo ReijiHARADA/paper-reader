@@ -1,333 +1,148 @@
-# Paper Reader クイックスタート
+# Paper Reader 起動手順
 
-## 初回セットアップ（1回のみ）
+リポジトリのルート（`package.json` がある場所）で実行してください。
 
-### 1. 翻訳サーバーのセットアップ
+## 初回だけ
 
-まず、`uv`をインストール（高速なPythonパッケージマネージャー）:
+### 1. 翻訳サーバー
+
+Homebrew の `python@3.12` は使わないでください。macOS 26 では `platform.mac_ver()` が空になり、venv 作成が失敗します。`uv` の公式 3.12 を使います。
 
 ```bash
 brew install uv
-```
-
-次に、翻訳サーバーをセットアップ:
-
-```bash
-cd ~/Desktop/codex/projects/paper-reader/translation-server
-./update_python_env.sh
-```
-
-手動で行う場合は **Homebrew の python@3.12 を使わない** こと。macOS 26 では `platform.mac_ver()` が空になり、`python -m venv` が失敗します。`uv` が配布する Python を使います:
-
-```bash
-cd ~/Desktop/codex/projects/paper-reader/translation-server
+cd translation-server
 uv python install 3.12
 uv venv --python 3.12 .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 2. Ollamaのインストール
+仮想環境が壊れたときだけ `./update_python_env.sh` を使います。日常の再起動には不要です。
+
+### 2. フロントエンド
+
+```bash
+npm install
+```
+
+### 3. 任意: Ollama（用語集）
 
 ```bash
 brew install ollama
 ollama pull gemma2:9b
 ```
 
-### 3. アプリの依存関係インストール
-
-```bash
-cd ~/Desktop/codex/projects/paper-reader
-npm install
-```
+翻訳と論文表示だけなら Ollama は不要です。
 
 ---
 
-## 日常的な起動手順
+## 日常の起動
 
-**重要**: まずプロジェクトディレクトリに移動してください
+### 推奨: Tauri 開発アプリ
+
+翻訳サーバーはアプリ側が `.venv` を見つけて起動します。
 
 ```bash
-cd ~/Desktop/codex/projects/paper-reader
+npm run tauri:dev
 ```
 
-### 方法1: 便利スクリプトを使用（推奨）
+Xcode が `/Applications/Xcode-beta.app` の場合:
 
-#### 翻訳サーバーの起動
+```bash
+export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
+npm run tauri:dev
+```
+
+### ブラウザ UI だけ（OCR なし）
+
+ターミナル 1:
 
 ```bash
 ./restart-translation-server.sh
 ```
 
-#### Ollama（別ターミナル）
-
-```bash
-ollama serve
-```
-
-#### フロントエンド（別ターミナル）
+ターミナル 2:
 
 ```bash
 npm run dev
 ```
 
-### 方法2: 手動起動
-
-#### ターミナル1: 翻訳サーバー
+http://localhost:5173 を開きます。翻訳サーバーの確認:
 
 ```bash
-cd ~/Desktop/codex/projects/paper-reader/translation-server
-source .venv/bin/activate
-python server.py
-```
-
-起動確認: [http://127.0.0.1:8765/health](http://127.0.0.1:8765/health)
-
-#### ターミナル2: Ollama
-
-```bash
-ollama serve
-```
-
-確認:
-
-```bash
-curl http://localhost:11434/api/tags
-```
-
-#### ターミナル3: アプリ
-
-```bash
-cd ~/Desktop/codex/projects/paper-reader
-npm run dev
-```
-
-ブラウザで [http://localhost:5173](http://localhost:5173) を開く
-
----
-
-## トラブルシューティング
-
-### 翻訳サーバーに接続できない
-
-```bash
-# サーバーが起動しているか確認
 curl http://127.0.0.1:8765/health
-
-# エラーが出る場合、ターミナル1のログを確認
 ```
 
-### Ollamaに接続できない
+`{"status":"ok","model_loaded":true}` なら準備完了です。
+
+### 一括起動（ブラウザ開発）
 
 ```bash
-# Ollamaが起動しているか確認
-curl http://localhost:11434/api/tags
-
-# モデルがインストールされているか確認
-ollama list
-```
-
-### モデルがダウンロードされていない
-
-```bash
-# MADLAD（初回起動時に自動ダウンロード）
-# 初回翻訳時に約6GB、5-10分
-
-# Ollama
-ollama pull gemma2:9b  # 約5.4GB
-```
-
----
-
-## 簡易起動スクリプト（オプション）
-
-### すべてのサーバーを一度に起動
-
-`start.sh` を作成:
-
-```bash
-#!/bin/bash
-
-# 翻訳サーバー起動
-cd translation-server
-source venv/bin/activate
-python server.py &
-MADLAD_PID=$!
-cd ..
-
-# Ollama起動
-ollama serve &
-OLLAMA_PID=$!
-
-# アプリ起動
-npm run dev &
-APP_PID=$!
-
-echo "起動完了"
-echo "MADLAD PID: $MADLAD_PID"
-echo "Ollama PID: $OLLAMA_PID"
-echo "App PID: $APP_PID"
-echo ""
-echo "終了する場合:"
-echo "kill $MADLAD_PID $OLLAMA_PID $APP_PID"
-
-# Ctrl+Cで全プロセス終了
-trap "kill $MADLAD_PID $OLLAMA_PID $APP_PID" EXIT
-wait
-```
-
-実行:
-
-```bash
-chmod +x start.sh
 ./start.sh
 ```
 
----
+翻訳サーバーと `npm run dev` をまとめて起動します。Ollama も起動を試みます。
 
-## メモリ使用量の目安
+### リリース用 `.app`
 
-- **MADLAD翻訳サーバー**: 8〜10GB
-- **Ollama (gemma2:9b)**: 6〜8GB
-- **アプリ**: 500MB〜1GB
+```bash
+npm run tauri:build
+open "src-tauri/target/release/bundle/macos/Paper Reader.app"
+```
 
-合計: 約15〜20GB
-
-**推奨環境**: M4 MacBook Pro / 24GB以上
+`beforeBuildCommand` が `scripts/bundle-python.sh` で `.venv` を `translation-server/venv/` にコピーしてからフロントをビルドします。
 
 ---
 
 ## トラブルシューティング
 
-### 1. 翻訳サーバーがクラッシュする
-
-**症状**: サーバーが `Segmentation fault` で落ちる、500エラーが繰り返される
-
-**原因**: 古い Python 3.9 + MPS、または Homebrew Python の不整合
-
-**対応**:
-1. `translation-server/.venv` が Python 3.12 か確認する（`source .venv/bin/activate && python --version`）
-2. `PYTORCH_ENABLE_MPS_FALLBACK=1` を付けて起動する（`./restart-translation-server.sh`）
-3. それでも落ちる場合は、まず `python test_mps_stages.py` でどの段階で失敗するか切り分ける
-
-CPU固定はデバッグ中の一時措置のみ。通常は MPS を使う。
-
-### 1b. `python -m venv` や `ensurepip` が失敗する
-
-**症状**:
-```
-ensurepip returned non-zero exit status 1
-Broken Python installation, platform.mac_ver() returned an empty value
-```
-
-**原因**: Homebrew の `python@3.12` が macOS 26 で `platform.mac_ver()` を空文字で返す。pip / uv がこれを壊れたインストールと判定する。
-
-**解決策**: Homebrew Python は使わない。
+### 翻訳サーバーに繋がらない
 
 ```bash
-cd ~/Desktop/codex/projects/paper-reader/translation-server
-uv python install 3.12
-uv venv --python 3.12 .venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
+curl http://127.0.0.1:8765/health
+./restart-translation-server.sh
 ```
 
-### 2. 論文が重複して表示される
+`.app` ではポート **8765** を使います。UI が 8000 を見ている古いビルドは使わないでください。
 
-**症状**: 同じPDFをインポートすると2つの論文が表示される
+### `python -m venv` / ensurepip が失敗する
 
-**原因**: 以前のバージョンでReact Strict Modeによる二重インポートが発生
+Homebrew Python が原因です。上の `uv` 手順で `.venv` を作り直してください。
 
-**解決策**:
+### Segmentation fault / 500
 
-1. ブラウザの開発者ツールを開く (Cmd+Option+I)
-2. Consoleタブで以下を実行:
+1. `.venv` が Python 3.12 か確認する（`source translation-server/.venv/bin/activate && python --version`）
+2. `./restart-translation-server.sh` で `PYTORCH_ENABLE_MPS_FALLBACK=1` 付き起動にする
+3. `cd translation-server && python test_mps_stages.py` で切り分ける
 
-```javascript
-// クリーンアップツールをロード
-await import('/src/utils/cleanupDuplicates.ts')
+### PDF を開いた瞬間に落ちる
 
-// 重複をチェック（実際には削除しない）
-cleanupDuplicatePapers(true)
+pdf.js 6 は Tauri の WKWebView で動きません。依存は **pdfjs-dist 3.11** のままにしてください。
 
-// 重複を実際に削除する場合
-cleanupDuplicatePapers(false)
+### OCR が動かない
+
+Apple Vision は `.app` または `npm run tauri:dev` だけです。ブラウザの `npm run dev` では動きません。
+
+### 翻訳が進まない
+
+```bash
+curl http://127.0.0.1:8765/health
 ```
 
-3. ページをリロード
-
-**今後の予防**: 最新版では重複インポートは発生しません。
-
-### 3. 翻訳が表示されない
-
-**症状**: 翻訳中のまま進まない、日本語が表示されない
-
-**確認事項**:
-
-1. **サーバーが起動しているか確認**:
-   ```bash
-   curl http://127.0.0.1:8765/health
-   # → {"status":"ok"} と表示されればOK
-   ```
-
-2. **サーバーログを確認**:
-   - ターミナルで翻訳サーバーのウィンドウを確認
-   - エラーメッセージが出ていないか確認
-
-3. **Ollamaが起動しているか確認**:
-   ```bash
-   ollama list
-   # → モデルのリストが表示されればOK
-   ```
-
-### 4. PDFの2段組レイアウトが正しく認識されない
-
-**症状**: 左右の列のテキストが混ざって表示される
-
-**確認事項**:
-- まず翻訳が正常に動作することを確認してください
-- 現在も改善中の機能です
+サーバーログに `[DEVICE] Using MPS` と `[DTYPE] ... bfloat16` が出ているか見てください。
 
 ---
 
-## パフォーマンス改善のヒント
+## メモリの目安
 
-### CPU使用率を下げたい場合
+| プロセス | 目安 |
+|---|---|
+| MADLAD 翻訳サーバー | 8–10GB |
+| Ollama gemma2:9b（任意） | 6–8GB |
+| UI | 0.5–1GB |
 
-翻訳サーバーのワーカー数を減らす:
+推奨: Apple Silicon / 24GB 以上。
 
-1. `translation-server/server.py`を編集
-2. `uvicorn.run()`の行を変更:
-   ```python
-   uvicorn.run(app, host="127.0.0.1", port=8765, workers=1)  # workers を 1 に
-   ```
+## 速度
 
-### 翻訳速度を上げたい場合
-
-**✅ GPU対応完了！**
-
-現在、Apple Silicon MacでGPU（MPS）を使用して翻訳を高速化しています:
-
-- **CPU版**: 約15秒/文章
-- **MPS版**: 約2秒/文章（**7.2倍高速**）
-
-**確認方法**:
-
-1. サーバーログに以下が表示されるか確認:
-   ```
-   [DEVICE] Using MPS (Apple Silicon GPU)
-   [DTYPE] Selecting bfloat16 for MPS
-   ```
-
-2. ベンチマーク結果の詳細は `translation-server/MPS_OPTIMIZATION_REPORT.md` を参照
-
----
-
-## その他のヘルプ
-
-何か問題があれば、以下の情報を添えて報告してください:
-
-1. エラーメッセージ（あれば）
-2. 翻訳サーバーのログ
-3. ブラウザのコンソールログ (Cmd+Option+I → Console)
-4. macOSバージョンとメモリ容量
+複数文の段落は文バッチ（既定 8）で、逐次よりおおよそ 3 倍速いです。詳細は `translation-server/SPEED_BENCH.md` です。
