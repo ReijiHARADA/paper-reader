@@ -34,6 +34,9 @@ translation-server/models/
 *.safetensors
 .cache/
 
+# Real paper PDFs used for reading-order tests (not committed)
+test-data/real-papers/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

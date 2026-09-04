@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:test-pdfs": "node scripts/generate-test-pdfs.mjs",
+    "fetch:real-papers": "node scripts/fetch-real-papers.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

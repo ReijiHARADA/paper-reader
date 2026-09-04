@@ -1,0 +1,2201 @@
+{
+  "batch_size": 24,
+  "off": {
+    "short": {
+      "warm_wall_s_median": 1.1733633750118315,
+      "warm_tokens_per_sec_median": 22.30571135500474,
+      "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+      "input_tokens": 20,
+      "output_tokens": 26,
+      "output_chars": 31,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 20,
+            "padded_tokens": 20,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              84
+            ],
+            "batch_max_new": 84,
+            "generate_s": 1.1723
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.32,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 133201920,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 1.1656207500491291,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 22.30571135500474,
+          "chars_per_sec": 26.59527123096719,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 20,
+                "padded_tokens": 20,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  84
+                ],
+                "batch_max_new": 84,
+                "generate_s": 1.1647
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 133234688,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 1.1733633750118315,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 22.158523568828652,
+          "chars_per_sec": 26.419778101295698,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 20,
+                "padded_tokens": 20,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  84
+                ],
+                "batch_max_new": 84,
+                "generate_s": 1.1723
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 133201920,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "title": {
+      "warm_wall_s_median": 0.5164623750024475,
+      "warm_tokens_per_sec_median": 38.83707241266827,
+      "translation": "インタラクティブジュエリー: デザインの探求",
+      "input_tokens": 16,
+      "output_tokens": 20,
+      "output_chars": 22,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.083,
+        "average_padding_ratio": 0.111,
+        "error": null,
+        "batches": [
+          {
+            "size": 2,
+            "actual_tokens": 16,
+            "padded_tokens": 18,
+            "padding_ratio": 0.1111,
+            "per_chunk_max_new": [
+              51,
+              48
+            ],
+            "batch_max_new": 51,
+            "generate_s": 0.5146
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.512,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 134529024,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 0.514971875003539,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 38.83707241266827,
+          "chars_per_sec": 42.720779653935104,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.111,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 16,
+                "padded_tokens": 18,
+                "padding_ratio": 0.1111,
+                "per_chunk_max_new": [
+                  51,
+                  48
+                ],
+                "batch_max_new": 51,
+                "generate_s": 0.5127
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 134529024,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 0.5164623750024475,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 38.724989404901415,
+          "chars_per_sec": 42.597488345391554,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.111,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 16,
+                "padded_tokens": 18,
+                "padding_ratio": 0.1111,
+                "per_chunk_max_new": [
+                  51,
+                  48
+                ],
+                "batch_max_new": 51,
+                "generate_s": 0.5146
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 134529024,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "abstract": {
+      "warm_wall_s_median": 2.8958008749759756,
+      "warm_tokens_per_sec_median": 46.34157478796575,
+      "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+      "input_tokens": 103,
+      "output_tokens": 128,
+      "output_chars": 153,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.125,
+        "average_padding_ratio": 0.12,
+        "error": null,
+        "batches": [
+          {
+            "size": 3,
+            "actual_tokens": 103,
+            "padded_tokens": 117,
+            "padding_ratio": 0.1197,
+            "per_chunk_max_new": [
+              123,
+              141,
+              117
+            ],
+            "batch_max_new": 141,
+            "generate_s": 2.8932
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 3,
+        "translation_sentence_count": 3,
+        "output_length_ratio": 0.345,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 136953856,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 2.8958008749759756,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 44.20193429255108,
+          "chars_per_sec": 52.835124584064964,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.125,
+            "average_padding_ratio": 0.12,
+            "error": null,
+            "batches": [
+              {
+                "size": 3,
+                "actual_tokens": 103,
+                "padded_tokens": 117,
+                "padding_ratio": 0.1197,
+                "per_chunk_max_new": [
+                  123,
+                  141,
+                  117
+                ],
+                "batch_max_new": 141,
+                "generate_s": 2.8932
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 136953856,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 2.762098624953069,
+          "input_chars": 443,
+          "output_chars": 153,
+          "input_tokens": 103,
+          "output_tokens": 128,
+          "tokens_per_sec": 46.34157478796575,
+          "chars_per_sec": 55.39266361374031,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.125,
+            "average_padding_ratio": 0.12,
+            "error": null,
+            "batches": [
+              {
+                "size": 3,
+                "actual_tokens": 103,
+                "padded_tokens": 117,
+                "padding_ratio": 0.1197,
+                "per_chunk_max_new": [
+                  123,
+                  141,
+                  117
+                ],
+                "batch_max_new": 141,
+                "generate_s": 2.7593
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 137330688,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "body_short": {
+      "warm_wall_s_median": 1.4403996670152992,
+      "warm_tokens_per_sec_median": 23.69649597125872,
+      "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+      "input_tokens": 30,
+      "output_tokens": 34,
+      "output_chars": 39,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 30,
+            "padded_tokens": 30,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              114
+            ],
+            "batch_max_new": 114,
+            "generate_s": 1.4395
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.342,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 137773056,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 1.4403996670152992,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 23.60455974726275,
+          "chars_per_sec": 27.07581853362492,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.4395
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 137773056,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 1.4348112919833511,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 23.69649597125872,
+          "chars_per_sec": 27.181274790561474,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.4338
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 137773056,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "intro": {
+      "warm_wall_s_median": 3.0951619999832474,
+      "warm_tokens_per_sec_median": 77.22161191183757,
+      "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+      "input_tokens": 188,
+      "output_tokens": 232,
+      "output_chars": 268,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.25,
+        "average_padding_ratio": 0.319,
+        "error": null,
+        "batches": [
+          {
+            "size": 6,
+            "actual_tokens": 188,
+            "padded_tokens": 276,
+            "padding_ratio": 0.3188,
+            "per_chunk_max_new": [
+              90,
+              114,
+              105,
+              96,
+              141,
+              162
+            ],
+            "batch_max_new": 162,
+            "generate_s": 3.0895
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 6,
+        "translation_sentence_count": 6,
+        "output_length_ratio": 0.35,
+        "missing_numbers": [
+          "8"
+        ],
+        "missing_citations": [
+          "[8]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 1,
+      "memory": {
+        "rss_bytes": 140935168,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 3.0951619999832474,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 74.95568891103461,
+          "chars_per_sec": 86.5867440868848,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.25,
+            "average_padding_ratio": 0.319,
+            "error": null,
+            "batches": [
+              {
+                "size": 6,
+                "actual_tokens": 188,
+                "padded_tokens": 276,
+                "padding_ratio": 0.3188,
+                "per_chunk_max_new": [
+                  90,
+                  114,
+                  105,
+                  96,
+                  141,
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 3.0895
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 140935168,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 3.0043402909650467,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 77.22161191183757,
+          "chars_per_sec": 89.20427582919167,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.25,
+            "average_padding_ratio": 0.319,
+            "error": null,
+            "batches": [
+              {
+                "size": 6,
+                "actual_tokens": 188,
+                "padded_tokens": 276,
+                "padding_ratio": 0.3188,
+                "per_chunk_max_new": [
+                  90,
+                  114,
+                  105,
+                  96,
+                  141,
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 2.9987
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 144556032,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "long": {
+      "warm_wall_s_median": 5.795151375001296,
+      "warm_tokens_per_sec_median": 91.45691304258509,
+      "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+      "input_tokens": 367,
+      "output_tokens": 517,
+      "output_chars": 624,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.417,
+        "average_padding_ratio": 0.356,
+        "error": null,
+        "batches": [
+          {
+            "size": 10,
+            "actual_tokens": 367,
+            "padded_tokens": 570,
+            "padding_ratio": 0.3561,
+            "per_chunk_max_new": [
+              168,
+              129,
+              156,
+              141,
+              72,
+              114,
+              171,
+              195,
+              63,
+              132
+            ],
+            "batch_max_new": 195,
+            "generate_s": 5.785
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 10,
+        "translation_sentence_count": 10,
+        "output_length_ratio": 0.415,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": true
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 120815616,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6815580160
+      },
+      "runs": [
+        {
+          "wall_s": 5.795151375001296,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 89.21251000106695,
+          "chars_per_sec": 107.67622096840574,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.417,
+            "average_padding_ratio": 0.356,
+            "error": null,
+            "batches": [
+              {
+                "size": 10,
+                "actual_tokens": 367,
+                "padded_tokens": 570,
+                "padding_ratio": 0.3561,
+                "per_chunk_max_new": [
+                  168,
+                  129,
+                  156,
+                  141,
+                  72,
+                  114,
+                  171,
+                  195,
+                  63,
+                  132
+                ],
+                "batch_max_new": 195,
+                "generate_s": 5.785
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 120815616,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6815580160
+          }
+        },
+        {
+          "wall_s": 5.652935166959651,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 91.45691304258509,
+          "chars_per_sec": 110.38513295662108,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.417,
+            "average_padding_ratio": 0.356,
+            "error": null,
+            "batches": [
+              {
+                "size": 10,
+                "actual_tokens": 367,
+                "padded_tokens": 570,
+                "padding_ratio": 0.3561,
+                "per_chunk_max_new": [
+                  168,
+                  129,
+                  156,
+                  141,
+                  72,
+                  114,
+                  171,
+                  195,
+                  63,
+                  132
+                ],
+                "batch_max_new": 195,
+                "generate_s": 5.6442
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 121061376,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6815580160
+          }
+        }
+      ]
+    },
+    "citations": {
+      "warm_wall_s_median": 2.0469932080013677,
+      "warm_tokens_per_sec_median": 36.7691285415824,
+      "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+      "input_tokens": 76,
+      "output_tokens": 75,
+      "output_chars": 82,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.083,
+        "average_padding_ratio": 0.174,
+        "error": null,
+        "batches": [
+          {
+            "size": 2,
+            "actual_tokens": 76,
+            "padded_tokens": 92,
+            "padding_ratio": 0.1739,
+            "per_chunk_max_new": [
+              162,
+              114
+            ],
+            "batch_max_new": 162,
+            "generate_s": 2.0451
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.318,
+        "missing_numbers": [
+          "8",
+          "12",
+          "3"
+        ],
+        "missing_citations": [
+          "[8]",
+          "[12]",
+          "[3]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 3,
+      "memory": {
+        "rss_bytes": 125042688,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6815580160
+      },
+      "runs": [
+        {
+          "wall_s": 2.0469932080013677,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 36.639105448341034,
+          "chars_per_sec": 40.0587552901862,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.174,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 76,
+                "padded_tokens": 92,
+                "padding_ratio": 0.1739,
+                "per_chunk_max_new": [
+                  162,
+                  114
+                ],
+                "batch_max_new": 162,
+                "generate_s": 2.0451
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 125042688,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6815580160
+          }
+        },
+        {
+          "wall_s": 2.039754625002388,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 36.7691285415824,
+          "chars_per_sec": 40.20091387213009,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.174,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 76,
+                "padded_tokens": 92,
+                "padding_ratio": 0.1739,
+                "per_chunk_max_new": [
+                  162,
+                  114
+                ],
+                "batch_max_new": 162,
+                "generate_s": 2.0377
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 123518976,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "terms": {
+      "warm_wall_s_median": 3.4297844999819063,
+      "warm_tokens_per_sec_median": 33.75576305927713,
+      "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+      "input_tokens": 77,
+      "output_tokens": 115,
+      "output_chars": 131,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.083,
+        "average_padding_ratio": 0.214,
+        "error": null,
+        "batches": [
+          {
+            "size": 2,
+            "actual_tokens": 77,
+            "padded_tokens": 98,
+            "padding_ratio": 0.2143,
+            "per_chunk_max_new": [
+              171,
+              108
+            ],
+            "batch_max_new": 171,
+            "generate_s": 3.4278
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.516,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 118063104,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 3.4068256670143455,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 33.75576305927713,
+          "chars_per_sec": 38.45221705013307,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.214,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 77,
+                "padded_tokens": 98,
+                "padding_ratio": 0.2143,
+                "per_chunk_max_new": [
+                  171,
+                  108
+                ],
+                "batch_max_new": 171,
+                "generate_s": 3.4047
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 125042688,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 3.4297844999819063,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 33.52980340327699,
+          "chars_per_sec": 38.19481952895031,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.214,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 77,
+                "padded_tokens": 98,
+                "padding_ratio": 0.2143,
+                "per_chunk_max_new": [
+                  171,
+                  108
+                ],
+                "batch_max_new": 171,
+                "generate_s": 3.4278
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 118063104,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    }
+  },
+  "on": {
+    "short": {
+      "warm_wall_s_median": 1.3178999170195311,
+      "warm_tokens_per_sec_median": 23.176504039342326,
+      "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+      "input_tokens": 20,
+      "output_tokens": 26,
+      "output_chars": 31,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 20,
+            "padded_tokens": 20,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              84
+            ],
+            "batch_max_new": 84,
+            "generate_s": 1.3169
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.32,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 117719040,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 1.3178999170195311,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 19.728356959608703,
+          "chars_per_sec": 23.522271759533453,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 20,
+                "padded_tokens": 20,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  84
+                ],
+                "batch_max_new": 84,
+                "generate_s": 1.3169
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 117719040,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 1.1218257920118049,
+          "input_chars": 97,
+          "output_chars": 31,
+          "input_tokens": 20,
+          "output_tokens": 26,
+          "tokens_per_sec": 23.176504039342326,
+          "chars_per_sec": 27.633524046908157,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 20,
+                "padded_tokens": 20,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  84
+                ],
+                "batch_max_new": 84,
+                "generate_s": 1.121
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 117653504,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "title": {
+      "warm_wall_s_median": 0.5192925420124084,
+      "warm_tokens_per_sec_median": 38.5265736151341,
+      "translation": "インタラクティブジュエリー: デザインの探求",
+      "input_tokens": 16,
+      "output_tokens": 20,
+      "output_chars": 22,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.083,
+        "average_padding_ratio": 0.111,
+        "error": null,
+        "batches": [
+          {
+            "size": 2,
+            "actual_tokens": 16,
+            "padded_tokens": 18,
+            "padding_ratio": 0.1111,
+            "per_chunk_max_new": [
+              51,
+              48
+            ],
+            "batch_max_new": 51,
+            "generate_s": 0.5175
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.512,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 119324672,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 0.519122208992485,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 38.5265736151341,
+          "chars_per_sec": 42.379230976647506,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.111,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 16,
+                "padded_tokens": 18,
+                "padding_ratio": 0.1111,
+                "per_chunk_max_new": [
+                  51,
+                  48
+                ],
+                "batch_max_new": 51,
+                "generate_s": 0.5173
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 119291904,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 0.5192925420124084,
+          "input_chars": 43,
+          "output_chars": 22,
+          "input_tokens": 16,
+          "output_tokens": 20,
+          "tokens_per_sec": 38.51393652312862,
+          "chars_per_sec": 42.365330175441485,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.083,
+            "average_padding_ratio": 0.111,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 16,
+                "padded_tokens": 18,
+                "padding_ratio": 0.1111,
+                "per_chunk_max_new": [
+                  51,
+                  48
+                ],
+                "batch_max_new": 51,
+                "generate_s": 0.5175
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 119324672,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "abstract": {
+      "warm_wall_s_median": 4.208481332985684,
+      "warm_tokens_per_sec_median": 30.36070671386214,
+      "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。宝石の材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+      "input_tokens": 103,
+      "output_tokens": 127,
+      "output_chars": 150,
+      "stats": {
+        "generate_calls": 2,
+        "average_occupancy": 0.062,
+        "average_padding_ratio": 0.038,
+        "error": null,
+        "batches": [
+          {
+            "size": 2,
+            "actual_tokens": 72,
+            "padded_tokens": 78,
+            "padding_ratio": 0.0769,
+            "per_chunk_max_new": [
+              123,
+              141
+            ],
+            "batch_max_new": 141,
+            "generate_s": 2.645
+          },
+          {
+            "size": 1,
+            "actual_tokens": 31,
+            "padded_tokens": 31,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              117
+            ],
+            "batch_max_new": 117,
+            "generate_s": 1.5602
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 3,
+        "translation_sentence_count": 3,
+        "output_length_ratio": 0.339,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 122535936,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 4.208481332985684,
+          "input_chars": 443,
+          "output_chars": 150,
+          "input_tokens": 103,
+          "output_tokens": 127,
+          "tokens_per_sec": 30.17715654447267,
+          "chars_per_sec": 35.64231087929843,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.062,
+            "average_padding_ratio": 0.038,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 72,
+                "padded_tokens": 78,
+                "padding_ratio": 0.0769,
+                "per_chunk_max_new": [
+                  123,
+                  141
+                ],
+                "batch_max_new": 141,
+                "generate_s": 2.645
+              },
+              {
+                "size": 1,
+                "actual_tokens": 31,
+                "padded_tokens": 31,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  117
+                ],
+                "batch_max_new": 117,
+                "generate_s": 1.5602
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 122535936,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 4.183038332965225,
+          "input_chars": 443,
+          "output_chars": 150,
+          "input_tokens": 103,
+          "output_tokens": 127,
+          "tokens_per_sec": 30.36070671386214,
+          "chars_per_sec": 35.85910241794741,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.062,
+            "average_padding_ratio": 0.038,
+            "error": null,
+            "batches": [
+              {
+                "size": 2,
+                "actual_tokens": 72,
+                "padded_tokens": 78,
+                "padding_ratio": 0.0769,
+                "per_chunk_max_new": [
+                  123,
+                  141
+                ],
+                "batch_max_new": 141,
+                "generate_s": 2.6203
+              },
+              {
+                "size": 1,
+                "actual_tokens": 31,
+                "padded_tokens": 31,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  117
+                ],
+                "batch_max_new": 117,
+                "generate_s": 1.5599
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 120061952,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "body_short": {
+      "warm_wall_s_median": 1.437199167034123,
+      "warm_tokens_per_sec_median": 23.696809074566545,
+      "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+      "input_tokens": 30,
+      "output_tokens": 34,
+      "output_chars": 39,
+      "stats": {
+        "generate_calls": 1,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 30,
+            "padded_tokens": 30,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              114
+            ],
+            "batch_max_new": 114,
+            "generate_s": 1.4362
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 1,
+        "translation_sentence_count": 1,
+        "output_length_ratio": 0.342,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 112001024,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 1.4347923339810222,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 23.696809074566545,
+          "chars_per_sec": 27.18163393847339,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.4336
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 119570432,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 1.437199167034123,
+          "input_chars": 114,
+          "output_chars": 39,
+          "input_tokens": 30,
+          "output_tokens": 34,
+          "tokens_per_sec": 23.657124760351845,
+          "chars_per_sec": 27.136113695697706,
+          "stats": {
+            "generate_calls": 1,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.4362
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 112001024,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "intro": {
+      "warm_wall_s_median": 4.6516822499688715,
+      "warm_tokens_per_sec_median": 53.96976035551021,
+      "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+      "input_tokens": 188,
+      "output_tokens": 232,
+      "output_chars": 268,
+      "stats": {
+        "generate_calls": 2,
+        "average_occupancy": 0.125,
+        "average_padding_ratio": 0.109,
+        "error": null,
+        "batches": [
+          {
+            "size": 4,
+            "actual_tokens": 103,
+            "padded_tokens": 120,
+            "padding_ratio": 0.1417,
+            "per_chunk_max_new": [
+              90,
+              114,
+              105,
+              96
+            ],
+            "batch_max_new": 114,
+            "generate_s": 1.9634
+          },
+          {
+            "size": 2,
+            "actual_tokens": 85,
+            "padded_tokens": 92,
+            "padding_ratio": 0.0761,
+            "per_chunk_max_new": [
+              141,
+              162
+            ],
+            "batch_max_new": 162,
+            "generate_s": 2.6825
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 6,
+        "translation_sentence_count": 6,
+        "output_length_ratio": 0.35,
+        "missing_numbers": [
+          "8"
+        ],
+        "missing_citations": [
+          "[8]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 1,
+      "memory": {
+        "rss_bytes": 110444544,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798802944
+      },
+      "runs": [
+        {
+          "wall_s": 4.298703541979194,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 53.96976035551021,
+          "chars_per_sec": 62.34437834171007,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.125,
+            "average_padding_ratio": 0.109,
+            "error": null,
+            "batches": [
+              {
+                "size": 4,
+                "actual_tokens": 103,
+                "padded_tokens": 120,
+                "padding_ratio": 0.1417,
+                "per_chunk_max_new": [
+                  90,
+                  114,
+                  105,
+                  96
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.7102
+              },
+              {
+                "size": 2,
+                "actual_tokens": 85,
+                "padded_tokens": 92,
+                "padding_ratio": 0.0761,
+                "per_chunk_max_new": [
+                  141,
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 2.5836
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 116080640,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        },
+        {
+          "wall_s": 4.6516822499688715,
+          "input_chars": 766,
+          "output_chars": 268,
+          "input_tokens": 188,
+          "output_tokens": 232,
+          "tokens_per_sec": 49.87442983698048,
+          "chars_per_sec": 57.61356550133953,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.125,
+            "average_padding_ratio": 0.109,
+            "error": null,
+            "batches": [
+              {
+                "size": 4,
+                "actual_tokens": 103,
+                "padded_tokens": 120,
+                "padding_ratio": 0.1417,
+                "per_chunk_max_new": [
+                  90,
+                  114,
+                  105,
+                  96
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.9634
+              },
+              {
+                "size": 2,
+                "actual_tokens": 85,
+                "padded_tokens": 92,
+                "padding_ratio": 0.0761,
+                "per_chunk_max_new": [
+                  141,
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 2.6825
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 110444544,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798802944
+          }
+        }
+      ]
+    },
+    "long": {
+      "warm_wall_s_median": 5.475248540984467,
+      "warm_tokens_per_sec_median": 94.56328195493265,
+      "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+      "input_tokens": 367,
+      "output_tokens": 517,
+      "output_chars": 624,
+      "stats": {
+        "generate_calls": 2,
+        "average_occupancy": 0.208,
+        "average_padding_ratio": 0.286,
+        "error": null,
+        "batches": [
+          {
+            "size": 7,
+            "actual_tokens": 308,
+            "padded_tokens": 399,
+            "padding_ratio": 0.2281,
+            "per_chunk_max_new": [
+              168,
+              129,
+              156,
+              141,
+              171,
+              195,
+              132
+            ],
+            "batch_max_new": 195,
+            "generate_s": 4.1193
+          },
+          {
+            "size": 3,
+            "actual_tokens": 59,
+            "padded_tokens": 90,
+            "padding_ratio": 0.3444,
+            "per_chunk_max_new": [
+              72,
+              114,
+              63
+            ],
+            "batch_max_new": 114,
+            "generate_s": 1.3484
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 10,
+        "translation_sentence_count": 10,
+        "output_length_ratio": 0.415,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": true
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 129630208,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798819328
+      },
+      "runs": [
+        {
+          "wall_s": 5.467238333018031,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 94.56328195493265,
+          "chars_per_sec": 114.13440607326493,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.208,
+            "average_padding_ratio": 0.286,
+            "error": null,
+            "batches": [
+              {
+                "size": 7,
+                "actual_tokens": 308,
+                "padded_tokens": 399,
+                "padding_ratio": 0.2281,
+                "per_chunk_max_new": [
+                  168,
+                  129,
+                  156,
+                  141,
+                  171,
+                  195,
+                  132
+                ],
+                "batch_max_new": 195,
+                "generate_s": 4.1266
+              },
+              {
+                "size": 3,
+                "actual_tokens": 59,
+                "padded_tokens": 90,
+                "padding_ratio": 0.3444,
+                "per_chunk_max_new": [
+                  72,
+                  114,
+                  63
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.3322
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 129056768,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        },
+        {
+          "wall_s": 5.475248540984467,
+          "input_chars": 1503,
+          "output_chars": 624,
+          "input_tokens": 367,
+          "output_tokens": 517,
+          "tokens_per_sec": 94.42493726632577,
+          "chars_per_sec": 113.96742911835065,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.208,
+            "average_padding_ratio": 0.286,
+            "error": null,
+            "batches": [
+              {
+                "size": 7,
+                "actual_tokens": 308,
+                "padded_tokens": 399,
+                "padding_ratio": 0.2281,
+                "per_chunk_max_new": [
+                  168,
+                  129,
+                  156,
+                  141,
+                  171,
+                  195,
+                  132
+                ],
+                "batch_max_new": 195,
+                "generate_s": 4.1193
+              },
+              {
+                "size": 3,
+                "actual_tokens": 59,
+                "padded_tokens": 90,
+                "padding_ratio": 0.3444,
+                "per_chunk_max_new": [
+                  72,
+                  114,
+                  63
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.3484
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 129630208,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        }
+      ]
+    },
+    "citations": {
+      "warm_wall_s_median": 3.157936250034254,
+      "warm_tokens_per_sec_median": 23.91558182265973,
+      "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+      "input_tokens": 76,
+      "output_tokens": 75,
+      "output_chars": 82,
+      "stats": {
+        "generate_calls": 2,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 46,
+            "padded_tokens": 46,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              162
+            ],
+            "batch_max_new": 162,
+            "generate_s": 1.9013
+          },
+          {
+            "size": 1,
+            "actual_tokens": 30,
+            "padded_tokens": 30,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              114
+            ],
+            "batch_max_new": 114,
+            "generate_s": 1.2545
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.318,
+        "missing_numbers": [
+          "8",
+          "12",
+          "3"
+        ],
+        "missing_citations": [
+          "[8]",
+          "[12]",
+          "[3]"
+        ],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 3,
+      "memory": {
+        "rss_bytes": 130564096,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798819328
+      },
+      "runs": [
+        {
+          "wall_s": 3.157936250034254,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 23.749687790304975,
+          "chars_per_sec": 25.966325317400106,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 46,
+                "padded_tokens": 46,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 1.9013
+              },
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.2545
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 130564096,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        },
+        {
+          "wall_s": 3.136030749999918,
+          "input_chars": 258,
+          "output_chars": 82,
+          "input_tokens": 76,
+          "output_tokens": 75,
+          "tokens_per_sec": 23.91558182265973,
+          "chars_per_sec": 26.147702792774638,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 46,
+                "padded_tokens": 46,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  162
+                ],
+                "batch_max_new": 162,
+                "generate_s": 1.8912
+              },
+              {
+                "size": 1,
+                "actual_tokens": 30,
+                "padded_tokens": 30,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  114
+                ],
+                "batch_max_new": 114,
+                "generate_s": 1.2426
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 130138112,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        }
+      ]
+    },
+    "terms": {
+      "warm_wall_s_median": 4.896286125003826,
+      "warm_tokens_per_sec_median": 23.656660600661315,
+      "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+      "input_tokens": 77,
+      "output_tokens": 115,
+      "output_chars": 131,
+      "stats": {
+        "generate_calls": 2,
+        "average_occupancy": 0.042,
+        "average_padding_ratio": 0.0,
+        "error": null,
+        "batches": [
+          {
+            "size": 1,
+            "actual_tokens": 49,
+            "padded_tokens": 49,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              171
+            ],
+            "batch_max_new": 171,
+            "generate_s": 3.1958
+          },
+          {
+            "size": 1,
+            "actual_tokens": 28,
+            "padded_tokens": 28,
+            "padding_ratio": 0.0,
+            "per_chunk_max_new": [
+              108
+            ],
+            "batch_max_new": 108,
+            "generate_s": 1.6986
+          }
+        ]
+      },
+      "quality": {
+        "source_sentence_count": 2,
+        "translation_sentence_count": 2,
+        "output_length_ratio": 0.516,
+        "missing_numbers": [],
+        "missing_citations": [],
+        "abnormal_repetition": false,
+        "empty_output": false,
+        "extremely_short_output": false,
+        "early_eos_suspected": false
+      },
+      "citation_count": 0,
+      "source_citation_count": 0,
+      "memory": {
+        "rss_bytes": 119160832,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 6798819328
+      },
+      "runs": [
+        {
+          "wall_s": 4.896286125003826,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 23.487189486890973,
+          "chars_per_sec": 26.75497237202363,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 49,
+                "padded_tokens": 49,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  171
+                ],
+                "batch_max_new": 171,
+                "generate_s": 3.1958
+              },
+              {
+                "size": 1,
+                "actual_tokens": 28,
+                "padded_tokens": 28,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  108
+                ],
+                "batch_max_new": 108,
+                "generate_s": 1.6986
+              }
+            ]
+          },
+          "phase": "warm1",
+          "memory": {
+            "rss_bytes": 119160832,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        },
+        {
+          "wall_s": 4.861210208036937,
+          "input_chars": 254,
+          "output_chars": 131,
+          "input_tokens": 77,
+          "output_tokens": 115,
+          "tokens_per_sec": 23.656660600661315,
+          "chars_per_sec": 26.948022075535935,
+          "stats": {
+            "generate_calls": 2,
+            "average_occupancy": 0.042,
+            "average_padding_ratio": 0.0,
+            "error": null,
+            "batches": [
+              {
+                "size": 1,
+                "actual_tokens": 49,
+                "padded_tokens": 49,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  171
+                ],
+                "batch_max_new": 171,
+                "generate_s": 3.1647
+              },
+              {
+                "size": 1,
+                "actual_tokens": 28,
+                "padded_tokens": 28,
+                "padding_ratio": 0.0,
+                "per_chunk_max_new": [
+                  108
+                ],
+                "batch_max_new": 108,
+                "generate_s": 1.6947
+              }
+            ]
+          },
+          "phase": "warm2",
+          "memory": {
+            "rss_bytes": 119177216,
+            "mps_current_allocated_bytes": 5889136640,
+            "mps_driver_allocated_bytes": 6798819328
+          }
+        }
+      ]
+    }
+  },
+  "compare": {
+    "short": {
+      "off_s": 1.1733633750118315,
+      "on_s": 1.3178999170195311,
+      "speedup": 0.8903281348294086,
+      "pad_off": 0.0,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "title": {
+      "off_s": 0.5164623750024475,
+      "on_s": 0.5192925420124084,
+      "speedup": 0.9945499563714257,
+      "pad_off": 0.111,
+      "pad_on": 0.111,
+      "quality": "same"
+    },
+    "abstract": {
+      "off_s": 2.8958008749759756,
+      "on_s": 4.208481332985684,
+      "speedup": 0.6880869002029207,
+      "pad_off": 0.12,
+      "pad_on": 0.038,
+      "quality": "close"
+    },
+    "body_short": {
+      "off_s": 1.4403996670152992,
+      "on_s": 1.437199167034123,
+      "speedup": 1.0022269008044173,
+      "pad_off": 0.0,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "intro": {
+      "off_s": 3.0951619999832474,
+      "on_s": 4.6516822499688715,
+      "speedup": 0.6653855172510891,
+      "pad_off": 0.319,
+      "pad_on": 0.109,
+      "quality": "same"
+    },
+    "long": {
+      "off_s": 5.795151375001296,
+      "on_s": 5.475248540984467,
+      "speedup": 1.058427089039379,
+      "pad_off": 0.356,
+      "pad_on": 0.286,
+      "quality": "same"
+    },
+    "citations": {
+      "off_s": 2.0469932080013677,
+      "on_s": 3.157936250034254,
+      "speedup": 0.6482059946520973,
+      "pad_off": 0.174,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "terms": {
+      "off_s": 3.4297844999819063,
+      "on_s": 4.896286125003826,
+      "speedup": 0.7004869430458839,
+      "pad_off": 0.214,
+      "pad_on": 0.0,
+      "quality": "same"
+    }
+  }
+}

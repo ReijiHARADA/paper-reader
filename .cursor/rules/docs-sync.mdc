@@ -1,0 +1,26 @@
+---
+description: Keep README and ROADMAP aligned with the current Paper Reader implementation after every change.
+alwaysApply: true
+---
+
+# ドキュメントの整合
+
+実装・修正・挙動の変更をしたら、同じ作業の中でドキュメントを現状に合わせる。後回しにしない。
+
+必ず見る:
+
+- `README.md` — いま動いていること。起動、画面、保存、翻訳、テスト
+- `ROADMAP.md` — 原則、未達、これから、後回し。できたことは「すでに満たしていること」へ移し、未達に残さない
+
+必要なら合わせて直す:
+
+- `AGENTS.md` — 開発時の制約と手順
+- `QUICKSTART.md` — 起動手順が変わったとき
+- `translation-server/` 配下のベンチ・README（翻訳経路が変わったとき）
+
+ルール:
+
+- README と ROADMAP が衝突したら README を現行実装の正とする
+- 未完成のものを README の「いまできること」に書かない
+- 実装済みのものを ROADMAP の未達に残さない。残る欠点だけを残作業に書く
+- 既存論文が再インポート必要な変更は README に明記する

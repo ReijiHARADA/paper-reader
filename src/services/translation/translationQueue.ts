@@ -17,7 +17,7 @@ export { TranslationPriority } from "./types";
 type TaskCallback = (task: TranslationTask) => void;
 
 const DEFAULT_CONFIG: TranslationQueueConfig = {
-  concurrency: 1,
+  concurrency: 8,
   retryFailed: true,
   maxRetries: 2,
   retryDelayMs: 1000,

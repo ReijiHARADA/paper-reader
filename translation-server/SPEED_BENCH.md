@@ -1,14 +1,15 @@
 # MADLAD 速度メモ（M4 / 24GB / macOS 26）
 
-最終更新: 2026-09-03。生データは `benchmarks/`。
+最終更新: 2026-09-04。生データは `benchmarks/`。
 
 本番は **同じ MADLAD-400 3B + MPS + bfloat16**。コミュニティ INT8 には切り替えない。
 
 ## いまの本番
 
-- 文（必要なら節）に分割したあと、最大 8 文を 1 回の `generate()` に載せる
-- リクエスト同士は従来どおりロックで直列（MPS 同時 generate は落ちる）
-- 無効化: `MADLAD_BATCH_SIZE=1`
+- 文（必要なら節）に分割したあと、最大 24 文を 1 回の `generate()` に載せる
+- 複数 `/translate` は MicroBatchScheduler が短い窓（25ms）で chunk を合流する。`generate()` 自体は 1 本
+- リクエスト同士を Metal 上で同時 generate しない
+- 無効化: `MADLAD_BATCH_SIZE=1`、`MADLAD_MICROBATCH=0`
 
 論文のような複数文段落が主対象。1文だけのブロックはバッチしないので、以前と同じ経路。
 
@@ -85,7 +86,8 @@ KV キャッシュの有無で title は同じ。実装バグではなく量子�
 2. コミュニティ MLX INT8 は短文だけ速く、段落で欠ける。使わない。
 3. 小さい NLLB / OPUS は未測。学術日本語を落とすリスクがあるので、2倍目的では後回し。
 4. 文分割は維持（3B greedy の drift 対策）。まとめるのは呼び出しだけ。
-5. 次に 2 倍を超えて質を寄せるなら、公式 3B の MLX **bf16**（量子化なし）。未測。
+5. 公式 3B の MLX bf16 は品質同等だが本番 batch より遅い（No-Go）。詳細は `MLX_BF16_BENCH_REPORT.md`。
+6. 全文 2 倍は micro-batching で到達。詳細は `MPS_BATCH_OPTIMIZATION_REPORT.md`。
 
 ## 2026-09-04 MLX bf16（STEP 0/1、本番未切替）
 

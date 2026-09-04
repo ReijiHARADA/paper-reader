@@ -3,12 +3,14 @@ import { Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
 import type { PaperBlock } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
 import { useAppStore } from "../../stores/appStore";
-import { updateBlock, getSetting } from "../../services/database";
+import { updateBlock, getGlossary, getSetting } from "../../services/database";
 import { MADLADEngine } from "../../services/translation/madladEngine";
 import type { ImportConfig } from "../../services/importServiceV2";
 import { usableTranslatedText, looksLikeBibliographyEntry, isReferencesHeading } from "../../services/translation/quality";
 import { isLowExtractionConfidence } from "../../services/extractionConfidence";
 import { splitHighlightedText } from "../../services/highlightRanges";
+import { parseCitationGroups, uniqueCitationTarget } from "../../services/citations";
+import { applyGlossary } from "../../services/llm/glossaryService";
 import styles from "./Paragraph.module.css";
 
 type ParagraphProps = {
@@ -19,6 +21,7 @@ type ParagraphProps = {
   flashAnnotationIds?: string[];
   onHighlightClick?: (annotationIds: string[]) => void;
   onOpenSourcePdf?: (block: PaperBlock) => void;
+  referenceIndex?: Map<string, string>;
 };
 
 function highlightMatches(text: string, query: string): ReactNode {
@@ -46,10 +49,10 @@ export function Paragraph({
   flashAnnotationIds = [],
   onHighlightClick,
   onOpenSourcePdf,
+  referenceIndex,
 }: ParagraphProps) {
   const { expandedOriginalBlocks, toggleOriginalExpanded } = useAppStore();
   const [isRetrying, setIsRetrying] = useState(false);
-  const [showConfidence, setShowConfidence] = useState(false);
 
   const isExpanded = expandedOriginalBlocks.has(block.id);
   const skipTranslation =
@@ -78,11 +81,17 @@ export function Paragraph({
       const v2 = await getSetting<ImportConfig>("translationSettingsV2");
       const engine = new MADLADEngine(v2?.madladServerUrl);
       const result = await engine.translate(block.original, "en", "ja");
+      const glossary = await getGlossary(block.paperId);
+      const text = applyGlossary(result.text, glossary);
 
       const updatedBlock: PaperBlock = {
         ...block,
-        translated: result.text,
+        translated: text,
         translationStatus: "completed",
+        metadata:
+          block.type === "figure" || block.type === "table"
+            ? { ...block.metadata, captionTranslated: text }
+            : block.metadata,
       };
 
       await updateBlock(updatedBlock);
@@ -94,7 +103,59 @@ export function Paragraph({
     }
   }, [block, isRetrying, onBlockUpdated]);
 
+  const renderCited = (text: string): ReactNode => {
+    const groups = referenceIndex && referenceIndex.size > 0 ? parseCitationGroups(text) : [];
+    if (groups.length === 0) {
+      return highlightText ? highlightMatches(text, highlightText) : text;
+    }
+    const parts: ReactNode[] = [];
+    let cursor = 0;
+    groups.forEach((group, i) => {
+      if (group.start > cursor) {
+        const slice = text.slice(cursor, group.start);
+        parts.push(
+          <span key={`t-${i}`}>
+            {highlightText ? highlightMatches(slice, highlightText) : slice}
+          </span>
+        );
+      }
+      const target = uniqueCitationTarget(group.keys, referenceIndex!);
+      const cited = text.slice(group.start, group.end);
+      if (target) {
+        parts.push(
+          <a
+            key={`c-${i}`}
+            className={styles.citation}
+            href={`#block-${target}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById(`block-${target}`)?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+            }}
+          >
+            {cited}
+          </a>
+        );
+      } else {
+        parts.push(<span key={`c-${i}`}>{cited}</span>);
+      }
+      cursor = group.end;
+    });
+    if (cursor < text.length) {
+      const slice = text.slice(cursor);
+      parts.push(
+        <span key="t-end">
+          {highlightText ? highlightMatches(slice, highlightText) : slice}
+        </span>
+      );
+    }
+    return parts;
+  };
+
   const renderTranslated = (text: string): ReactNode => {
+    if (annotations.length === 0) return renderCited(text);
     const segments = splitHighlightedText(
       text,
       annotations.map((a) => ({
@@ -176,34 +237,15 @@ export function Paragraph({
           >
             {hasTranslation
               ? renderTranslated(translated!)
-              : highlightText
-                ? highlightMatches(displayText, highlightText)
-                : displayText}
+              : renderCited(displayText)}
           </p>
 
           {lowConfidence && (
-            <div className={styles.confidence}>
-              <button
-                type="button"
-                className={styles.confidenceButton}
-                title="抽出精度が低い可能性があります"
-                onClick={() => setShowConfidence((v) => !v)}
-              >
-                !
+            <div className={styles.confidenceBanner}>
+              <p>この箇所の読み順は不確かなことがあります。</p>
+              <button type="button" onClick={() => onOpenSourcePdf?.(block)}>
+                元PDFを見る
               </button>
-              {showConfidence && (
-                <div className={styles.confidenceMenu}>
-                  <p>抽出精度が低い可能性があります</p>
-                  {hasOriginal && (
-                    <button type="button" onClick={handleToggle}>
-                      原文を見る
-                    </button>
-                  )}
-                  <button type="button" onClick={() => onOpenSourcePdf?.(block)}>
-                    元PDFを見る
-                  </button>
-                </div>
-              )}
             </div>
           )}
 

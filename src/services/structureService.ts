@@ -6,6 +6,8 @@ import type {
   PaperBlock,
   NormalizedSectionKind,
   FigureMetadata,
+  TableMetadata,
+  EquationMetadata,
 } from "../types/paper";
 import {
   reconstructDocument,
@@ -175,9 +177,9 @@ export function analyzeStructure(
         pageStart: layout.pageStart,
         pageEnd: layout.pageEnd,
         boundingBoxes: boxes,
-        original: null,
+        original: layout.text,
         translated: null,
-        translationStatus: "skipped",
+        translationStatus: "pending",
         parentBlockId: null,
         metadata: {
           imageUrl: "",
@@ -192,7 +194,7 @@ export function analyzeStructure(
     }
 
     if (layout.role === "table_caption") {
-      const match = layout.text.match(/^(table)\s*(\d+)/i);
+      const match = layout.text.match(/^(table)\s*(\S+)/i);
       const tableNumber = match ? `Table ${match[2]}` : "Table";
       pushBlock(layout, {
         sectionId: currentSectionId,
@@ -200,16 +202,54 @@ export function analyzeStructure(
         pageStart: layout.pageStart,
         pageEnd: layout.pageEnd,
         boundingBoxes: boxes,
-        original: null,
+        original: layout.text,
         translated: null,
-        translationStatus: "skipped",
+        translationStatus: "pending",
         parentBlockId: null,
         metadata: {
+          imageUrl: "",
           tableNumber,
           captionOriginal: layout.text,
           captionTranslated: null,
           column: layout.column,
-        },
+          figureKey: figureLookupKey(layout.text, layout.pageStart),
+        } satisfies TableMetadata & { column: string; figureKey: string },
+      });
+      continue;
+    }
+
+    if (layout.role === "equation") {
+      const num = layout.text.match(/\(\s*(\d{1,2}[a-z]?)\s*\)\s*$/);
+      pushBlock(layout, {
+        sectionId: currentSectionId,
+        type: "equation",
+        pageStart: layout.pageStart,
+        pageEnd: layout.pageEnd,
+        boundingBoxes: boxes,
+        original: layout.text,
+        translated: null,
+        translationStatus: "skipped",
+        parentBlockId: null,
+        metadata: {
+          equationNumber: num ? `(${num[1]})` : undefined,
+          column: layout.column,
+        } satisfies EquationMetadata & { column: string },
+      });
+      continue;
+    }
+
+    if (layout.role === "footnote") {
+      pushBlock(layout, {
+        sectionId: currentSectionId,
+        type: "footnote",
+        pageStart: layout.pageStart,
+        pageEnd: layout.pageEnd,
+        boundingBoxes: boxes,
+        original: layout.text,
+        translated: null,
+        translationStatus: "pending",
+        parentBlockId: null,
+        metadata: { column: layout.column, role: "footnote" },
       });
       continue;
     }

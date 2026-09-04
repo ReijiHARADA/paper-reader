@@ -9,6 +9,8 @@
 - 開発時の起動手順: [QUICKSTART.md](./QUICKSTART.md)
 - 翻訳速度の実測: [translation-server/SPEED_BENCH.md](./translation-server/SPEED_BENCH.md)
 
+いま動いていることはこの README、未達は ROADMAP を正とする。実装を変えたら両方を同じ作業で現状に合わせる。
+
 ## いまできること
 
 - **macOS アプリ**: Tauri 2 で `.app` / `.dmg` をビルドできる。配布版は翻訳サーバーを同梱して自動起動する
@@ -17,13 +19,15 @@
 - **日本語リーダー**: 1 カラム表示、段落ごとの原文展開、アウトライン、検索（⌘F）、表示設定（文字サイズ・行間・本文幅・ライト／ダーク／システム）、読書位置の保存と復元
 - **途中から読む**: 構造解析が終わった時点でリーダーを開ける。翻訳はタイトル → 見出し → Abstract → 本文の順。いま読んでいる付近を優先して訳す。未完了の翻訳は次回起動時に再開する
 - **メモ**: 訳文を選択すると Notes が開き、黄色ハイライトとメモを残せる。再翻訳で位置がずれたメモは orphan 扱い
-- **翻訳**: 文単位バッチ（既定 8）で MPS 上の MADLAD を呼ぶ。段落単位の再試行あり。References・著者・所属・著作権表示は訳さない。 degenerate な訳は破棄する
+- **翻訳**: 文単位バッチ（既定 24）で MPS 上の MADLAD を呼ぶ。複数段落のリクエストはサーバー側で合流する。段落単位の再試行あり。References・著者・所属・著作権表示・数式は訳さない。degenerate な訳は破棄する
 - **スキャン PDF**: テキストがほぼ無い PDF は Apple Vision で OCR（デスクトップアプリのみ）
-- **図表**: 図画像を本文中に表示し、拡大できる。キャプションは原文のまま出す
-- **元 PDF**: インポート時にアプリ管理領域へ複製する。リーダーから別表示で開ける
+- **図表・表・数式・脚注**: 図と表は本文位置に画像とキャプションを出す。キャプションは翻訳し、原文を展開できる。検出できたブロック数式は原文のまま残す。脚注は本文位置に出し、原文を展開できる
+- **引用**: `[12]` は参考文献が1件に特定できるときだけ、その項目へ飛ぶ。特定できなければリンクしない
+- **元 PDF**: インポート時にアプリ管理領域へ複製する。リーダーから別表示で開ける。読み順が不確かな段落からは元 PDF への導線を常時出す
 - **抽出信頼度**: 読み順や構造に自信が低い段落には警告を出し、原文／元 PDF へ誘導する
-- **用語集**: Ollama が起動していれば専門用語を抽出して保存する（未起動でも翻訳・読書は可能。訳文への適用はまだしない）
+- **用語集**: Ollama が起動していれば専門用語を抽出して保存する（未起動でも翻訳・読書は可能）。生成した用語は訳の後処理と再翻訳に使う。リーダーから閲覧・訳の修正・追加ができる
 - **重複 PDF**: 同じファイルハッシュは再インポートせず、既存データを使う
+- **パスワード付き PDF**: 処理せず、パスワード保護が理由だと案内する
 
 ## 必要環境
 
@@ -93,9 +97,9 @@ npm test
 npm run lint
 ```
 
-読み順の回帰テストは合成 PDF（`test-fixtures/`）を使います。実論文 PDF はリポジトリに入れていません。助成番号（`016.128.303` のように先頭が 0 または 3 桁以上の点区切り）は節番号見出しにせず、直前の `grant number` 行と同一段落にまとめます。訳文に残った原文の固有名詞・番号は、ラテン文字比率の判定から除外します。
+読み順の回帰テストは合成 PDF（`test-fixtures/`）と、jewelry-first-computing の論文リストから集めた実 PDF（gitignore の `test-data/real-papers/`、`npm run fetch:real-papers`）を使います。実論文 PDF はリポジトリに入れません。jewelry-first-computing 側のディレクトリやデータは変更しません。助成番号（`016.128.303` のように先頭が 0 または 3 桁以上の点区切り）は節番号見出しにせず、直前の `grant number` 行と同一段落にまとめます。訳文に残った原文の固有名詞・番号は、ラテン文字比率の判定から除外します。
 
-既存の論文はインポート時の構造を IndexedDB に保持しているため、この修正を既存データへ適用するには再インポートが必要です。
+レイアウト・キャプション・表・数式・脚注の抽出はインポート時に決まるため、既存の論文へ適用するには再インポートが必要です。
 
 ## 構成
 
@@ -104,9 +108,9 @@ PDF
  ↓
 pdf.js 3.11（デジタル） / Apple Vision OCR（スキャン）
  ↓
-構造化（見出し・段落・図表キャプション）
- ├─ MADLAD 3B（MPS + bfloat16、文バッチ）
- └─ Ollama（任意: 用語集の生成のみ）
+構造化（見出し・段落・図／表キャプション・数式・脚注）
+ ├─ MADLAD 3B（MPS + bfloat16、文バッチ、用語集は訳後置換）
+ └─ Ollama（任意: 用語集の生成。未起動でも翻訳は進む）
  ↓
 IndexedDB（論文・Project・翻訳キャッシュ・メモ）
 アプリ管理領域（papers/<paperId>/source.pdf）
@@ -121,7 +125,7 @@ paper-reader/
 │   │   ├── shell/             # 常設サイドバー
 │   │   ├── library/           # All Papers / Inbox / Favorites / Recent
 │   │   ├── project/           # Project 画面（所属の解除など）
-│   │   ├── reader/            # リーダー・Notes・検索
+│   │   ├── reader/            # リーダー・Notes・用語集・検索
 │   │   ├── import/
 │   │   └── settings/
 │   ├── services/
@@ -129,6 +133,8 @@ paper-reader/
 │   │   ├── llm/               # Ollama（用語集）
 │   │   ├── pdfjsRuntime.ts    # WKWebView 向け pdf.js 3.11
 │   │   ├── pdfLayout.ts       # 2段組の読み順推定
+│   │   ├── extractionConfidence.ts
+│   │   ├── citations.ts
 │   │   ├── ocrService.ts
 │   │   ├── projectService.ts
 │   │   ├── annotationService.ts
@@ -136,7 +142,9 @@ paper-reader/
 │   └── stores/
 ├── src-tauri/                 # Tauri 2（サーバー起動、Vision OCR、元PDF）
 ├── translation-server/        # FastAPI + MADLAD
-├── test-fixtures/             # 読み順回帰用の合成 PDF
+├── test-fixtures/             # 読み順回帰用の合成 PDF と実論文カタログ
+├── test-data/real-papers/     # 実論文 PDF（gitignore。`npm run fetch:real-papers`）
+├── scripts/fetch-real-papers.mjs
 ├── scripts/bundle-python.sh   # リリース時に venv を同梱
 ├── restart-translation-server.sh
 └── QUICKSTART.md
@@ -152,16 +160,18 @@ paper-reader/
 
 本番エンジンは **MADLAD-400 3B + MPS + bfloat16** です。コミュニティの MLX INT8 は長い段落で訳が途中切れするため使いません。
 
-文をまとめて `generate()` するバッチ（既定 `MADLAD_BATCH_SIZE=8`）で、複数文の段落は逐次より約 3 倍速くなります。測定と不採用理由は `translation-server/SPEED_BENCH.md` にあります。
+文をまとめて `generate()` するバッチ（既定 `MADLAD_BATCH_SIZE=24`）と、複数段落の chunk 合流で、論文全体の翻訳は段落ごとより約 2 倍速くなります。測定は `translation-server/MPS_BATCH_OPTIMIZATION_REPORT.md` にあります。
 
-翻訳単位は段落です。前後段落や用語集は MADLAD には渡していません。
+翻訳単位は段落です。前後段落は MADLAD には渡していません。用語集は MADLAD の入力には載せせず、訳の後処理（残った英語用語の置換）と再翻訳時に使います。
 
 ## 注意
 
 - 翻訳サーバーはメモリを大きく使います。他の重いプロセスと同時起動すると落ちることがあります
 - スキャン PDF の OCR はデスクトップアプリ限定です。`npm run dev` のブラウザ単体では動きません
 - pdf.js は **3.11（legacy）** に固定です。6.x は WKWebView で Iterator Helpers が無くクラッシュします
-- 2 段組の読み順、表・数式・脚注の表示、キャプション翻訳、用語集の適用などは未完成です。残作業は [ROADMAP.md](./ROADMAP.md) を見てください
+- 2 段組の読み順は代表的な ACM 論文では左列→右列になるが、実論文すべてで崩れないわけではない。残作業は [ROADMAP.md](./ROADMAP.md)
+- 元 PDF は開けるが、いま読んでいるブロックのページ指定はまだ無視している
+- Favorites にスターを付ける操作はまだない
 
 ## ライセンス
 

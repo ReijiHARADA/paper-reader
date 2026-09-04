@@ -47,8 +47,10 @@ Tauri アプリから起動する場合も同じポートです。
 
 - デバイス: MPS。未対応演算だけ `PYTORCH_ENABLE_MPS_FALLBACK=1` で CPU へ
 - dtype: bfloat16
-- 文バッチ: `MADLAD_BATCH_SIZE`（既定 8）。`1` で文ごとの逐次 `generate()`
-- コミュニティ MLX INT8 には切り替えない（長い段落で訳が途中切れする）
+- 文バッチ: `MADLAD_BATCH_SIZE`（既定 24）。`1` で文ごとの逐次 `generate()`
+- 複数段落: `MicroBatchScheduler`（既定 25ms）。`MADLAD_MICROBATCH=0` でオフ
+- コミュニティ MLX INT8 には切り替えない（長い段落で訳が途中切れする）。MLX bf16 も本番より遅い（`MLX_BF16_BENCH_REPORT.md`）
+- バッチ最適化の実測: [MPS_BATCH_OPTIMIZATION_REPORT.md](./MPS_BATCH_OPTIMIZATION_REPORT.md)
 
 ## API
 

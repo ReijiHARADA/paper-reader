@@ -13,7 +13,8 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from engines import get_engine, TranslationResult
+from engines import get_engine
+from engines.micro_batcher import get_scheduler
 
 
 # Request/Response models
@@ -165,14 +166,14 @@ async def translate(request: TranslateRequest):
     
     The model will be automatically loaded if not already loaded.
     """
-    engine = get_engine()
+    scheduler = get_scheduler()
 
     try:
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            lambda: engine.translate(
+            lambda: scheduler.translate(
                 request.text,
                 request.source_language,
                 request.target_language,
@@ -188,49 +189,26 @@ async def translate(request: TranslateRequest):
 
 @app.post("/translate/batch", response_model=BatchTranslateResponse)
 async def translate_batch(request: BatchTranslateRequest):
-    """
-    Translate multiple texts in batch.
-    
-    Texts are processed sequentially to manage memory usage.
-    """
-    engine = get_engine()
+    """Translate multiple texts, packing independent chunks into one generate()."""
+    scheduler = get_scheduler()
 
     import time
     start_time = time.time()
 
+    loop = asyncio.get_event_loop()
+    packed = await loop.run_in_executor(
+        None,
+        lambda: scheduler.translate_many(
+            request.texts,
+            request.source_language,
+            request.target_language,
+        ),
+    )
     results = []
     total_chars = 0
-
-    loop = asyncio.get_event_loop()
-
-    for text in request.texts:
-        try:
-            result = await loop.run_in_executor(
-                None,
-                lambda t=text: engine.translate(
-                    t,
-                    request.source_language,
-                    request.target_language,
-                ),
-            )
-            results.append(TranslateResponse(**result.to_dict()))
-            total_chars += len(text)
-        except Exception as e:
-            # Continue with other texts on failure
-            results.append(TranslateResponse(
-                text=f"[Translation failed: {str(e)}]",
-                source_language=request.source_language,
-                target_language=request.target_language,
-                model=engine.model_name,
-                model_version=engine.model_version,
-                input_chars=len(text),
-                output_chars=0,
-                input_tokens=None,
-                output_tokens=None,
-                translation_time_ms=0,
-                chars_per_sec=0,
-                tokens_per_sec=None,
-            ))
+    for text, result in zip(request.texts, packed):
+        results.append(TranslateResponse(**result.to_dict()))
+        total_chars += len(text)
 
     total_time_ms = (time.time() - start_time) * 1000
     avg_chars_per_sec = total_chars / (total_time_ms / 1000) if total_time_ms > 0 else 0

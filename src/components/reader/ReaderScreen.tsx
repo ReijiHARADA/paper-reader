@@ -6,9 +6,10 @@ import {
   Settings2,
   ExternalLink,
   StickyNote,
+  BookMarked,
 } from "lucide-react";
 import { useAppStore, usePaperDataStore } from "../../stores/appStore";
-import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation } from "../../services/database";
+import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation, getGlossary, saveGlossary } from "../../services/database";
 import { resumeIncompleteTranslation, shouldTranslateBlock } from "../../services/importServiceV2";
 import type { ImportConfig } from "../../services/importServiceV2";
 import type { PaperBlock, Section } from "../../types/paper";
@@ -34,6 +35,8 @@ import { Outline } from "./Outline";
 import { DisplaySettingsPanel } from "./DisplaySettingsPanel";
 import { SearchPanel } from "./SearchPanel";
 import { NotesPanel } from "./notes/NotesPanel";
+import { GlossaryPanel } from "./GlossaryPanel";
+import type { GlossaryEntry } from "../../services/llm/types";
 import { SelectionActionMenu } from "./selection/SelectionActionMenu";
 import { useTextSelection } from "./selection/useTextSelection";
 import type { TranslationSelection } from "./selection/selectionAnchor";
@@ -92,7 +95,11 @@ export function ReaderScreen() {
         !b.translated &&
         b.translationStatus !== "skipped" &&
         b.translationStatus !== "failed" &&
-        (b.type === "paragraph" || b.type === "heading") &&
+        (b.type === "paragraph" ||
+          b.type === "heading" ||
+          b.type === "footnote" ||
+          b.type === "figure" ||
+          b.type === "table") &&
         !(b.sectionId && refIds.has(b.sectionId)) &&
         !looksLikeBibliographyEntry(b.original) &&
         !isReferencesHeading(b.original) &&
@@ -108,6 +115,8 @@ export function ReaderScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotationIds, setActiveAnnotationIds] = useState<string[]>([]);
   const [flashAnnotationIds, setFlashAnnotationIds] = useState<string[]>([]);
@@ -230,10 +239,11 @@ export function ReaderScreen() {
       }
 
       try {
-        const [dbPaper, dbSections, dbBlocks] = await Promise.all([
+        const [dbPaper, dbSections, dbBlocks, dbGlossary] = await Promise.all([
           getPaper(paperId),
           getSectionsByPaper(paperId),
           getBlocksByPaper(paperId),
+          getGlossary(paperId),
         ]);
         if (cancelled) return;
         if (dbPaper) {
@@ -247,6 +257,7 @@ export function ReaderScreen() {
         if (dbBlocks.length > 0) {
           setBlocksInStore(paperId, (prev) => mergePreferTranslated(prev, dbBlocks));
         }
+        setGlossary(dbGlossary);
         const exists = await sourcePdfExists(paperId);
         if (!cancelled) setHasSourcePdf(exists || Boolean(dbPaper?.sourceStoredPath));
       } catch (e) {
@@ -605,6 +616,18 @@ export function ReaderScreen() {
         </div>
         <div className={styles.headerRight}>
           <button
+            className={`${styles.iconButton} ${glossaryOpen ? styles.active : ""}`}
+            onClick={() => {
+              setGlossaryOpen((open) => !open);
+              if (!glossaryOpen) {
+                setNotesOpen(false);
+              }
+            }}
+            title="用語集"
+          >
+            <BookMarked size={20} />
+          </button>
+          <button
             className={`${styles.iconButton} ${notesOpen ? styles.active : ""}`}
             onClick={showNotesList}
             title="メモ一覧"
@@ -662,6 +685,16 @@ export function ReaderScreen() {
           />
         </main>
 
+        {glossaryOpen && (
+          <GlossaryPanel
+            entries={glossary}
+            onChange={(entries) => {
+              setGlossary(entries);
+              if (paperId) void saveGlossary(paperId, entries);
+            }}
+            onClose={() => setGlossaryOpen(false)}
+          />
+        )}
         {notesOpen && (
           <NotesPanel
             annotations={annotations}

@@ -7,9 +7,11 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { extractPDFContent, computeFileHash, extractFigureImages } from "./pdfService";
+import { classifyPdfOpenError } from "./pdfOpenError";
 import { isScannedPdf, ocrDocument } from "./ocrService";
 import { analyzeStructure } from "./structureService";
 import { figureLookupKey } from "./pdfLayout";
+import { applyGlossary } from "./llm/glossaryService";
 import {
   savePaper,
   saveSections,
@@ -20,6 +22,7 @@ import {
   getBlocksByPaper,
   getSectionsByPaper,
   saveGlossary,
+  getGlossary,
   saveBenchmark,
   computeTextHash,
   getCachedTranslation,
@@ -43,8 +46,10 @@ import {
   shouldTranslateHeading,
   shouldTranslateParagraph,
   shouldTranslateTitle,
+  shouldTranslateCaption,
 } from "./translation/quality";
 import { OllamaProvider, generateGlossary } from "./llm";
+import type { GlossaryEntry } from "./llm/types";
 import { resolveMadladServerUrl, MADLAD_MODEL_VERSION } from "./translation/madladEngine";
 import { finalizedTranslationStatus } from "./paperStatus";
 
@@ -103,7 +108,7 @@ const DEFAULT_CONFIG: Required<ImportConfig> = {
   ollamaServerUrl: "http://localhost:11434",
   ollamaModel: "gemma2:9b",
   generateGlossary: true,
-  translationConcurrency: 1,
+  translationConcurrency: 8,
   useCache: true,
 };
 
@@ -113,6 +118,14 @@ const resumingPapers = new Set<string>();
 function usableCachedJa(cached: string | null | undefined, source: string): string | null {
   if (!cached) return null;
   return isPlausibleJaTranslation(cached, source) ? cached : null;
+}
+
+function assignBlockTranslation(block: PaperBlock, translated: string): void {
+  block.translated = translated;
+  block.translationStatus = "completed";
+  if (block.type === "figure" || block.type === "table") {
+    block.metadata = { ...block.metadata, captionTranslated: translated };
+  }
 }
 
 function referenceSectionIds(sections: Section[]): Set<string> {
@@ -147,7 +160,13 @@ export function shouldTranslateBlock(
     return false;
   }
   if (block.type === "heading") return shouldTranslateHeading(block.original);
-  if (block.type === "paragraph") return shouldTranslateParagraph(block.original);
+  if (block.type === "paragraph" || block.type === "footnote") {
+    return shouldTranslateParagraph(block.original);
+  }
+  if (block.type === "figure" || block.type === "table") {
+    const caption = String(block.metadata.captionOriginal ?? block.original ?? "");
+    return shouldTranslateCaption(caption);
+  }
   return false;
 }
 
@@ -156,6 +175,9 @@ function resolveConfig(config: ImportConfig): Required<ImportConfig> {
   merged.madladServerUrl = resolveMadladServerUrl(merged.madladServerUrl);
   if (!merged.ollamaServerUrl?.trim()) {
     merged.ollamaServerUrl = DEFAULT_CONFIG.ollamaServerUrl;
+  }
+  if (merged.translationConcurrency <= 3) {
+    merged.translationConcurrency = 8;
   }
   return merged;
 }
@@ -305,7 +327,7 @@ export async function importPDFV2(
         }
       );
       for (const block of blocks) {
-        if (block.type !== "figure") continue;
+        if (block.type !== "figure" && block.type !== "table") continue;
         const caption = String(block.metadata.captionOriginal ?? "");
         const key =
           String(block.metadata.figureKey ?? "") ||
@@ -338,6 +360,8 @@ export async function importPDFV2(
     // Notify that partial data is ready (can start viewing)
     callbacks.onPartialReady(paper, sections, blocks);
 
+    let glossaryEntries: GlossaryEntry[] = await getGlossary(paperId);
+
     // Stage 4: Glossary in the background — never block translation
     if (cfg.generateGlossary) {
       void (async () => {
@@ -368,6 +392,23 @@ export async function importPDFV2(
             []
           );
           await saveGlossary(paperId, glossary);
+          glossaryEntries = glossary;
+          if (paper.titleTranslated) {
+            paper.titleTranslated = applyGlossary(paper.titleTranslated, glossary);
+            await savePaper(paper);
+            callbacks.onPaperUpdated?.(paper);
+          }
+          for (const section of sections) {
+            if (!section.translatedTitle) continue;
+            section.translatedTitle = applyGlossary(section.translatedTitle, glossary);
+          }
+          await saveSections(sections);
+          for (const block of blocks) {
+            if (!block.translated) continue;
+            assignBlockTranslation(block, applyGlossary(block.translated, glossary));
+            await updateBlock(block);
+            callbacks.onBlockTranslated?.(block);
+          }
         } catch (e) {
           console.error("Failed to generate glossary:", e);
         }
@@ -426,7 +467,7 @@ export async function importPDFV2(
         return;
       }
 
-      const translated = task.result.text;
+      const translated = applyGlossary(task.result.text, glossaryEntries);
       if (!isPlausibleJaTranslation(translated, task.text)) {
         console.warn(
           `[translation] rejected degenerate output for ${task.blockId}:`,
@@ -459,8 +500,7 @@ export async function importPDFV2(
       } else {
         const block = blocks.find((b) => b.id === task.blockId);
         if (block) {
-          block.translated = translated;
-          block.translationStatus = "completed";
+          assignBlockTranslation(block, translated);
           await updateBlock(block);
           callbacks.onBlockTranslated?.(block);
         }
@@ -593,8 +633,7 @@ export async function importPDFV2(
         : null;
 
       if (cachedBlock) {
-        block.translated = cachedBlock;
-        block.translationStatus = "completed";
+        assignBlockTranslation(block, applyGlossary(cachedBlock, glossaryEntries));
         await updateBlock(block);
         callbacks.onBlockTranslated?.(block);
         translatedCount++;
@@ -648,7 +687,13 @@ export async function importPDFV2(
     return { paper, sections, blocks };
 
   } catch (error) {
-    const message = error instanceof Error ? error.message : "不明なエラー";
+    const classified = classifyPdfOpenError(error);
+    const message =
+      classified.code !== "unknown"
+        ? classified.message
+        : error instanceof Error
+          ? error.message
+          : "不明なエラー";
     callbacks.onStageChange("failed");
     callbacks.onProgress({
       stage: "failed",
@@ -720,7 +765,7 @@ export async function resumeIncompleteTranslation(
     const cfg = resolveConfig(config);
     const translationEngine = new MADLADEngine(cfg.madladServerUrl);
     const queue = new TranslationQueue(translationEngine, {
-      concurrency: 1,
+      concurrency: 8,
       retryFailed: false,
     });
     queue.start();
@@ -729,6 +774,8 @@ export async function resumeIncompleteTranslation(
     paper.processingStatus = "translating";
     await savePaper(paper);
     callbacks.onPaperUpdated?.(paper);
+
+    const glossaryEntries = await getGlossary(paperId);
 
     let outstanding = 0;
     let settleAll: () => void = () => {};
@@ -745,7 +792,7 @@ export async function resumeIncompleteTranslation(
         markDone();
         return;
       }
-      const translated = task.result.text;
+      const translated = applyGlossary(task.result.text, glossaryEntries);
       if (!isPlausibleJaTranslation(translated, task.text)) {
         const block = blocks.find((b) => b.id === task.blockId);
         if (block) {
@@ -771,8 +818,7 @@ export async function resumeIncompleteTranslation(
       } else {
         const block = blocks.find((b) => b.id === task.blockId);
         if (block) {
-          block.translated = translated;
-          block.translationStatus = "completed";
+          assignBlockTranslation(block, translated);
           await updateBlock(block);
           callbacks.onBlockTranslated?.(block);
         }

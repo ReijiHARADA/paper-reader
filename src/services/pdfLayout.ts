@@ -23,6 +23,8 @@ export type LayoutRole =
   | "paragraph"
   | "figure_caption"
   | "table_caption"
+  | "equation"
+  | "footnote"
   | "copyright";
 
 export type PageColumnLayout = {
@@ -46,6 +48,7 @@ export type LayoutLine = {
   height: number;
   fontSize: number;
   bbox: BoundingBox;
+  pageHeight?: number;
 };
 
 export type LayoutBlock = {
@@ -141,10 +144,24 @@ export function detectPageColumns(page: ExtractedPage): PageColumnLayout {
   const rightItems = sample.filter(
     (i) => Math.abs(i.x - leftX) > Math.abs(i.x - rightX)
   );
+  const leftShare = leftItems.length / sample.length;
+  const rightShare = rightItems.length / sample.length;
+  const leftLong = leftItems.filter(
+    (i) => i.width >= page.width * 0.22 && i.width <= page.width * 0.55
+  );
+  const rightLong = rightItems.filter(
+    (i) => i.width >= page.width * 0.22 && i.width <= page.width * 0.55
+  );
   const isMultiColumn =
     leftItems.length >= MIN_COLUMN_ITEMS &&
     rightItems.length >= MIN_COLUMN_ITEMS &&
-    rightX - leftX >= 80;
+    leftLong.length >= MIN_COLUMN_ITEMS &&
+    rightLong.length >= MIN_COLUMN_ITEMS &&
+    rightX - leftX >= page.width * 0.22 &&
+    leftShare >= 0.22 &&
+    rightShare >= 0.22 &&
+    leftShare <= 0.78 &&
+    rightShare <= 0.78;
 
   if (!isMultiColumn) {
     return fallback;
@@ -224,7 +241,8 @@ function joinItemTexts(items: ExtractedTextItem[]): string {
 function itemsToLine(
   items: ExtractedTextItem[],
   column: LayoutColumn,
-  page: number
+  page: number,
+  pageHeight?: number
 ): LayoutLine {
   const bbox = unionBbox(items, page);
   const fontSize =
@@ -242,13 +260,15 @@ function itemsToLine(
     height: bbox.height,
     fontSize,
     bbox,
+    pageHeight,
   };
 }
 
 function clusterItemsIntoLines(
   items: ExtractedTextItem[],
   column: LayoutColumn,
-  pageNumber: number
+  pageNumber: number,
+  pageHeight?: number
 ): LayoutLine[] {
   if (items.length === 0) return [];
 
@@ -303,32 +323,42 @@ function clusterItemsIntoLines(
   }
 
   return groups
-    .map((group) => itemsToLine(group, column, pageNumber))
+    .map((group) => itemsToLine(group, column, pageNumber, pageHeight))
     .filter((line) => line.text.length > 0)
     .sort((a, b) => a.y - b.y);
 }
 
 function isRepeatedHeaderFooter(text: string, patterns: Set<string>): boolean {
-  return patterns.has(text.trim().toLowerCase());
+  return patterns.has(normalizeChromeKey(text));
+}
+
+function normalizeChromeKey(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/\d+/g, "#")
+    .replace(/\s+/g, " ");
 }
 
 function detectHeaderFooterPatterns(pages: ExtractedPage[]): Set<string> {
   const counts = new Map<string, number>();
   for (const page of pages) {
+    const topBand = Math.max(HEADER_Y, page.height * 0.08);
+    const bottomBand = Math.max(FOOTER_MARGIN, page.height * 0.07);
     const edge = page.textItems.filter(
-      (i) => i.y < HEADER_Y || i.y > page.height - FOOTER_MARGIN
+      (i) => i.y < topBand || i.y > page.height - bottomBand
     );
     const seen = new Set<string>();
     for (const item of edge) {
-      const key = item.text.trim().toLowerCase();
-      if (key.length < 4 || key.length > 120) continue;
+      const key = normalizeChromeKey(item.text);
+      if (key.length < 4 || key.length > 140) continue;
       if (seen.has(key)) continue;
       seen.add(key);
       counts.set(key, (counts.get(key) || 0) + 1);
     }
   }
   const patterns = new Set<string>();
-  const threshold = Math.max(2, Math.floor(pages.length * 0.3));
+  const threshold = Math.max(2, Math.floor(pages.length * 0.28));
   for (const [text, count] of counts) {
     if (count >= threshold) patterns.add(text);
   }
@@ -340,29 +370,80 @@ function isEdgeChrome(
   layout: PageColumnLayout,
   patterns: Set<string>
 ): boolean {
-  if (line.y < HEADER_Y) return true;
+  if (isFootnoteLine(line, layout.pageHeight, line.fontSize)) return false;
+  const topBand = Math.max(HEADER_Y, layout.pageHeight * 0.08);
+  if (line.y < topBand) return true;
   if (line.y > layout.pageHeight - FOOTER_MARGIN) return true;
   if (/^\d{1,3}$/.test(line.text.trim())) return true;
+  if (patterns.has(normalizeChromeKey(line.text))) return true;
   if (isRepeatedHeaderFooter(line.text, patterns)) return true;
   if (
-    /^(proceedings of|conference on|tei\s+\d{4}|chi\s+\d{4})/i.test(line.text)
+    /^(proceedings of|conference on|extended abstracts|tei\s+[’']?\d{2,4}|chi\s+[’']?\d{2,4}|uist\s+[’']?\d{2,4}|iswc\s+[’']?\d{2,4}|dis\s+[’']?\d{2,4}|cscw|imwut|ubicomp)/i.test(
+      line.text.trim()
+    )
   ) {
     return true;
   }
   return false;
 }
 
-function isFigureCaption(text: string): boolean {
-  return /^(figure|fig\.?)\s*\d+/i.test(text.trim());
+export function isFigureCaption(text: string): boolean {
+  return /^(?:figure|fig\.?)\s*\d+[a-z]?(?:\s*,\s*[a-z]\b)*(?:\s*[:.–—-]|\s*$)/i.test(
+    text.trim()
+  );
 }
 
-function isTableCaption(text: string): boolean {
-  return /^table\s+\d+/i.test(text.trim());
+export function isTableCaption(text: string): boolean {
+  return /^tables?\s+(?:\d+[a-z]?|[ivxlcdm]+)(?:\s*[:.–—-]|\s*$)/i.test(
+    text.trim()
+  );
 }
 
 function isCopyright(text: string, fontSize: number, baseFont: number): boolean {
   if (fontSize > baseFont * 0.92) return false;
   return /permission to make digital or hard copies/i.test(text);
+}
+
+function isFootnoteLine(
+  line: { text: string; y: number; fontSize: number },
+  pageHeight: number,
+  baseFont: number
+): boolean {
+  const t = line.text.trim();
+  if (!t) return false;
+  if (line.fontSize > baseFont * 0.9 && line.fontSize > 9.2) return false;
+  if (line.y < pageHeight * 0.7) return false;
+  return /^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+\S/.test(t);
+}
+
+function isEquationLine(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 3 || t.length > 140) return false;
+  if (isFigureCaption(t) || isTableCaption(t)) return false;
+  if (/^(abstract|introduction|references|acknowledgements?)\b/i.test(t)) {
+    return false;
+  }
+  const math = (t.match(/[=+\-−×÷∑∫√∞≈≠≤≥±∂∇α-ωΑ-Ω]/g) || []).length;
+  if (math < 2) return false;
+  const letters = (t.match(/[A-Za-z]/g) || []).length;
+  if (letters > 48 && math < 3) return false;
+  if (/\(\s*\d{1,2}[a-z]?\s*\)\s*$/.test(t)) return true;
+  return t.split(/\s+/).length <= 24;
+}
+
+function captionShouldContinue(currentText: string, next: LayoutLine, baseFont: number): boolean {
+  const nextText = next.text.trim();
+  if (!nextText) return false;
+  if (isHeadingLine(next, baseFont)) return false;
+  if (/^(abstract|introduction|ccs concepts|author keywords?|index terms|keywords)\b/i.test(nextText)) {
+    return false;
+  }
+  if (looksLikeEmail(nextText) || looksLikeAffiliation(nextText)) return false;
+  if (isCopyright(nextText, next.fontSize, baseFont)) return false;
+  if (/[.!?]\s*$/.test(currentText) && /^[A-Z*]/.test(nextText) && nextText.length > 70) {
+    return false;
+  }
+  return true;
 }
 
 const NAMED_HEADINGS = [
@@ -579,7 +660,7 @@ function buildPageLines(
   const lines: LayoutLine[] = [];
   (["spanning", "left", "right", "single"] as LayoutColumn[]).forEach((column) => {
     lines.push(
-      ...clusterItemsIntoLines(buckets[column], column, page.pageNumber)
+      ...clusterItemsIntoLines(buckets[column], column, page.pageNumber, layout.pageHeight)
     );
   });
 
@@ -596,12 +677,14 @@ function buildPageLines(
   return orderPageLines(visible, layout);
 }
 
-function detectMastheadEnd(lines: LayoutLine[]): number {
+function detectMastheadEnd(lines: LayoutLine[], baseFont: number): number {
   const pageOne = lines.filter((l) => l.page === 1);
   if (pageOne.length === 0) return -1;
-  const bodyStart = pageOne.find((l) =>
-    /^(abstract|introduction|author keywords?)$/i.test(l.text.trim())
-  );
+  const bodyStart = pageOne.find((l) => {
+    const t = l.text.trim();
+    if (/^(abstract|introduction|author keywords?)$/i.test(t)) return true;
+    return isHeadingLine(l, baseFont) && l.y > 70;
+  });
   return bodyStart ? bodyStart.y : -1;
 }
 
@@ -617,9 +700,11 @@ function roleForLine(
   }
   if (isFigureCaption(text)) return "figure_caption";
   if (isTableCaption(text)) return "table_caption";
+  if (isEquationLine(text)) return "equation";
+  if (isFootnoteLine(line, line.pageHeight ?? 792, baseFont)) return "footnote";
 
   const inMasthead =
-    line.page === 1 && (mastheadEndY < 0 || line.y < mastheadEndY);
+    line.page === 1 && mastheadEndY >= 0 && line.y < mastheadEndY;
   if (inMasthead) {
     if (looksLikeGrantIdentifier(text) || startsWithGrantIdentifier(text)) {
       return "paragraph";
@@ -647,7 +732,7 @@ function groupLinesIntoBlocks(
   lines: LayoutLine[],
   baseFont: number
 ): LayoutBlock[] {
-  const mastheadEndY = detectMastheadEnd(lines);
+  const mastheadEndY = detectMastheadEnd(lines, baseFont);
   const blocks: LayoutBlock[] = [];
   let current: LayoutLine[] = [];
   let currentRole: LayoutRole | null = null;
@@ -698,16 +783,12 @@ function groupLinesIntoBlocks(
     ) {
       forcedRole = "paragraph";
     }
-    const atomic =
-      forcedRole === "heading" ||
-      forcedRole === "title" ||
-      forcedRole === "figure_caption" ||
-      forcedRole === "table_caption";
+    const atomic = forcedRole === "heading";
 
     if (currentRole === null) {
       current = [line];
       currentRole = forcedRole;
-      if (atomic && forcedRole !== "figure_caption" && forcedRole !== "table_caption") {
+      if (atomic) {
         flush();
       }
       continue;
@@ -719,6 +800,9 @@ function groupLinesIntoBlocks(
       !atomic &&
       currentRole !== "heading" &&
       currentRole !== "title" &&
+      currentRole !== "figure_caption" &&
+      currentRole !== "table_caption" &&
+      currentRole !== "footnote" &&
       canMerge(current[current.length - 1], line, baseFont);
 
     const grantContinue =
@@ -729,15 +813,27 @@ function groupLinesIntoBlocks(
       line.y - current[current.length - 1].y < baseFont * 3.2 &&
       isGrantNumberContinuation(joinLines(current), line.text);
 
+    const titleContinue =
+      currentRole === "title" &&
+      forcedRole === "title" &&
+      line.page === current[0].page &&
+      line.y - current[current.length - 1].y < baseFont * 2.8;
+
     const captionContinue =
       (currentRole === "figure_caption" || currentRole === "table_caption") &&
       line.page === current[0].page &&
       line.column === current[0].column &&
       line.y - current[current.length - 1].y < baseFont * 2.4 &&
       line.fontSize <= current[0].fontSize + 0.6 &&
-      !isHeadingLine(line, baseFont);
+      captionShouldContinue(joinLines(current), line, baseFont);
 
-    if (mergeable || captionContinue || grantContinue) {
+    const footnoteContinue =
+      currentRole === "footnote" &&
+      forcedRole === "footnote" &&
+      line.page === current[0].page &&
+      line.y - current[current.length - 1].y < baseFont * 2.2;
+
+    if (mergeable || captionContinue || grantContinue || titleContinue || footnoteContinue) {
       current.push(line);
       continue;
     }
@@ -745,7 +841,7 @@ function groupLinesIntoBlocks(
     flush();
     current = [line];
     currentRole = forcedRole;
-    if (atomic && forcedRole !== "figure_caption" && forcedRole !== "table_caption") {
+    if (atomic) {
       flush();
     }
   }
@@ -852,7 +948,7 @@ function isSubstantialCropBound(block: LayoutBlock): boolean {
 }
 
 export function figureLookupKey(text: string, page: number): string {
-  const match = text.trim().match(/^(?:figure|fig\.?)\s*(\d+)/i);
+  const match = text.trim().match(/^(?:figure|fig\.?|tables?)\s*(\S+)/i);
   return match ? `${page}:${match[1]}` : `${page}:${text.slice(0, 48)}`;
 }
 

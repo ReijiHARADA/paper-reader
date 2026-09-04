@@ -1,11 +1,14 @@
 import { useEffect, useRef, useCallback } from "react";
-import type { Paper, Section, PaperBlock, FigureMetadata, EquationMetadata } from "../../types/paper";
+import type { Paper, Section, PaperBlock, FigureMetadata, EquationMetadata, TableMetadata } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
 import { Paragraph } from "./Paragraph";
 import { Figure } from "./Figure";
 import { Equation } from "./Equation";
+import { Table } from "./Table";
+import { Footnote } from "./Footnote";
 import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, looksLikeBibliographyEntry } from "../../services/translation/quality";
 import { isBusyProcessingStatus } from "../../services/paperStatus";
+import { indexReferenceBlocks } from "../../services/citations";
 import styles from "./PaperContent.module.css";
 
 type PaperContentProps = {
@@ -81,6 +84,8 @@ export function PaperContent({
     return blocks.filter((block) => block.sectionId === sectionId);
   };
 
+  const referenceIndex = indexReferenceBlocks(blocks);
+
   const renderBlock = (block: PaperBlock) => {
     let content: React.ReactNode = null;
 
@@ -98,6 +103,7 @@ export function PaperContent({
             flashAnnotationIds={flashAnnotationIds}
             onHighlightClick={onHighlightClick}
             onOpenSourcePdf={onOpenSourcePdf}
+            referenceIndex={referenceIndex}
           />
         );
         break;
@@ -106,8 +112,16 @@ export function PaperContent({
         content = <Figure block={block} metadata={block.metadata as FigureMetadata} />;
         break;
 
+      case "table":
+        content = <Table block={block} metadata={block.metadata as TableMetadata} />;
+        break;
+
       case "equation":
         content = <Equation block={block} metadata={block.metadata as EquationMetadata} />;
+        break;
+
+      case "footnote":
+        content = <Footnote block={block} />;
         break;
 
       case "reference":
@@ -169,7 +183,11 @@ export function PaperContent({
   const translatableBlocks = blocks.filter(
     (b) =>
       b.original &&
-      (b.type === "paragraph" || b.type === "heading") &&
+      (b.type === "paragraph" ||
+        b.type === "heading" ||
+        b.type === "footnote" ||
+        b.type === "figure" ||
+        b.type === "table") &&
       b.translationStatus !== "skipped" &&
       String(b.metadata?.role ?? "") !== "author" &&
       String(b.metadata?.role ?? "") !== "affiliation" &&

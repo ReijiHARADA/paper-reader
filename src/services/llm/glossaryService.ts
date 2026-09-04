@@ -81,29 +81,28 @@ export function applyGlossary(
   text: string,
   glossary: GlossaryEntry[]
 ): string {
-  if (glossary.length === 0) return text;
+  if (!text || glossary.length === 0) return text;
 
-  // Sort by term length (longer terms first to avoid partial replacements)
-  const sortedGlossary = [...glossary].sort(
-    (a, b) => b.term.length - a.term.length
-  );
+  const sortedGlossary = [...glossary]
+    .filter((entry) => entry.term.trim().length >= 2 && entry.translation.trim())
+    .sort((a, b) => b.term.length - a.term.length);
 
   let result = text;
 
   for (const entry of sortedGlossary) {
-    // Match the English term in the Japanese text (often kept in katakana or as-is)
-    // This is a simplified approach - more sophisticated NLP would be better
-    
-    // Pattern 1: Term appears in parentheses (common in academic Japanese)
-    // Example: "身体性（embodiment）" or "アフォーダンス(affordance)"
+    const term = entry.term.trim();
+    const translation = entry.translation.trim();
     const parenPattern = new RegExp(
-      `([^（(]*)[（(]${escapeRegex(entry.term)}[）)]`,
+      `([^（(\\n]{0,40})[（(]${escapeRegex(term)}[）)]`,
       "gi"
     );
-    result = result.replace(parenPattern, `${entry.translation}（${entry.term}）`);
+    result = result.replace(parenPattern, `${translation}（${term}）`);
 
-    // Pattern 2: Katakana transliteration might be inconsistent
-    // This is handled by the translation model, but we can add markers
+    const wordPattern = new RegExp(
+      `(?<![（(])\\b${escapeRegex(term)}\\b(?![）)])`,
+      "gi"
+    );
+    result = result.replace(wordPattern, translation);
   }
 
   return result;

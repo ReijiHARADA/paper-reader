@@ -1,0 +1,474 @@
+{
+  "baseline_batch": 8,
+  "best_batch": 24,
+  "use_buckets": false,
+  "token_budget": null,
+  "final_singles": {
+    "short": {
+      "wall_s": 1.1003624590230174,
+      "translation": "神経機械翻訳のためのトランスフォーマアーキテクチャを紹介した。",
+      "citation_count": 0,
+      "source_citation_count": 0
+    },
+    "title": {
+      "wall_s": 0.5117220829706639,
+      "translation": "インタラクティブジュエリー: デザインの探求",
+      "citation_count": 0,
+      "source_citation_count": 0
+    },
+    "abstract": {
+      "wall_s": 2.880404041032307,
+      "translation": "身体に近い着用可能な人工物としてのインタラクティブジュエリーを探索した。学生と共に開発した一連の設計概念を示し, 小型化エレクトロニクスが実用機能だけでなく人間の価値観をもってどのように組織化できるかを論じた。ジュエリーの材料, 文化, 個人的な意味合いがオンボディ技術の設計を指導するべきであると論じた。",
+      "citation_count": 0,
+      "source_citation_count": 0
+    },
+    "body_short": {
+      "wall_s": 1.3984747499926016,
+      "translation": "従来は静止したデバイスはウォークマンや携帯電話などの携帯型の変種で拡張された。",
+      "citation_count": 0,
+      "source_citation_count": 0
+    },
+    "intro": {
+      "wall_s": 3.0364624580251984,
+      "translation": "近年, 電子機器は計算能力を増大させながら急速に小型化している。従来は静止したデバイスがウォークマンや携帯電話などの携帯型の変種で拡張された。近年, 衣服に組み込まれた人体に直接装着できる小型化が進んでいる。技術的可能性に駆られて, 新しい実用的機能性に焦点を当てることは論理的である。しかし, このようなアプローチは, 衣服とアクセサリーの興味深い側面, 例えば, 人体に近い意味合いや, その豊かな材料的・社会的内涵などを無視している。人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。",
+      "citation_count": 0,
+      "source_citation_count": 1
+    },
+    "long": {
+      "wall_s": 5.470329083036631,
+      "translation": "ウェストアンド・ポケットコンピューティングは, デスクやポケットから身体表面への電子機器移動を約束してきたが, 多くの製品はまだ身体を便利な取り付け点に過ぎないと扱っている。指輪, ロケット, ネックレスは, どんなセンサを付加する前に既に社会的な物体であるため, インタラクティブジュエリーは, そのような縮小に抵抗する。人々はこれらのものを記憶するために、属性を示すために、あるいは私的な物語を皮膚に近づけるために着用し、これらの習慣は電池とラジオが到来しても消えない。技術的可能性から出発すると, ジュエリーが既に果たしている静かな役割に競合する通知, 追跡, 効率性の機能を追加する傾向がある。もっと慎重なアプローチは既存の儀式から始まる。着用時期 誰が触れるのか 壊れたり 置いて行ったらどうなるか。ここでは, 小型化された電子機器が有用であるが, それが装飾品を小型コンピュータに変える言い訳として使われるのではなく, 材料選択, 修理, 社会的環境と組み合わせられた場合にのみ有用である。ここでは, ジュエリーを, 装置化を待つ形式要素ではなく, 歴史を持つデザイン材料として扱い, オントロジーが, 物体の古い意味を消去せずに, 記憶, ケア, 会話をどのように支援できるかを問うた。論点は文化的なものだけでなく実践的なものである。装置を一日中着用すると 快適さや重さ 他人の目の意味が 遅延やバッテリー寿命と同じくらい重要になる。",
+      "citation_count": 0,
+      "source_citation_count": 0
+    },
+    "citations": {
+      "wall_s": 2.0662469590315595,
+      "translation": "人間の価値観と実践に重点を置いた「社会的, 人間的, 技術的資源を調整するための挑戦」と見なす。これらの論点は, 後の体内相互作用と体上設計に関する研究にも現れる。",
+      "citation_count": 0,
+      "source_citation_count": 3
+    },
+    "terms": {
+      "wall_s": 3.523088874993846,
+      "translation": "本研究は, オランダ科学研究機関(NWO)のSTW VIDIの助成金番号016.128.303によって支援され,Elise van den Hovenに授与された。プロトタイプは, デバイス上の翻訳にソニーウォークマンメタファーとMADLAD‐400を使用した。",
+      "citation_count": 0,
+      "source_citation_count": 0
+    }
+  },
+  "final_papers": {
+    "10": {
+      "wall_s": 11.372567958023865,
+      "generate_calls": 2,
+      "occupancy": 0.625,
+      "padding_ratio": 0.475,
+      "chars_per_sec": 123.63082860349081,
+      "tokens_per_sec": 105.25327300026922,
+      "paragraphs_per_sec": 0.879308880536919
+    },
+    "25": {
+      "wall_s": 27.604997833026573,
+      "generate_calls": 4,
+      "occupancy": 0.854,
+      "padding_ratio": 0.402,
+      "chars_per_sec": 148.16157656447018,
+      "tokens_per_sec": 126.02790339065812,
+      "paragraphs_per_sec": 0.9056331085847811
+    },
+    "50": {
+      "wall_s": 59.80608875001781,
+      "generate_calls": 7,
+      "occupancy": 0.982,
+      "padding_ratio": 0.424,
+      "chars_per_sec": 136.62488503727084,
+      "tokens_per_sec": 116.24234497357813,
+      "paragraphs_per_sec": 0.8360352774279209
+    }
+  },
+  "memory": {
+    "rss_bytes": 78233600,
+    "mps_current_allocated_bytes": 5889136640,
+    "mps_driver_allocated_bytes": 7889436672
+  },
+  "sweep_ref": {
+    "1": {
+      "abstract": 6.492654959030915,
+      "intro": 16.0900198330055,
+      "long": 33.177782458020374
+    },
+    "2": {
+      "abstract": 4.531525541970041,
+      "intro": 9.286773875006475,
+      "long": 17.01671729196096
+    },
+    "4": {
+      "abstract": 4.055403375008609,
+      "intro": 6.437234042037744,
+      "long": 13.082937125000171
+    },
+    "8": {
+      "abstract": 3.5732221659854986,
+      "intro": 3.2884513750323094,
+      "long": 6.5404160839971155
+    },
+    "12": {
+      "abstract": 3.1220656659570523,
+      "intro": 3.1822977499687113,
+      "long": 6.409641583042685
+    },
+    "16": {
+      "abstract": 3.1281366249895655,
+      "intro": 3.1330141659709625,
+      "long": 8.123311374976765
+    },
+    "24": {
+      "abstract": 3.1587237080093473,
+      "intro": 3.138148917001672,
+      "long": 5.842941624985542
+    },
+    "32": {
+      "abstract": 2.9552625420037657,
+      "intro": 3.1327807920170017,
+      "long": 6.130534459021874
+    }
+  },
+  "bucket_ref": {
+    "short": {
+      "off_s": 1.1733633750118315,
+      "on_s": 1.3178999170195311,
+      "speedup": 0.8903281348294086,
+      "pad_off": 0.0,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "title": {
+      "off_s": 0.5164623750024475,
+      "on_s": 0.5192925420124084,
+      "speedup": 0.9945499563714257,
+      "pad_off": 0.111,
+      "pad_on": 0.111,
+      "quality": "same"
+    },
+    "abstract": {
+      "off_s": 2.8958008749759756,
+      "on_s": 4.208481332985684,
+      "speedup": 0.6880869002029207,
+      "pad_off": 0.12,
+      "pad_on": 0.038,
+      "quality": "close"
+    },
+    "body_short": {
+      "off_s": 1.4403996670152992,
+      "on_s": 1.437199167034123,
+      "speedup": 1.0022269008044173,
+      "pad_off": 0.0,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "intro": {
+      "off_s": 3.0951619999832474,
+      "on_s": 4.6516822499688715,
+      "speedup": 0.6653855172510891,
+      "pad_off": 0.319,
+      "pad_on": 0.109,
+      "quality": "same"
+    },
+    "long": {
+      "off_s": 5.795151375001296,
+      "on_s": 5.475248540984467,
+      "speedup": 1.058427089039379,
+      "pad_off": 0.356,
+      "pad_on": 0.286,
+      "quality": "same"
+    },
+    "citations": {
+      "off_s": 2.0469932080013677,
+      "on_s": 3.157936250034254,
+      "speedup": 0.6482059946520973,
+      "pad_off": 0.174,
+      "pad_on": 0.0,
+      "quality": "same"
+    },
+    "terms": {
+      "off_s": 3.4297844999819063,
+      "on_s": 4.896286125003826,
+      "speedup": 0.7004869430458839,
+      "pad_off": 0.214,
+      "pad_on": 0.0,
+      "quality": "same"
+    }
+  },
+  "micro_ref": {
+    "sequential": {
+      "10": {
+        "wall_s": 23.94078249996528,
+        "generate_calls": 10,
+        "average_occupancy": 0.125,
+        "average_padding_ratio": 0.1405,
+        "paragraphs_per_sec": 0.41769729122322974,
+        "chars_per_sec": 58.602929958619136,
+        "memory": {
+          "rss_bytes": 118030336,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 6798819328
+        }
+      },
+      "25": {
+        "wall_s": 69.1545967499842,
+        "generate_calls": 25,
+        "average_occupancy": 0.13668,
+        "average_padding_ratio": 0.15528,
+        "paragraphs_per_sec": 0.3615088681723202,
+        "chars_per_sec": 59.012707640449555,
+        "memory": {
+          "rss_bytes": 134152192,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 7872577536
+        }
+      },
+      "50": {
+        "wall_s": 133.80196954205167,
+        "generate_calls": 50,
+        "average_occupancy": 0.1375,
+        "average_padding_ratio": 0.1575,
+        "paragraphs_per_sec": 0.37368657704463654,
+        "chars_per_sec": 60.933333252898436,
+        "memory": {
+          "rss_bytes": 132513792,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 7872577536
+        }
+      }
+    },
+    "coalesced": {
+      "10": {
+        "wall_s": 12.553149833984207,
+        "generate_calls": 2,
+        "average_occupancy": 0.625,
+        "average_padding_ratio": 0.475,
+        "paragraphs_per_sec": 0.7966128128995756,
+        "chars_per_sec": 112.00376149368033,
+        "tokens_per_sec": 95.3545537040792,
+        "memory": {
+          "rss_bytes": 113098752,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 7889354752
+        },
+        "speedup_vs_sequential": 1.9071534090314275
+      },
+      "25": {
+        "wall_s": 29.500836667022668,
+        "generate_calls": 4,
+        "average_occupancy": 0.854,
+        "average_padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.8474335925511597,
+        "chars_per_sec": 138.64013574136973,
+        "tokens_per_sec": 117.92885873941938,
+        "memory": {
+          "rss_bytes": 126435328,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 7889354752
+        },
+        "speedup_vs_sequential": 2.3441571346106342
+      },
+      "50": {
+        "wall_s": 53.15109916700749,
+        "generate_calls": 7,
+        "average_occupancy": 0.982,
+        "average_padding_ratio": 0.424,
+        "paragraphs_per_sec": 0.940714317927719,
+        "chars_per_sec": 153.73153383574783,
+        "tokens_per_sec": 130.79691876467004,
+        "memory": {
+          "rss_bytes": 127369216,
+          "mps_current_allocated_bytes": 5889136640,
+          "mps_driver_allocated_bytes": 7889371136
+        },
+        "speedup_vs_sequential": 2.517388570302731
+      }
+    },
+    "quality": {
+      "short": "same",
+      "title": "same",
+      "abstract": "same",
+      "body_short": "close",
+      "intro": "close",
+      "long": "close",
+      "citations": "same",
+      "terms": "same"
+    },
+    "windows": {
+      "0": {
+        "wait_ms": 0,
+        "wall_s_including_wait": 3.174254874989856,
+        "generate_s": 3.174194833030924,
+        "latency_tax_s": 6.0041958931833506e-05
+      },
+      "10": {
+        "wait_ms": 10,
+        "wall_s_including_wait": 3.074756084010005,
+        "generate_s": 3.0597025000024587,
+        "latency_tax_s": 0.015053584007546306
+      },
+      "25": {
+        "wait_ms": 25,
+        "wall_s_including_wait": 3.018618834030349,
+        "generate_s": 2.9933913329732604,
+        "latency_tax_s": 0.025227501057088375
+      },
+      "50": {
+        "wait_ms": 50,
+        "wall_s_including_wait": 3.026291499962099,
+        "generate_s": 2.9676518340129405,
+        "latency_tax_s": 0.05863966594915837
+      },
+      "100": {
+        "wait_ms": 100,
+        "wall_s_including_wait": 3.0878076250082813,
+        "generate_s": 2.979240500018932,
+        "latency_tax_s": 0.1085671249893494
+      }
+    }
+  },
+  "budget_ref": {
+    "none": {
+      "single": {
+        "intro": {
+          "wall_s": 2.9968727080267854,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.553105166996829,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.256069334049243,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.917226900680397
+      },
+      "memory": {
+        "rss_bytes": 86654976,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889371136
+      },
+      "error": null
+    },
+    "512": {
+      "single": {
+        "intro": {
+          "wall_s": 3.1382393750245683,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.985528209013864,
+          "generate_calls": 2,
+          "padding_ratio": 0.311
+        }
+      },
+      "paper25": {
+        "wall_s": 36.75216883298708,
+        "generate_calls": 9,
+        "occupancy": 0.38,
+        "padding_ratio": 0.31,
+        "paragraphs_per_sec": 0.6802319643667161
+      },
+      "memory": {
+        "rss_bytes": 129466368,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7872626688
+      },
+      "error": null
+    },
+    "1024": {
+      "single": {
+        "intro": {
+          "wall_s": 2.938671875046566,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.473780750005972,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 31.502772084029857,
+        "generate_calls": 5,
+        "occupancy": 0.683,
+        "padding_ratio": 0.391,
+        "paragraphs_per_sec": 0.7935809564096615
+      },
+      "memory": {
+        "rss_bytes": 128778240,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    },
+    "2048": {
+      "single": {
+        "intro": {
+          "wall_s": 2.9693106249906123,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.543153332953807,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.079782250046264,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.9231979699525571
+      },
+      "memory": {
+        "rss_bytes": 130924544,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    },
+    "4096": {
+      "single": {
+        "intro": {
+          "wall_s": 3.0212577499914914,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.916523875028361,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.379640832950827,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.9130872151512309
+      },
+      "memory": {
+        "rss_bytes": 125026304,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    }
+  },
+  "host": {
+    "python": "3.12.14",
+    "platform": "macOS-26.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "mac_ver": "26.0",
+    "timestamp": "2026-09-04T09:24:21.884586+00:00"
+  }
+}

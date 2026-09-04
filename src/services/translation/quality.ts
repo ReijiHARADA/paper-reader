@@ -177,6 +177,13 @@ export function shouldTranslateParagraph(text: string): boolean {
   return words.length >= 6;
 }
 
+export function shouldTranslateCaption(text: string): boolean {
+  const t = text.trim().replace(/^(?:figure|fig\.?|tables?)\s+\S+\s*[:.–—-]?\s*/i, "");
+  if (t.length < 8) return false;
+  if (looksLikeBibliographyEntry(t)) return false;
+  return /[A-Za-z]{3,}/.test(t);
+}
+
 export function shouldTranslateTitle(text: string): boolean {
   const t = text.trim();
   if (!shouldTranslateHeading(t) && t.length < 8) return false;

@@ -1,5 +1,6 @@
 import type { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api";
 import { openPdfDocument, pdfjsLib } from "./pdfjsRuntime";
+import { classifyPdfOpenError } from "./pdfOpenError";
 import {
   figureImageRect,
   figureLookupKey,
@@ -43,7 +44,12 @@ export async function extractPDFContent(
   onProgress?: (page: number, total: number) => void
 ): Promise<PDFExtractionResult> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await openPdfDocument(arrayBuffer).promise;
+  let pdf: Awaited<ReturnType<typeof openPdfDocument>["promise"]>;
+  try {
+    pdf = await openPdfDocument(arrayBuffer).promise;
+  } catch (error) {
+    throw classifyPdfOpenError(error);
+  }
 
   const metadata = await pdf.getMetadata();
   const info = metadata.info as Record<string, unknown> | undefined;
@@ -305,7 +311,9 @@ export async function extractFigureImages(
   layouts: PageColumnLayout[],
   onProgress?: (done: number, total: number) => void
 ): Promise<Map<string, string>> {
-  const captions = layoutBlocks.filter((b) => b.role === "figure_caption");
+  const captions = layoutBlocks.filter(
+    (b) => b.role === "figure_caption" || b.role === "table_caption"
+  );
   const images = new Map<string, string>();
   if (captions.length === 0 || typeof document === "undefined") {
     return images;

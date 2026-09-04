@@ -1,0 +1,141 @@
+{
+  "max_batch_size": 24,
+  "buckets": false,
+  "budgets": {
+    "none": {
+      "single": {
+        "intro": {
+          "wall_s": 2.9968727080267854,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.553105166996829,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.256069334049243,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.917226900680397
+      },
+      "memory": {
+        "rss_bytes": 86654976,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889371136
+      },
+      "error": null
+    },
+    "512": {
+      "single": {
+        "intro": {
+          "wall_s": 3.1382393750245683,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.985528209013864,
+          "generate_calls": 2,
+          "padding_ratio": 0.311
+        }
+      },
+      "paper25": {
+        "wall_s": 36.75216883298708,
+        "generate_calls": 9,
+        "occupancy": 0.38,
+        "padding_ratio": 0.31,
+        "paragraphs_per_sec": 0.6802319643667161
+      },
+      "memory": {
+        "rss_bytes": 129466368,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7872626688
+      },
+      "error": null
+    },
+    "1024": {
+      "single": {
+        "intro": {
+          "wall_s": 2.938671875046566,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.473780750005972,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 31.502772084029857,
+        "generate_calls": 5,
+        "occupancy": 0.683,
+        "padding_ratio": 0.391,
+        "paragraphs_per_sec": 0.7935809564096615
+      },
+      "memory": {
+        "rss_bytes": 128778240,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    },
+    "2048": {
+      "single": {
+        "intro": {
+          "wall_s": 2.9693106249906123,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.543153332953807,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.079782250046264,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.9231979699525571
+      },
+      "memory": {
+        "rss_bytes": 130924544,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    },
+    "4096": {
+      "single": {
+        "intro": {
+          "wall_s": 3.0212577499914914,
+          "generate_calls": 1,
+          "padding_ratio": 0.319
+        },
+        "long": {
+          "wall_s": 5.916523875028361,
+          "generate_calls": 1,
+          "padding_ratio": 0.356
+        }
+      },
+      "paper25": {
+        "wall_s": 27.379640832950827,
+        "generate_calls": 4,
+        "occupancy": 0.854,
+        "padding_ratio": 0.402,
+        "paragraphs_per_sec": 0.9130872151512309
+      },
+      "memory": {
+        "rss_bytes": 125026304,
+        "mps_current_allocated_bytes": 5889136640,
+        "mps_driver_allocated_bytes": 7889436672
+      },
+      "error": null
+    }
+  }
+}

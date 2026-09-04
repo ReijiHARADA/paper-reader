@@ -522,6 +522,91 @@ export function acknowledgmentGrantPages(): ExtractedPage[] {
   ];
 }
 
+export function tableCaptionPages(): ExtractedPage[] {
+  const left = [
+    colLine("Results", LEFT_X, 80, 1, 12),
+    colLine("TABLE_L1 Body text before the table caption in the left column.", LEFT_X, 110),
+    colLine("TABLE_L2 More left body so column detection has density.", LEFT_X, 140),
+    colLine("TABLE_L3 Left column continues with ordinary discussion.", LEFT_X, 170),
+    colLine("TABLE_L4 Additional left body for the detector sample.", LEFT_X, 200),
+    colLine("TABLE_L5 Left column still going before the table.", LEFT_X, 230),
+    colLine("TABLE_L6 Another left paragraph line about findings.", LEFT_X, 260),
+    colLine("TABLE_L7 Penultimate left body line.", LEFT_X, 290),
+    colLine("TABLE_L8 Last left body line.", LEFT_X, 320),
+  ];
+  const right = [
+    colLine("TABLE_R1 Right column body stays separate from the table.", RIGHT_X, 110),
+    colLine("TABLE_R2 More right-column discussion.", RIGHT_X, 140),
+    colLine("TABLE_R3 Right column continues.", RIGHT_X, 170),
+    colLine("TABLE_R4 Extra right body lines.", RIGHT_X, 200),
+    colLine("TABLE_R5 Right column density line.", RIGHT_X, 230),
+    colLine("TABLE_R6 Right column still main text.", RIGHT_X, 260),
+    colLine("TABLE_R7 Penultimate right main line.", RIGHT_X, 290),
+    colLine("TABLE_R8 Last right main line.", RIGHT_X, 320),
+  ];
+  const table = [
+    item("Table 1. Participant demographics for the jewellery study.", 54, 520, {
+      width: 500,
+      fontSize: 9,
+    }),
+  ];
+  return [page(1, [...left, ...right, ...table])];
+}
+
+export function equationPages(): ExtractedPage[] {
+  const left = [
+    colLine("Method", LEFT_X, 80, 1, 12),
+    colLine("EQ_L1 We model received power with the following relation.", LEFT_X, 110),
+    colLine("EQ_L2 Left column body before the displayed equation.", LEFT_X, 140),
+    colLine("EQ_L3 Additional left body for column detection.", LEFT_X, 170),
+    colLine("EQ_L4 Left column still filling the detector sample.", LEFT_X, 200),
+    colLine("EQ_L5 Another left sentence for density.", LEFT_X, 230),
+    colLine("EQ_L6 Left column ordinary body.", LEFT_X, 260),
+    colLine("P = I × V ± Δ (1)", LEFT_X, 300, 1, 11),
+    colLine("EQ_L8 Left column continues after the equation.", LEFT_X, 340),
+  ];
+  const right = [
+    colLine("EQ_R1 Right column should not absorb the equation.", RIGHT_X, 110),
+    colLine("EQ_R2 More right-column discussion.", RIGHT_X, 140),
+    colLine("EQ_R3 Right column continues.", RIGHT_X, 170),
+    colLine("EQ_R4 Extra right body lines.", RIGHT_X, 200),
+    colLine("EQ_R5 Right column density line.", RIGHT_X, 230),
+    colLine("EQ_R6 Right column still main text.", RIGHT_X, 260),
+    colLine("EQ_R7 Penultimate right main line.", RIGHT_X, 290),
+    colLine("EQ_R8 Last right main line.", RIGHT_X, 320),
+  ];
+  return [page(1, [...left, ...right])];
+}
+
+export function falseCaptionSentencePages(): ExtractedPage[] {
+  const left = [
+    colLine("Related Work", LEFT_X, 80, 1, 12),
+    colLine("FALSECAP_L1 Prior systems treated ornament as an afterthought.", LEFT_X, 110),
+    colLine("FALSECAP_L2 More left body for column detection density.", LEFT_X, 140),
+    colLine("FALSECAP_L3 Left column continues with ordinary discussion.", LEFT_X, 170),
+    colLine("FALSECAP_L4 Additional left body for the detector sample.", LEFT_X, 200),
+    colLine("FALSECAP_L5 Left column still going.", LEFT_X, 230),
+    colLine("FALSECAP_L6 Another left paragraph line.", LEFT_X, 260),
+    colLine("FALSECAP_L7 Penultimate left body line.", LEFT_X, 290),
+    colLine(
+      "Figure 2, the body itself blocks high-frequency RF signals around the torso.",
+      LEFT_X,
+      320
+    ),
+  ];
+  const right = [
+    colLine("FALSECAP_R1 Right column body stays separate.", RIGHT_X, 110),
+    colLine("FALSECAP_R2 More right-column discussion.", RIGHT_X, 140),
+    colLine("FALSECAP_R3 Right column continues.", RIGHT_X, 170),
+    colLine("FALSECAP_R4 Extra right body lines.", RIGHT_X, 200),
+    colLine("FALSECAP_R5 Right column density line.", RIGHT_X, 230),
+    colLine("FALSECAP_R6 Right column still main text.", RIGHT_X, 260),
+    colLine("FALSECAP_R7 Penultimate right main line.", RIGHT_X, 290),
+    colLine("FALSECAP_R8 Last right main line.", RIGHT_X, 320),
+  ];
+  return [page(1, [...left, ...right])];
+}
+
 export const FIXTURES: Record<string, () => ExtractedPage[]> = {
   "single-column": singleColumnPages,
   "basic-two-column": basicTwoColumnPages,
@@ -533,4 +618,8 @@ export const FIXTURES: Record<string, () => ExtractedPage[]> = {
   footnote: footnotePages,
   references: referencesPages,
   "acknowledgment-grant": acknowledgmentGrantPages,
+  "table-caption": tableCaptionPages,
+  equation: equationPages,
+  "false-caption-sentence": falseCaptionSentencePages,
 };
+

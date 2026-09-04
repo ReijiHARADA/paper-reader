@@ -153,6 +153,8 @@ describe("PDF reading order regression", () => {
     const { blocks } = reconstructDocument(FIXTURES["footnote"]());
     const text = joined(bodyBlocks(blocks));
     expect(text).toContain("FOOTNOTE_MARK");
+    const note = blocks.find((b) => b.role === "footnote");
+    expect(note?.text).toContain("FOOTNOTE_MARK");
     const mixed = blocks.find(
       (b) =>
         b.role === "paragraph" &&
@@ -160,6 +162,32 @@ describe("PDF reading order regression", () => {
         /FOOT_L1/.test(b.text)
     );
     expect(mixed).toBeUndefined();
+  });
+
+  it("table caption stays a table_caption block", () => {
+    const { blocks } = reconstructDocument(FIXTURES["table-caption"]());
+    const caption = blocks.find((b) => b.role === "table_caption");
+    expect(caption?.text).toContain("Table 1");
+    expect(
+      blocks.some((b) => b.role === "paragraph" && /Table 1/.test(b.text) && /TABLE_L1/.test(b.text))
+    ).toBe(false);
+  });
+
+  it("displayed equation is not absorbed into a paragraph", () => {
+    const { blocks } = reconstructDocument(FIXTURES["equation"]());
+    const equation = blocks.find((b) => b.role === "equation");
+    expect(equation?.text).toMatch(/P = I/);
+    expect(
+      blocks.some((b) => b.role === "paragraph" && /P = I/.test(b.text) && /EQ_L1/.test(b.text))
+    ).toBe(false);
+  });
+
+  it("does not treat a sentence starting with Figure N, as a caption", () => {
+    const { blocks } = reconstructDocument(FIXTURES["false-caption-sentence"]());
+    expect(blocks.some((b) => b.role === "figure_caption")).toBe(false);
+    expect(
+      joined(bodyBlocks(blocks))
+    ).toMatch(/Figure 2, the body itself blocks/);
   });
 
   it("references heading is not absorbed into a paragraph", () => {

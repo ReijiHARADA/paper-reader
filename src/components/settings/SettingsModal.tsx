@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: TranslationSettings = {
   ollamaServerUrl: "http://localhost:11434",
   ollamaModel: "gemma2:9b",
   generateGlossary: true,
-  translationConcurrency: 1,
+  translationConcurrency: 8,
   useCache: true,
 };
 
@@ -55,7 +55,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     async function loadSettings() {
       const saved = await getSetting<TranslationSettings>("translationSettingsV2");
       if (saved) {
-        setSettings({ ...DEFAULT_SETTINGS, ...saved });
+        const merged = { ...DEFAULT_SETTINGS, ...saved };
+        const previous = saved.translationConcurrency ?? 1;
+        if (previous <= 3) {
+          merged.translationConcurrency = 8;
+        }
+        setSettings(merged);
       }
     }
     loadSettings();
@@ -298,12 +303,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   }))
                 }
               >
-                <option value={1}>1（安定）</option>
+                <option value={1}>1（逐次）</option>
                 <option value={2}>2</option>
-                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={8}>8（推奨）</option>
               </select>
               <p className={styles.hint}>
-                並列数を上げると翻訳速度が向上しますが、メモリ使用量が増加します。
+                複数段落をサーバー側で1回の generate にまとめます。MPS 上の generate 自体は1本のままです。
               </p>
             </div>
 

@@ -45,10 +45,9 @@ class MADLADEngine(TranslationEngine):
         # happened with two /translate requests on Metal at once.
         self._lock = threading.Lock()
         # Independent sentence chunks in one generate() call. 1 disables batching.
-        # Independent sentence chunks in one generate() call. 4 and 8 produce
-        # the same wording on the intro paragraph; 8 is faster. 1 restores
-        # one generate() per chunk (bit-closer to unpadded greedy).
-        self._batch_size = max(1, int(os.environ.get("MADLAD_BATCH_SIZE", "8")))
+        # Sweep 2026-09-04: 24 is slightly faster than 8 on long paragraphs and
+        # matches 12/32 quality. 1 restores one generate() per chunk.
+        self._batch_size = max(1, int(os.environ.get("MADLAD_BATCH_SIZE", "24")))
         
         # Enable MPS fallback for unsupported operations
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")

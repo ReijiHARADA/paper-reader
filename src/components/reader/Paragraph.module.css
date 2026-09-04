@@ -228,10 +228,41 @@
   background-color: #7a5a2b;
 }
 
-.confidence {
-  position: absolute;
-  top: 2px;
-  right: 32px;
+.citation {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+
+.citation:hover {
+  text-decoration: underline;
+}
+
+.confidenceBanner {
+  margin-top: var(--spacing-xs);
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.confidenceBanner p {
+  margin: 0;
+}
+
+.confidenceBanner button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .confidenceButton {

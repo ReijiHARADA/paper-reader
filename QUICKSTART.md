@@ -92,6 +92,21 @@ open "src-tauri/target/release/bundle/macos/Paper Reader.app"
 
 `beforeBuildCommand` が `scripts/bundle-python.sh` で `.venv` を `translation-server/venv/` にコピーしてからフロントをビルドします。
 
+### テストと実論文 PDF
+
+```bash
+npm test
+npm run lint
+```
+
+実論文の読み順テスト用 PDF はリポジトリに入れません。カタログは `test-fixtures/real-papers/catalog.json`、キャッシュは gitignore の `test-data/real-papers/` です。
+
+```bash
+npm run fetch:real-papers
+```
+
+jewelry-first-computing 側のディレクトリやデータは変更しません。
+
 ---
 
 ## トラブルシューティング
@@ -145,4 +160,4 @@ curl http://127.0.0.1:8765/health
 
 ## 速度
 
-複数文の段落は文バッチ（既定 8）で、逐次よりおおよそ 3 倍速いです。詳細は `translation-server/SPEED_BENCH.md` です。
+複数文の段落は文バッチ（既定 24）で、論文全体は micro-batch 合流込みで段落ごとよりおおよそ 2 倍速いです。詳細は `translation-server/MPS_BATCH_OPTIMIZATION_REPORT.md` と `translation-server/SPEED_BENCH.md` です。
