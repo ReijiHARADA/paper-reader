@@ -62,3 +62,26 @@ export function reconcileBlockIds(
 
   return { blocks, matches };
 }
+
+export function remapIds(matches: ReconcileMatch[]): Map<string, string> {
+  return new Map(matches.map((match) => [match.nextId, match.previousId]));
+}
+
+export function remapAnnotationBlockIds<T extends { blockId: string }>(
+  annotations: T[],
+  matches: ReconcileMatch[]
+): T[] {
+  const nextToPrev = remapIds(matches);
+  return annotations.map((annotation) => {
+    const mapped = nextToPrev.get(annotation.blockId);
+    return mapped ? { ...annotation, blockId: mapped } : annotation;
+  });
+}
+
+export function remapReadingBlockId(
+  blockId: string | null | undefined,
+  matches: ReconcileMatch[]
+): string | null {
+  if (!blockId) return null;
+  return remapIds(matches).get(blockId) ?? blockId;
+}

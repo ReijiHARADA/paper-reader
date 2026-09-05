@@ -43,7 +43,7 @@ export async function getStorage(): Promise<StorageRuntime> {
 export async function resetStorageForTests(): Promise<void> {
   if (runtime) {
     try {
-      runtime.db.close();
+      await runtime.db.close();
     } catch {
       // ignore
     }

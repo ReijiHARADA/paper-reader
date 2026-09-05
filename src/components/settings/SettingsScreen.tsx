@@ -4,7 +4,7 @@ import { getSetting, saveSetting, clearTranslationCache } from "../../services/d
 import { checkMADLADServer } from "../../services/translation/madladEngine";
 import { checkOllamaAvailability } from "../../services/llm/ollamaProvider";
 import { addSamplePaper } from "../../services/samplePaper";
-import { useAppStore } from "../../stores/appStore";
+import { useLibraryCache } from "../../stores/libraryCache";
 import { samplePaper } from "../../data/samplePaper";
 import {
   mergeTranslationSettingsV2,
@@ -27,7 +27,7 @@ import styles from "./SettingsScreen.module.css";
 const IDLE_STATUS: ServiceStatus = { checking: false, available: false };
 
 export function SettingsScreen() {
-  const sampleAlreadyAdded = useAppStore((state) =>
+  const sampleAlreadyAdded = useLibraryCache((state) =>
     state.papers.some((paper) => paper.id === samplePaper.id)
   );
   const [settings, setSettings] = useState<TranslationSettingsV2>(

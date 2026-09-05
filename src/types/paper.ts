@@ -71,6 +71,17 @@ export type ProcessingStatus =
   | "partial"
   | "failed";
 
+export type PaperAuthor = {
+  id: string;
+  name: string;
+  affiliationIds: string[];
+};
+
+export type PaperAffiliation = {
+  id: string;
+  name: string;
+};
+
 export type Paper = {
   id: string;
   sourceFilePath: string;
@@ -80,6 +91,9 @@ export type Paper = {
   titleOriginal: string | null;
   titleTranslated: string | null;
   authors: string[];
+  authorsStructured?: PaperAuthor[];
+  affiliations?: PaperAffiliation[];
+  doi?: string | null;
   publication: string | null;
   year: number | null;
   pageCount: number;
@@ -88,6 +102,7 @@ export type Paper = {
   lastReadOffset: number | null;
   favorite?: boolean;
   lastOpenedAt?: string;
+  packageRevision?: number;
   createdAt: string;
   updatedAt: string;
 };

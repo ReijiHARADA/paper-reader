@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { Project, ProjectPaper, WorkspaceNode } from "../types/project";
 
+/** Query cache + Library search UI. SQLite remains the authority for memberships. */
+
 type ProjectState = {
   projects: Project[];
   workspaceNodes: WorkspaceNode[];
@@ -12,6 +14,8 @@ type ProjectState = {
   setSearchQuery: (query: string) => void;
   setProjects: (projects: Project[]) => void;
   setWorkspaceNodes: (nodes: WorkspaceNode[]) => void;
+  mergeProjects: (projects: Project[]) => void;
+  mergeWorkspaceNodes: (nodes: WorkspaceNode[]) => void;
   upsertProject: (project: Project) => void;
   upsertWorkspaceNode: (node: WorkspaceNode) => void;
   removeProjectLocal: (projectId: string) => void;
@@ -33,6 +37,32 @@ export const useProjectStore = create<ProjectState>()((set) => ({
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setProjects: (projects) => set({ projects }),
   setWorkspaceNodes: (workspaceNodes) => set({ workspaceNodes }),
+  mergeProjects: (persistedProjects) =>
+    set((state) => {
+      const currentById = new Map(state.projects.map((project) => [project.id, project]));
+      const projects = persistedProjects.map(
+        (project) => currentById.get(project.id) ?? project
+      );
+      const persistedIds = new Set(persistedProjects.map((project) => project.id));
+      return {
+        projects: [
+          ...state.projects.filter((project) => !persistedIds.has(project.id)),
+          ...projects,
+        ],
+      };
+    }),
+  mergeWorkspaceNodes: (persistedNodes) =>
+    set((state) => {
+      const currentById = new Map(state.workspaceNodes.map((node) => [node.id, node]));
+      const workspaceNodes = persistedNodes.map((node) => currentById.get(node.id) ?? node);
+      const persistedIds = new Set(persistedNodes.map((node) => node.id));
+      return {
+        workspaceNodes: [
+          ...workspaceNodes,
+          ...state.workspaceNodes.filter((node) => !persistedIds.has(node.id)),
+        ],
+      };
+    }),
   upsertWorkspaceNode: (node) =>
     set((state) => {
       const exists = state.workspaceNodes.some((item) => item.id === node.id);

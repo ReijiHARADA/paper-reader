@@ -74,3 +74,54 @@ export function uniqueCitationTarget(
   if (keys.length !== 1) return null;
   return index.get(keys[0]) ?? null;
 }
+
+export type ReferenceLink = {
+  start: number;
+  end: number;
+  href: string;
+};
+
+const URL_RE = /https?:\/\/[^\s<>"'）)]+/gi;
+const DOI_RE = /\b(?:doi:\s*)?(10\.\d{4,9}\/[-._;()/:A-Z0-9]+)/gi;
+
+function stripTrailingPunctuation(value: string): string {
+  return value.replace(/[.,;:]+$/g, "");
+}
+
+export function normalizeReferenceHref(raw: string): string | null {
+  const trimmed = stripTrailingPunctuation(raw.trim());
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const doi = trimmed.match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i)?.[0];
+  if (doi) return `https://doi.org/${stripTrailingPunctuation(doi)}`;
+  return null;
+}
+
+export function parseReferenceLinks(text: string): ReferenceLink[] {
+  const covered: Array<{ start: number; end: number }> = [];
+  const links: ReferenceLink[] = [];
+
+  const overlaps = (start: number, end: number) =>
+    covered.some((span) => start < span.end && end > span.start);
+
+  const add = (start: number, end: number, raw: string) => {
+    const href = normalizeReferenceHref(raw);
+    if (!href || overlaps(start, end)) return;
+    covered.push({ start, end });
+    links.push({ start, end, href });
+  };
+
+  const urlRe = new RegExp(URL_RE.source, "gi");
+  let match: RegExpExecArray | null;
+  while ((match = urlRe.exec(text)) !== null) {
+    const raw = stripTrailingPunctuation(match[0]);
+    add(match.index, match.index + raw.length, raw);
+  }
+
+  const doiRe = new RegExp(DOI_RE.source, "gi");
+  while ((match = doiRe.exec(text)) !== null) {
+    const raw = stripTrailingPunctuation(match[0]);
+    add(match.index, match.index + raw.length, raw);
+  }
+
+  return links.sort((a, b) => a.start - b.start);
+}

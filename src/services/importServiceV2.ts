@@ -10,15 +10,13 @@ import { computeFileHash } from "./pdfService";
 import { classifyPdfOpenError } from "./pdfOpenError";
 import { extractAcademicPdf } from "./pdfExtraction/pipeline/extractAcademicPdf";
 import { applyGlossary } from "./llm/glossaryService";
+import { assignBlockTranslation, reapplyGlossary } from "./glossary/apply";
 import {
   savePaper,
   saveSections,
   saveBlocks,
   updateBlock,
-  getPaperByHash,
-  getPaper,
   getBlocksByPaper,
-  getSectionsByPaper,
   saveGlossary,
   getGlossary,
   saveBenchmark,
@@ -28,7 +26,7 @@ import {
   type BenchmarkEntry,
 } from "./database";
 import type { Paper, Section, PaperBlock } from "../types/paper";
-import { persistSourcePdf } from "./sourcePdf";
+import { rememberSourcePdf } from "../data/repositories/documentRepository";
 import {
   MADLADEngine,
   TranslationQueue,
@@ -39,217 +37,41 @@ import {
 import {
   isPlausibleJaTranslation,
   titleTranslationComplete,
-  isReferencesHeading,
-  looksLikeBibliographyEntry,
-  shouldTranslateHeading,
-  shouldTranslateParagraph,
   shouldTranslateTitle,
-  shouldTranslateCaption,
 } from "./translation/quality";
 import { OllamaProvider, generateGlossary } from "./llm";
 import type { GlossaryEntry } from "./llm/types";
 import { resolveMadladServerUrl, MADLAD_MODEL_VERSION } from "./translation/madladEngine";
 import { finalizedTranslationStatus } from "./paperStatus";
-import { isJapaneseSourcePaper } from "./sourceLanguage";
+import {
+  isRetryableTranslationFailure,
+  referenceSectionIds,
+  shouldTranslateBlock,
+  shouldTranslateSection,
+} from "./import/policy";
+import {
+  DEFAULT_IMPORT_CONFIG,
+  finalizeJapaneseLayoutOnly,
+  isJapaneseLayoutOnlyPaper,
+  persistUntranslatableAsSkipped,
+  resolveImportConfig,
+  usableCachedJa,
+} from "./import/helpers";
+import { activeImportPaperIds } from "./import/session";
+import type { ImportCallbacks, ImportConfig } from "./import/types";
 
-// ============================================================
-// Types
-// ============================================================
+export {
+  isRetryableTranslationFailure,
+  shouldTranslateBlock,
+} from "./import/policy";
 
-export type ImportStage =
-  | "idle"
-  | "reading"
-  | "extracting"
-  | "structuring"
-  | "glossary"
-  | "translating"
-  | "saving"
-  | "completed"
-  | "failed";
-
-export type ImportProgress = {
-  stage: ImportStage;
-  stageProgress: number;
-  stageTotal: number;
-  message: string;
-  paper?: Paper;
-  sections?: Section[];
-  blocks?: PaperBlock[];
-  error?: string;
-};
-
-export type ImportCallbacks = {
-  onProgress: (progress: ImportProgress) => void;
-  onStageChange: (stage: ImportStage) => void;
-  onPartialReady: (paper: Paper, sections: Section[], blocks: PaperBlock[]) => void;
-  onBlockTranslated?: (block: PaperBlock) => void;
-  onPaperUpdated?: (paper: Paper) => void;
-  onSectionTranslated?: (section: Section) => void;
-};
-
-export type ImportConfig = {
-  /** MADLAD server URL */
-  madladServerUrl?: string;
-  /** Ollama server URL */
-  ollamaServerUrl?: string;
-  /** Ollama model for LLM tasks */
-  ollamaModel?: string;
-  /** Whether to generate glossary */
-  generateGlossary?: boolean;
-  /** Translation concurrency */
-  translationConcurrency?: number;
-  /** Whether to use translation cache */
-  useCache?: boolean;
-};
-
-const DEFAULT_CONFIG: Required<ImportConfig> = {
-  madladServerUrl: "http://127.0.0.1:8765",
-  ollamaServerUrl: "http://localhost:11434",
-  ollamaModel: "gemma2:9b",
-  generateGlossary: true,
-  translationConcurrency: 8,
-  useCache: true,
-};
-
-const activeImportPaperIds = new Set<string>();
-const resumingPapers = new Set<string>();
-
-function usableCachedJa(cached: string | null | undefined, source: string): string | null {
-  if (!cached) return null;
-  return isPlausibleJaTranslation(cached, source) ? cached : null;
-}
-
-function assignBlockTranslation(block: PaperBlock, translated: string): void {
-  block.translated = translated;
-  block.translationStatus = "completed";
-  if (block.type === "figure" || block.type === "table") {
-    block.metadata = { ...block.metadata, captionTranslated: translated };
-  }
-}
-
-function asSectionIdSet(value: unknown): Set<string> {
-  if (value instanceof Set) {
-    return value as Set<string>;
-  }
-  if (Array.isArray(value)) {
-    return new Set(value.filter((id): id is string => typeof id === "string"));
-  }
-  return new Set();
-}
-
-function referenceSectionIds(sections: Section[]): Set<string> {
-  return new Set(
-    sections
-      .filter(
-        (s) =>
-          s.normalizedKind === "references" || isReferencesHeading(s.originalTitle)
-      )
-      .map((s) => s.id)
-  );
-}
-
-function shouldTranslateSection(section: Section): boolean {
-  if (section.normalizedKind === "references") return false;
-  if (isReferencesHeading(section.originalTitle)) return false;
-  return shouldTranslateHeading(section.originalTitle);
-}
-
-export function shouldTranslateBlock(
-  block: PaperBlock,
-  refSectionIds: Set<string> = new Set()
-): boolean {
-  const ids = asSectionIdSet(refSectionIds);
-  if (!block.original) return false;
-  if (block.translationStatus === "skipped") return false;
-  if (block.type === "reference") return false;
-  if (block.sectionId && ids.has(block.sectionId)) return false;
-  if (isReferencesHeading(block.original)) return false;
-  if (looksLikeBibliographyEntry(block.original)) return false;
-  const role = String(block.metadata?.role ?? "");
-  if (role === "author" || role === "affiliation" || role === "copyright") {
-    return false;
-  }
-  if (block.type === "heading") return false;
-  if (block.type === "paragraph" || block.type === "footnote") {
-    return shouldTranslateParagraph(block.original);
-  }
-  if (block.type === "figure" || block.type === "table") {
-    const caption = String(block.metadata.captionOriginal ?? block.original ?? "");
-    return shouldTranslateCaption(caption);
-  }
-  return false;
-}
-
-export function isRetryableTranslationFailure(
-  block: PaperBlock,
-  refSectionIds: Set<string> = new Set()
-): boolean {
-  if (block.type !== "paragraph") return false;
-  if (block.translationStatus !== "failed") return false;
-  return shouldTranslateBlock(block, asSectionIdSet(refSectionIds));
-}
-
-async function persistUntranslatableAsSkipped(
-  blocks: PaperBlock[],
-  refSectionIds: Set<string>
-): Promise<PaperBlock[]> {
-  const changed: PaperBlock[] = [];
-  for (const block of blocks) {
-    if (
-      block.translationStatus === "skipped" ||
-      block.translationStatus === "completed"
-    ) {
-      continue;
-    }
-    if (shouldTranslateBlock(block, refSectionIds)) continue;
-    block.translationStatus = "skipped";
-    changed.push(block);
-  }
-  if (changed.length > 0) {
-    await saveBlocks(blocks);
-  }
-  return changed;
-}
-
-function isJapaneseLayoutOnlyPaper(
-  title: string | null,
-  blocks: PaperBlock[]
-): boolean {
-  return isJapaneseSourcePaper({
-    title,
-    paragraphs: blocks
-      .filter((block) => block.type === "paragraph")
-      .map((block) => block.original),
-  });
-}
-
-async function finalizeJapaneseLayoutOnly(
-  paper: Paper,
-  sections: Section[],
-  blocks: PaperBlock[]
-): Promise<void> {
-  for (const block of blocks) {
-    if (block.translationStatus === "completed") continue;
-    block.translationStatus = "skipped";
-  }
-  paper.processingStatus = "ready";
-  paper.updatedAt = new Date().toISOString();
-  await saveBlocks(blocks);
-  await saveSections(sections);
-  await savePaper(paper);
-}
-
-function resolveConfig(config: ImportConfig): Required<ImportConfig> {
-  const merged = { ...DEFAULT_CONFIG, ...config };
-  merged.madladServerUrl = resolveMadladServerUrl(merged.madladServerUrl);
-  if (!merged.ollamaServerUrl?.trim()) {
-    merged.ollamaServerUrl = DEFAULT_CONFIG.ollamaServerUrl;
-  }
-  if (merged.translationConcurrency <= 3) {
-    merged.translationConcurrency = 8;
-  }
-  return merged;
-}
+export type {
+  ImportCallbacks,
+  ImportConfig,
+  ImportProgress,
+  ImportStage,
+} from "./import/types";
+export { resumeIncompleteTranslation } from "./import/resume";
 
 // ============================================================
 // Import Service
@@ -263,7 +85,7 @@ export async function importPDFV2(
   callbacks: ImportCallbacks,
   config: ImportConfig = {}
 ): Promise<{ paper: Paper; sections: Section[]; blocks: PaperBlock[] } | null> {
-  const cfg = resolveConfig(config);
+  const cfg = resolveImportConfig(config);
   const paperId = uuidv4();
   activeImportPaperIds.add(paperId);
 
@@ -282,8 +104,8 @@ export async function importPDFV2(
 
     const fileHash = await computeFileHash(file);
 
-    // Check for duplicate
-    const existingPaper = await getPaperByHash(fileHash);
+    const { findDuplicatePaper } = await import("./import/duplicate");
+    const existingPaper = await findDuplicatePaper(fileHash);
     if (existingPaper) {
       callbacks.onProgress({
         stage: "completed",
@@ -297,12 +119,14 @@ export async function importPDFV2(
 
     // Stage 2–3: native extract, classify, resolve Canonical, project, figures
     callbacks.onStageChange("extracting");
+    const previousBlocks = await getBlocksByPaper(paperId);
     const extracted = await extractAcademicPdf({
       paperId,
       filePath: file.name,
       fileHash,
       file,
       extractFigures: true,
+      previousBlocks: previousBlocks.length ? previousBlocks : undefined,
       onProgress: (progress) => {
         const stage =
           progress.stage === "figures" || progress.stage === "structuring"
@@ -324,12 +148,9 @@ export async function importPDFV2(
     const { attachLinesToBlocks, layoutFileFromNative } = await import("../data/package/layoutFromExtraction");
     const blocks = attachLinesToBlocks(extractedBlocks, extracted.layoutBlocks);
     paper.sourceFileName = file.name;
-    try {
-      paper.sourceStoredPath = await persistSourcePdf(paperId, file);
-    } catch (e) {
-      console.warn("Failed to persist source PDF copy:", e);
-      paper.sourceStoredPath = null;
-    }
+    const sourcePdf = new Uint8Array(await file.arrayBuffer());
+    rememberSourcePdf(paperId, sourcePdf);
+    paper.sourceStoredPath = `papers/${paperId}/source.pdf`;
 
     const preview = blocks
       .filter((b) => b.pageStart === 3 && (b.original || (b.metadata as { captionOriginal?: string }).captionOriginal))
@@ -411,25 +232,20 @@ export async function importPDFV2(
           );
           await saveGlossary(paperId, glossary);
           glossaryEntries = glossary;
-          if (paper.titleTranslated) {
-            paper.titleTranslated = applyGlossary(paper.titleTranslated, glossary);
-            await savePaper(paper);
-            callbacks.onPaperUpdated?.(paper);
+          const updated = await reapplyGlossary(paperId);
+          if (updated.paper) {
+            Object.assign(paper, updated.paper);
+            callbacks.onPaperUpdated?.(updated.paper);
           }
-          for (const section of sections) {
-            if (!section.translatedTitle) continue;
-            section.translatedTitle = applyGlossary(section.translatedTitle, glossary);
+          for (const section of updated.sections) {
+            const local = sections.find((item) => item.id === section.id);
+            if (local) Object.assign(local, section);
+            callbacks.onSectionTranslated?.(section);
           }
-          await saveSections(sections);
-          let glossaryTouched = false;
-          for (const block of blocks) {
-            if (!block.translated) continue;
-            assignBlockTranslation(block, applyGlossary(block.translated, glossary));
-            glossaryTouched = true;
-            callbacks.onBlockTranslated?.(block);
-          }
-          if (glossaryTouched) {
-            await saveBlocks(blocks);
+          for (const block of updated.blocks) {
+            const local = blocks.find((item) => item.id === block.id);
+            if (local) Object.assign(local, block);
+            if (block.translated) callbacks.onBlockTranslated?.(block);
           }
         } catch (e) {
           console.error("Failed to generate glossary:", e);
@@ -734,185 +550,10 @@ export async function importPDFV2(
 }
 
 /**
- * Resume translation for a paper that was left pending (server crash, reload, etc).
- */
-export async function resumeIncompleteTranslation(
-  paperId: string,
-  callbacks: Pick<
-    ImportCallbacks,
-    "onBlockTranslated" | "onPaperUpdated" | "onSectionTranslated"
-  > = {},
-  config: ImportConfig = {}
-): Promise<void> {
-  if (activeImportPaperIds.has(paperId) || resumingPapers.has(paperId)) return;
-  resumingPapers.add(paperId);
-
-  try {
-    const paper = await getPaper(paperId);
-    if (!paper) return;
-
-    const blocks = await getBlocksByPaper(paperId);
-    const sections = await getSectionsByPaper(paperId);
-    const refSectionIds = referenceSectionIds(sections);
-
-    if (isJapaneseLayoutOnlyPaper(paper.titleOriginal, blocks)) {
-      await finalizeJapaneseLayoutOnly(paper, sections, blocks);
-      callbacks.onPaperUpdated?.(paper);
-      for (const block of blocks) {
-        callbacks.onBlockTranslated?.(block);
-      }
-      return;
-    }
-
-    const skipped = await persistUntranslatableAsSkipped(blocks, refSectionIds);
-    for (const block of skipped) {
-      callbacks.onBlockTranslated?.(block);
-    }
-    const pendingBlocks = blocks.filter(
-      (b) =>
-        shouldTranslateBlock(b, refSectionIds) &&
-        b.translationStatus !== "failed" &&
-        (!b.translated || !isPlausibleJaTranslation(b.translated, b.original || ""))
-    );
-    const pendingTitle = Boolean(
-      paper.titleOriginal &&
-        shouldTranslateTitle(paper.titleOriginal) &&
-        (!paper.titleTranslated ||
-          !titleTranslationComplete(paper.titleOriginal, paper.titleTranslated))
-    );
-    const pendingSections = sections.filter(
-      (s) =>
-        s.originalTitle &&
-        shouldTranslateSection(s) &&
-        (!s.translatedTitle ||
-          !isPlausibleJaTranslation(s.translatedTitle, s.originalTitle))
-    );
-
-    if (!pendingBlocks.length && !pendingTitle && pendingSections.length === 0) {
-      const nextStatus = finalizedTranslationStatus(blocks, (block) =>
-        isRetryableTranslationFailure(block, refSectionIds)
-      );
-      if (paper.processingStatus !== nextStatus) {
-        paper.processingStatus = nextStatus;
-        await savePaper(paper);
-        callbacks.onPaperUpdated?.(paper);
-      }
-      return;
-    }
-
-    const cfg = resolveConfig(config);
-    const translationEngine = new MADLADEngine(cfg.madladServerUrl);
-    const queue = new TranslationQueue(translationEngine, {
-      concurrency: 8,
-      retryFailed: false,
-    });
-    queue.start();
-    translationManager.attach(paperId, queue);
-
-    paper.processingStatus = "translating";
-    await savePaper(paper);
-    callbacks.onPaperUpdated?.(paper);
-
-    const glossaryEntries = await getGlossary(paperId);
-
-    let outstanding = 0;
-    let settleAll: () => void = () => {};
-    const allDone = new Promise<void>((resolve) => {
-      settleAll = resolve;
-    });
-    const markDone = () => {
-      outstanding = Math.max(0, outstanding - 1);
-      if (outstanding === 0) settleAll();
-    };
-
-    queue.setOnTaskCompleted(async (task) => {
-      if (!task.result) {
-        markDone();
-        return;
-      }
-      const translated = applyGlossary(task.result.text, glossaryEntries);
-      if (!isPlausibleJaTranslation(translated, task.text)) {
-        const block = blocks.find((b) => b.id === task.blockId);
-        if (block) {
-          block.translationStatus = "failed";
-          void updateBlock(block);
-          callbacks.onBlockTranslated?.(block);
-        }
-        markDone();
-        return;
-      }
-      if (task.blockId === `title-${paperId}`) {
-        paper.titleTranslated = translated;
-        await savePaper(paper);
-        callbacks.onPaperUpdated?.(paper);
-      } else if (task.blockId.startsWith("section-")) {
-        const sectionId = task.blockId.slice("section-".length);
-        const section = sections.find((s) => s.id === sectionId);
-        if (section) {
-          section.translatedTitle = translated;
-          await saveSections(sections);
-          callbacks.onSectionTranslated?.(section);
-        }
-      } else {
-        const block = blocks.find((b) => b.id === task.blockId);
-        if (block) {
-          assignBlockTranslation(block, translated);
-          await updateBlock(block);
-          callbacks.onBlockTranslated?.(block);
-        }
-      }
-      markDone();
-    });
-
-    queue.setOnTaskFailed((task) => {
-      const block = blocks.find((b) => b.id === task.blockId);
-      if (block) {
-        block.translationStatus = "failed";
-        void updateBlock(block);
-        callbacks.onBlockTranslated?.(block);
-      }
-      markDone();
-    });
-
-    const enqueue = (
-      blockId: string,
-      text: string,
-      priority: TranslationPriorityValue
-    ) => {
-      outstanding += 1;
-      queue.enqueue(paperId, blockId, text, priority, "en", "ja");
-    };
-
-    if (pendingTitle && paper.titleOriginal) {
-      enqueue(`title-${paperId}`, paper.titleOriginal, TranslationPriority.CRITICAL);
-    }
-    for (const section of pendingSections) {
-      enqueue(`section-${section.id}`, section.originalTitle, TranslationPriority.HIGH);
-    }
-    for (const block of pendingBlocks) {
-      enqueue(block.id, block.original!, TranslationPriority.MEDIUM);
-    }
-
-    if (outstanding === 0) settleAll();
-    await allDone;
-
-    paper.processingStatus = finalizedTranslationStatus(blocks, (block) =>
-      isRetryableTranslationFailure(block, refSectionIds)
-    );
-    paper.updatedAt = new Date().toISOString();
-    await savePaper(paper);
-    callbacks.onPaperUpdated?.(paper);
-  } finally {
-    translationManager.detach(paperId);
-    resumingPapers.delete(paperId);
-  }
-}
-
-/**
  * Check if MADLAD server is available.
  */
 export async function checkMADLADAvailability(
-  serverUrl: string = DEFAULT_CONFIG.madladServerUrl
+  serverUrl: string = DEFAULT_IMPORT_CONFIG.madladServerUrl
 ): Promise<{ available: boolean; modelLoaded: boolean; error?: string }> {
   const resolved = resolveMadladServerUrl(serverUrl);
   try {

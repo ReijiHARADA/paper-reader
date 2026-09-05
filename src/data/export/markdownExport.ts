@@ -5,6 +5,7 @@ import type { FileSystem } from "../fs/types";
 import type { Annotation } from "../../types/annotation";
 import type { DocumentNode } from "../types/document";
 import type { StructureFile } from "../types/structure";
+import type { TranslationFile } from "../types/translation";
 
 export type MarkdownExportVariant = "clean" | "verification";
 
@@ -71,15 +72,24 @@ function serializeNodeBody(node: DocumentNode): string {
     .trim();
 }
 
+function blockTranslationStatus(
+  id: string | undefined,
+  structure: StructureFile,
+  translation?: TranslationFile
+): string | undefined {
+  if (!id) return undefined;
+  return translation?.blocks[id]?.status ?? structure.blocks[id]?.translationStatus;
+}
+
 export function applyFailedTranslationPolicy(
   nodes: DocumentNode[],
   originals: Map<string, DocumentNode>,
   structure: StructureFile,
-  options: { includeFailed: boolean; includeComments: boolean }
+  options: { includeFailed: boolean; includeComments: boolean; translation?: TranslationFile }
 ): string {
   const parts: string[] = [];
   for (const node of nodes) {
-    const status = node.id ? structure.blocks[node.id]?.translationStatus : undefined;
+    const status = blockTranslationStatus(node.id, structure, options.translation);
     const page = node.id ? structure.blocks[node.id]?.pageStart : undefined;
     if (status === "failed") {
       if (!options.includeFailed) continue;
@@ -130,6 +140,7 @@ export async function exportPaperMarkdown(
   const body = applyFailedTranslationPolicy(parsed.nodes, originals, pkg.structure, {
     includeFailed,
     includeComments,
+    translation: pkg.translation,
   });
   const front = serializePaperMarkdown([], parsed.frontMatter, { includeBlockComments: false });
   const markdown = appendNotes(`${front}${body}`, options);

@@ -1,5 +1,6 @@
 import type { StructureFile } from "./structure";
 import type { LayoutFile } from "./layout";
+import type { TranslationFile } from "./translation";
 
 export type PaperJsonAuthor = {
   id: string;
@@ -43,6 +44,7 @@ export type PaperPackage = {
   originalMarkdown: string;
   translatedMarkdown: string;
   structure: StructureFile;
+  translation?: TranslationFile;
   layout?: LayoutFile;
   assets: PaperAsset[];
   sourcePdf?: Uint8Array;

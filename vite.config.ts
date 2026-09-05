@@ -24,6 +24,9 @@ export default defineConfig({
     target: ["es2020", "safari15"],
   },
   server: {
+    watch: {
+      ignored: ["**/src-tauri/target/**", "**/translation-server/**"],
+    },
     proxy: {
       "/api/madlad": {
         target: "http://127.0.0.1:8765",

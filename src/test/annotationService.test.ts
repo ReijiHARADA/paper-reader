@@ -1,13 +1,36 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it } from "vitest";
-import type { PaperBlock } from "../types/paper";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { Paper, PaperBlock } from "../types/paper";
 import {
   createAnnotation,
   deleteAnnotation,
   listAnnotationsForPaper,
   updateAnnotationNote,
 } from "../services/annotationService";
-import { computeTextHash, getAnnotation } from "../services/database";
+import { computeTextHash, getAnnotation, savePaper } from "../services/database";
+import { resetStorageForTests } from "../data/runtime";
+
+const now = "2026-09-05T00:00:00.000Z";
+
+async function seedPaper(id: string): Promise<void> {
+  const paper: Paper = {
+    id,
+    sourceFilePath: `${id}.pdf`,
+    sourceFileHash: `hash-${id}`,
+    titleOriginal: id,
+    titleTranslated: null,
+    authors: [],
+    publication: null,
+    year: null,
+    pageCount: 1,
+    processingStatus: "ready",
+    lastReadBlockId: null,
+    lastReadOffset: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await savePaper(paper);
+}
 
 function block(partial: Partial<PaperBlock> & { id: string; translated: string }): PaperBlock {
   return {
@@ -28,7 +51,12 @@ function block(partial: Partial<PaperBlock> & { id: string; translated: string }
 }
 
 describe("annotationService", () => {
+  beforeEach(async () => {
+    await resetStorageForTests();
+  });
+
   it("saves, reads, edits, and deletes an annotation", async () => {
+    await seedPaper("paper-crud");
     const translated = "選択した日本語の文章をここに置きます";
     const selectedText = "日本語の文章";
     const startOffset = translated.indexOf(selectedText);
@@ -68,6 +96,7 @@ describe("annotationService", () => {
   });
 
   it("re-anchors after translation changes and keeps orphaned notes", async () => {
+    await seedPaper("paper-reanchor");
     const original = "これは元の翻訳文の引用部分です";
     const selectedText = "引用部分";
     const startOffset = original.indexOf(selectedText);
@@ -105,6 +134,7 @@ describe("annotationService", () => {
   });
 
   it("allows empty notes as highlight-only annotations", async () => {
+    await seedPaper("paper-hl");
     const translated = "ハイライトだけ残したい文章";
     const selectedText = "ハイライトだけ";
     const startOffset = translated.indexOf(selectedText);

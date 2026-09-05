@@ -126,9 +126,34 @@ pub fn read_dropped_pdf(path: String) -> Result<Vec<u8>, String> {
     fs::read(&file_path).map_err(|e| e.to_string())
 }
 
+fn is_safe_external_url(url: &str) -> bool {
+    let trimmed = url.trim();
+    (trimmed.starts_with("https://") || trimmed.starts_with("http://"))
+        && !trimmed.chars().any(|ch| ch.is_whitespace() || ch == '<' || ch == '>')
+}
+
+#[tauri::command]
+pub fn open_external_url(url: String) -> Result<(), String> {
+    if !is_safe_external_url(&url) {
+        return Err("http(s) の URL だけ開けます".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("このOSでは外部URLを開く操作に未対応です".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::is_safe_paper_id;
+    use super::{is_safe_external_url, is_safe_paper_id};
 
     #[test]
     fn accepts_uuid_and_sample_ids() {
@@ -154,5 +179,14 @@ mod tests {
         assert!(!is_safe_paper_id("C:\\windows"));
         assert!(!is_safe_paper_id("foo bar"));
         assert!(!is_safe_paper_id("paper.id"));
+    }
+
+    #[test]
+    fn accepts_http_urls_only() {
+        assert!(is_safe_external_url("https://doi.org/10.1145/123"));
+        assert!(is_safe_external_url("http://example.com/paper"));
+        assert!(!is_safe_external_url("javascript:alert(1)"));
+        assert!(!is_safe_external_url("file:///tmp/x"));
+        assert!(!is_safe_external_url("https://example.com/a b"));
     }
 }

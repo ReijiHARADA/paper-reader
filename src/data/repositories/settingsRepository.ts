@@ -53,17 +53,12 @@ export function getCachedTranslationRow(
   sourceLanguage: string,
   targetLanguage: string
 ): string | null {
-  const row = db.get("SELECT * FROM translation_cache WHERE text_hash = ?", [textHash]);
-  if (
-    row &&
-    row.model === model &&
-    row.model_version === modelVersion &&
-    row.source_language === sourceLanguage &&
-    row.target_language === targetLanguage
-  ) {
-    return String(row.translated_text);
-  }
-  return null;
+  const row = db.get(
+    `SELECT translated_text FROM translation_cache
+     WHERE text_hash = ? AND model = ? AND model_version = ? AND source_language = ? AND target_language = ?`,
+    [textHash, model, modelVersion, sourceLanguage, targetLanguage]
+  );
+  return row?.translated_text != null ? String(row.translated_text) : null;
 }
 
 export function saveTranslationCacheRow(
@@ -75,11 +70,7 @@ export function saveTranslationCacheRow(
     `INSERT INTO translation_cache (
       text_hash, model, model_version, source_language, target_language, translated_text, cached_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(text_hash) DO UPDATE SET
-      model=excluded.model,
-      model_version=excluded.model_version,
-      source_language=excluded.source_language,
-      target_language=excluded.target_language,
+    ON CONFLICT(text_hash, model, model_version, source_language, target_language) DO UPDATE SET
       translated_text=excluded.translated_text,
       cached_at=excluded.cached_at`,
     [

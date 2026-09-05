@@ -2,6 +2,7 @@
 
 ## Tauri macOS アプリ
 
+- UI を変えたら `npm run dev` を上げ、`npm run verify:browser` で Library / 設定 / Reader を実ブラウザ確認する。このセッションの Cursor に Browser MCP は無いので Playwright（`@playwright/test`）を使う。翻訳サーバーは `http://127.0.0.1:8765/health`。
 - `src-tauri/` が Tauri v2 のシェル。`npm run tauri:dev` で開発、`npm run tauri:build` で `.app` + `.dmg` を生成。
 - 生成物: `src-tauri/target/release/bundle/macos/Paper Reader.app`
 - Xcode は `/Applications/Xcode-beta.app` を使用。ビルド時は `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` を設定すること。
@@ -31,14 +32,16 @@
 
 ## Local data
 
-- Paper body source of truth is the Paper Package at `<AppData>/papers/<paperId>/` (`source.pdf`, `paper.json`, `original.md`, `ja.md`, `structure.json`, optional `layout.json.gz`, `assets/`). Do not store paper bodies only in IndexedDB or SQLite.
+- Paper body source of truth is the Paper Package at `<AppData>/papers/<paperId>/` (`source.pdf`, `paper.json`, `original.md`, `ja.md`, `translation.json`, `structure.json`, optional `layout.json.gz`, `assets/`). Do not store paper bodies only in IndexedDB or SQLite. Keep structured authors / affiliations / DOI in `paper.json`; do not mint `author-1` when ids already exist. Block APIs take `{ paperId, blockId }`. Re-extract must `reconcileBlockIds` then remap annotations / reading position.
 - During MADLAD translation, persist only `ja.md` / `paper.json` / `structure.json` on a debounce. Never rewrite `source.pdf`, `assets/`, or `layout.json.gz` per block. Full atomic persist + validation stays on finalize. Do not change MADLAD 3B / MPS / bf16 / batch 24 / microbatch / concurrency 8 to “fix” Reader jank.
 - SQLite (`library.sqlite`) holds the library index, workspace tree, annotations, reading positions, glossaries, translation cache, and rebuildable FTS/LIKE search. See `DATA_ARCHITECTURE.md`.
-- Original PDFs stay in the package as `source.pdf`.
+- Zustand `useAppStore` is UI only (current paper, display settings, expanded originals). `useLibraryCache` / `useProjectStore` are in-memory query caches. Do not treat them as the document authority; persist through Paper Package / SQLite first.
+- Original PDFs stay in the package as `source.pdf`. First import persist includes `sourcePdf` in the atomic Paper Package write. Do not pre-write `source.pdf` and then replace the package directory.
+- SQLite schema is versioned. Add a numbered migration when changing tables. `translation_cache` PK is `(text_hash, model, model_version, source_language, target_language)`. `papers.source_file_hash` is UNIQUE. Close/exit must `flushDocumentPersist` + `db.persist()`; do not drop pending timers without writing.
 - Annotations live in SQLite, anchored to stable block IDs. Re-anchor still uses selectedText + prefix + suffix.
 - IndexedDB `paper-reader` v4 is a read-only backup after migration. Do not delete it in the same release that introduces the new store.
 - Assign papers to a Project by dragging a library card onto the sidebar item. Drag onto Inbox to remove all project memberships. Do not use HTML5 drag-and-drop for this: WKWebView often starts a drag but never fires `drop`. Use pointer tracking and `elementFromPoint`.
-- Import a PDF by dropping it onto the app window. Use Tauri `onDragDropEvent` in the desktop app (HTML5 `drop` does not receive files in WKWebView). Browser `npm run dev` can keep HTML5 file drop. A drop on `/project/:id` attaches the paper to that project.
+- Import a PDF by dropping it onto the app window. Use Tauri `onDragDropEvent` in the desktop app (HTML5 `drop` does not receive files in WKWebView). Browser `npm run dev` can keep HTML5 file drop. A drop on `/project/:id` attaches the paper to that project. Do not navigate to `/import` as the main path; start `startBackgroundImport` and stay on Library. Show readiness (`preparing` / `readable` / `translating` / `needs_attention`) on cards, not raw processing stages. `⌘K` is library search, `⌘F` is in-paper search; focusing library search must not leave Reader.
 - Project delete lives on the project screen header (trash icon), not beside the sidebar name. Deleting a project removes memberships only; paper records stay, and unassigned papers reappear in Inbox. The “論文を追加” button sits in the header next to the title on Project, All Papers, and Inbox.
 - Reading-order regression fixtures: `test-fixtures/` (synthetic PDFs only). Real papers from the jewelry-first-computing index live in gitignored `test-data/real-papers/` (`npm run fetch:real-papers`). Do not copy those PDFs into the repo or edit jewelry-first-computing.
 - Academic PDF extraction: CanonicalDocument is the extraction source of truth. Persist as Paper Package (Markdown + structure). Import calls `extractAcademicPdf` then writes the package. Reader consumes Document AST / projection, not pdfLayout or GROBID internals. `pdfLayout.ts` remains the generic heuristic engine (do not rewrite column left→right). Format Profile apply thresholds stay APPLY_MIN=0.75 / APPLY_MARGIN=0.12. Do not use catalog.json formatFamily for production detection. Do not upgrade pdfjs-dist to 6.x. GROBID/Docling are optional enrichers, not required dependencies. Reuse block IDs on re-extract; do not mint a fresh UUID for every block.

@@ -8,9 +8,11 @@ import {
   FileDown,
   StickyNote,
   BookMarked,
+  PanelLeft,
 } from "lucide-react";
-import { useAppStore, usePaperDataStore } from "../../stores/appStore";
-import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation, getGlossary, saveGlossary } from "../../services/database";
+import { useAppStore } from "../../stores/appStore";
+import { useLibraryCache } from "../../stores/libraryCache";
+import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, getSetting, saveAnnotation, getGlossary, saveGlossary, markPaperOpened } from "../../services/database";
 import { resumeIncompleteTranslation, shouldTranslateBlock } from "../../services/importServiceV2";
 import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
 import type { ImportConfig } from "../../services/importServiceV2";
@@ -103,21 +105,22 @@ export function ReaderScreen() {
   const navigate = useNavigate();
   const { paperId } = useParams<{ paperId: string }>();
   const [searchParams] = useSearchParams();
-  const papers = useAppStore((s) => s.papers);
-  const { projects, memberships } = useProjectStore();
+  const papers = useLibraryCache((s) => s.papers);
+  const projects = useProjectStore((state) => state.projects);
+  const memberships = useProjectStore((state) => state.memberships);
   const displaySettings = useAppStore((s) => s.displaySettings);
-  const updatePaper = useAppStore((s) => s.updatePaper);
-  const setSectionsInStore = usePaperDataStore((s) => s.setSections);
-  const setBlocksInStore = usePaperDataStore((s) => s.setBlocks);
-  const updateBlockInStore = usePaperDataStore((s) => s.updateBlock);
-  const storeSections = usePaperDataStore((s) =>
+  const updatePaper = useLibraryCache((s) => s.updatePaper);
+  const setSectionsInStore = useLibraryCache((s) => s.setSections);
+  const setBlocksInStore = useLibraryCache((s) => s.setBlocks);
+  const updateBlockInStore = useLibraryCache((s) => s.updateBlock);
+  const storeSections = useLibraryCache((s) =>
     paperId ? s.sections[paperId] ?? EMPTY_SECTIONS : EMPTY_SECTIONS
   );
-  const storeBlocks = usePaperDataStore((s) =>
+  const storeBlocks = useLibraryCache((s) =>
     paperId ? s.blocks[paperId] ?? EMPTY_BLOCKS : EMPTY_BLOCKS
   );
 
-  const [showOutline] = useState(true);
+  const [showOutline, setShowOutline] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -289,6 +292,9 @@ export function ReaderScreen() {
         if (cancelled) return;
         if (dbPaper) {
           updatePaper(dbPaper.id, dbPaper);
+          void markPaperOpened(dbPaper.id).then(() => {
+            updatePaper(dbPaper.id, { lastOpenedAt: new Date().toISOString() });
+          });
         }
         if (dbSections.length > 0) {
           setSectionsInStore(paperId, (prev) =>
@@ -734,6 +740,13 @@ export function ReaderScreen() {
         </div>
         <div className={styles.headerRight}>
           <button
+            className={`${styles.iconButton} ${showOutline ? styles.active : ""}`}
+            onClick={() => setShowOutline((value) => !value)}
+            title={showOutline ? "目次を隠す" : "目次を表示"}
+          >
+            <PanelLeft size={20} />
+          </button>
+          <button
             className={`${styles.iconButton} ${rightPanel === "glossary" ? styles.active : ""}`}
             onClick={() =>
               setRightPanel((current) => toggleReaderRightPanel(current, "glossary"))
@@ -811,40 +824,44 @@ export function ReaderScreen() {
           />
         </main>
 
-        {rightPanel === "glossary" && (
-          <GlossaryPanel
-            entries={glossary}
-            onChange={(entries) => {
-              setGlossary(entries);
-              if (paperId) void saveGlossary(paperId, entries);
-            }}
-            onClose={() => setRightPanel("none")}
-          />
-        )}
-        {rightPanel === "notes" && (
-          <NotesPanel
-            annotations={annotations}
-            draft={
-              draft
-                ? { selectedText: draft.selection.selectedText, note: draft.note }
-                : null
-            }
-            editing={draft ? null : editing}
-            activeIds={activeAnnotationIds}
-            undoLabel={undo ? "メモを削除しました" : null}
-            onDraftNoteChange={(note) =>
-              setDraft((prev) => (prev ? { ...prev, note } : prev))
-            }
-            onSaveDraft={() => void handleSaveDraft()}
-            onEditNoteChange={(note) =>
-              setEditing((prev) => (prev ? { ...prev, note } : prev))
-            }
-            onSaveEdit={() => void handleSaveEdit()}
-            onSelect={handleSelectAnnotation}
-            onDelete={(annotation) => void handleDeleteAnnotation(annotation)}
-            onUndoDelete={() => void handleUndoDelete()}
-            onClose={() => setRightPanel("none")}
-          />
+        {rightPanel !== "none" && (
+          <aside className={styles.rightPane}>
+            {rightPanel === "glossary" && (
+              <GlossaryPanel
+                entries={glossary}
+                onChange={(entries) => {
+                  setGlossary(entries);
+                  if (paperId) void saveGlossary(paperId, entries);
+                }}
+                onClose={() => setRightPanel("none")}
+              />
+            )}
+            {rightPanel === "notes" && (
+              <NotesPanel
+                annotations={annotations}
+                draft={
+                  draft
+                    ? { selectedText: draft.selection.selectedText, note: draft.note }
+                    : null
+                }
+                editing={draft ? null : editing}
+                activeIds={activeAnnotationIds}
+                undoLabel={undo ? "メモを削除しました" : null}
+                onDraftNoteChange={(note) =>
+                  setDraft((prev) => (prev ? { ...prev, note } : prev))
+                }
+                onSaveDraft={() => void handleSaveDraft()}
+                onEditNoteChange={(note) =>
+                  setEditing((prev) => (prev ? { ...prev, note } : prev))
+                }
+                onSaveEdit={() => void handleSaveEdit()}
+                onSelect={handleSelectAnnotation}
+                onDelete={(annotation) => void handleDeleteAnnotation(annotation)}
+                onUndoDelete={() => void handleUndoDelete()}
+                onClose={() => setRightPanel("none")}
+              />
+            )}
+          </aside>
         )}
       </div>
 

@@ -137,7 +137,7 @@ export function SearchPanel({
             ref={inputRef}
             type="text"
             className={styles.input}
-            placeholder="日本語または英語で検索..."
+            placeholder="この論文を検索"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}

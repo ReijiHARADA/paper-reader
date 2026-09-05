@@ -1,5 +1,5 @@
-import { useState, useCallback, type ReactNode } from "react";
-import { Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { AlertTriangle, Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
 import type { PaperBlock } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
 import { useAppStore } from "../../stores/appStore";
@@ -52,10 +52,13 @@ export function Paragraph({
   onOpenSourcePdf,
   referenceIndex,
 }: ParagraphProps) {
-  const { expandedOriginalBlocks, toggleOriginalExpanded } = useAppStore();
+  const isExpanded = useAppStore((state) => state.expandedOriginalBlocks.has(block.id));
+  const toggleOriginalExpanded = useAppStore((state) => state.toggleOriginalExpanded);
+  const setOriginalExpanded = useAppStore((state) => state.setOriginalExpanded);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [showConfidenceMenu, setShowConfidenceMenu] = useState(false);
+  const confidenceRef = useRef<HTMLDivElement>(null);
 
-  const isExpanded = expandedOriginalBlocks.has(block.id);
   const skipTranslation =
     block.translationStatus === "skipped" ||
     looksLikeBibliographyEntry(block.original || "") ||
@@ -75,6 +78,23 @@ export function Paragraph({
   const handleToggle = () => {
     toggleOriginalExpanded(block.id);
   };
+
+  useEffect(() => {
+    if (!showConfidenceMenu) return;
+    const onPointer = (event: PointerEvent) => {
+      if (confidenceRef.current?.contains(event.target as Node)) return;
+      setShowConfidenceMenu(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowConfidenceMenu(false);
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showConfidenceMenu]);
 
   const handleRetry = useCallback(async () => {
     if (!block.original || isRetrying) return;
@@ -198,7 +218,7 @@ export function Paragraph({
 
   return (
     <div
-      className={`${styles.container} ${isWaiting ? styles.pending : ""} ${isExpanded ? styles.expanded : ""}`}
+      className={`${styles.container} ${isWaiting ? styles.pending : ""} ${isExpanded ? styles.expanded : ""} ${lowConfidence ? styles.lowConfidence : ""}`}
     >
       {isWaiting ? (
         <div className={styles.pendingContent}>
@@ -245,11 +265,42 @@ export function Paragraph({
           </p>
 
           {lowConfidence && (
-            <div className={styles.confidenceBanner}>
-              <p>この箇所の読み順は不確かなことがあります。</p>
-              <button type="button" onClick={() => onOpenSourcePdf?.(block)}>
-                元PDFを見る
+            <div className={styles.confidenceGutter} ref={confidenceRef}>
+              <button
+                type="button"
+                className={styles.confidenceButton}
+                aria-expanded={showConfidenceMenu}
+                aria-label="読み順の信頼度が低い箇所"
+                title="要確認"
+                onClick={() => setShowConfidenceMenu((value) => !value)}
+              >
+                <AlertTriangle size={14} />
               </button>
+              {showConfidenceMenu && (
+                <div className={styles.confidenceMenu} role="dialog">
+                  <p>この箇所は読み順の信頼度が低い可能性があります</p>
+                  {hasOriginal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOriginalExpanded(block.id, true);
+                        setShowConfidenceMenu(false);
+                      }}
+                    >
+                      原文を見る
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenSourcePdf?.(block);
+                      setShowConfidenceMenu(false);
+                    }}
+                  >
+                    元PDFで確認
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

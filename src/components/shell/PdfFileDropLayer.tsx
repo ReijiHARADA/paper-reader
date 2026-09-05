@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Upload } from "lucide-react";
 import {
   fileFromDroppedPath,
@@ -7,6 +7,7 @@ import {
   importProjectIdFromLocation,
   tryStartPdfImport,
 } from "../../services/pdfImport";
+import { showToast } from "../../stores/toastStore";
 import { isTauriApp } from "../../utils/serverReady";
 import styles from "./PdfFileDropLayer.module.css";
 
@@ -15,20 +16,20 @@ function dragHasFiles(event: DragEvent): boolean {
 }
 
 export function PdfFileDropLayer() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [hovering, setHovering] = useState(false);
+  const [acceptedName, setAcceptedName] = useState<string | null>(null);
   const dragDepth = useRef(0);
   const locationRef = useRef(location);
-  const navigateRef = useRef(navigate);
   locationRef.current = location;
-  navigateRef.current = navigate;
 
   const importDroppedFile = useCallback(async (file: File) => {
     const loc = locationRef.current;
     if (loc.pathname.startsWith("/import")) return;
     const projectId = importProjectIdFromLocation(loc.pathname, loc.search);
-    await tryStartPdfImport(file, navigateRef.current, { projectId });
+    setAcceptedName(file.name);
+    window.setTimeout(() => setAcceptedName(null), 1600);
+    await tryStartPdfImport(file, { projectId });
   }, []);
 
   useEffect(() => {
@@ -51,20 +52,14 @@ export function PdfFileDropLayer() {
         setHovering(false);
         const path = firstPdfPath(payload.paths);
         if (!path) {
-          alert("PDFファイルのみ対応しています");
+          showToast({ kind: "error", message: "PDF形式ではありません" });
           return;
         }
         void fileFromDroppedPath(path)
           .then((file) => importDroppedFile(file))
           .catch((error: unknown) => {
             console.error("Failed to read dropped PDF:", error);
-            const message =
-              typeof error === "string"
-                ? error
-                : error instanceof Error
-                  ? error.message
-                  : "PDFの読み込みに失敗しました";
-            alert(message);
+            showToast({ kind: "error", message: "読み込みに失敗しました" });
           });
       });
       if (cancelled) {
@@ -119,12 +114,13 @@ export function PdfFileDropLayer() {
     };
   }, [importDroppedFile]);
 
-  if (!hovering || location.pathname.startsWith("/import")) return null;
+  if (location.pathname.startsWith("/import")) return null;
+  if (!hovering && !acceptedName) return null;
 
   return (
     <div className={styles.overlay} role="status">
       <Upload size={64} />
-      <p>PDFをドロップしてインポート</p>
+      <p>{acceptedName ? `受け取りました: ${acceptedName}` : "PDFをドロップしてインポート"}</p>
     </div>
   );
 }

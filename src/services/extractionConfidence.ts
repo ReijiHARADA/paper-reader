@@ -26,6 +26,12 @@ export function isLowExtractionConfidence(score: number | null | undefined): boo
   return (score ?? 1) < 0.7;
 }
 
+export function countLowConfidenceBlocks(
+  blocks: Array<{ extractionConfidence?: number | null }>
+): number {
+  return blocks.filter((block) => isLowExtractionConfidence(block.extractionConfidence)).length;
+}
+
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }

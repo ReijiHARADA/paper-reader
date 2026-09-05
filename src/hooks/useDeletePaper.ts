@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import { useAppStore, usePaperDataStore } from "../stores/appStore";
+import { useLibraryCache } from "../stores/libraryCache";
 import { useProjectStore } from "../stores/projectStore";
 import { deletePaperEverywhere } from "../services/paperDelete";
 
 export function useDeletePaper() {
-  const removePaper = useAppStore((s) => s.removePaper);
-  const removePaperData = usePaperDataStore((s) => s.removePaperData);
+  const removePaper = useLibraryCache((s) => s.removePaper);
+  const removePaperData = useLibraryCache((s) => s.removePaperData);
   const removeMembershipsForPaper = useProjectStore((s) => s.removeMembershipsForPaper);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

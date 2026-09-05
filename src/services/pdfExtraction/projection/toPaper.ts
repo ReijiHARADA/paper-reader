@@ -8,6 +8,7 @@ import type {
   EquationMetadata,
 } from "../../../types/paper";
 import { fingerprintText, stableBlockId, uniqueId } from "../../../data/package/ids";
+import { reconcileBlockIds } from "../../../data/package/reconcile";
 import {
   displayHeadingText,
   figureLookupKey,
@@ -130,13 +131,29 @@ export function projectCanonicalToPaper(input: {
   layoutBlocks: LayoutBlock[];
   layouts: PageColumnLayout[];
   baseFontSize: number;
+  previousBlocks?: PaperBlock[];
 }): PaperProjection {
   const { canonical, paperId, layoutBlocks, layouts, baseFontSize } = input;
   const titleNode = canonical.nodes.find((n) => n.role === "title");
-  const authorNames = canonical.nodes
-    .filter((n) => n.role === "author" && n.text && !/@/.test(n.text))
-    .flatMap((n) => expandAuthorLine(n.text ?? ""))
+  const authorNodes = canonical.nodes.filter((n) => n.role === "author" && n.text && !/@/.test(n.text));
+  const affiliationNodes = canonical.nodes.filter((n) => n.role === "affiliation" && n.text);
+  const affiliated = canonical.relations.filter((r) => r.kind === "AFFILIATED_WITH");
+  const authorsStructured = authorNodes.map((node) => ({
+    id: node.id,
+    name: (node.text ?? "").trim(),
+    affiliationIds: affiliated.filter((rel) => rel.from === node.id).map((rel) => rel.to),
+  }));
+  const affiliations = affiliationNodes.map((node) => ({
+    id: node.id,
+    name: (node.text ?? "").trim(),
+  }));
+  const authorNames = authorsStructured
+    .flatMap((author) => expandAuthorLine(author.name))
     .filter(Boolean);
+  const doiMatch = canonical.nodes
+    .map((node) => node.text ?? "")
+    .join("\n")
+    .match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i)?.[0];
 
   const childOf = canonical.relations.filter((r) => r.kind === "CHILD_OF");
   const parentByHeading = new Map<string, string>();
@@ -179,7 +196,7 @@ export function projectCanonicalToPaper(input: {
           type: partial.type,
           page: node.pageStart,
           text: node.text ?? "",
-          order: blockOrder,
+          bbox: node.boundingBoxes[0],
         }),
         usedIds
       ),
@@ -427,6 +444,9 @@ export function projectCanonicalToPaper(input: {
         : input.metadata.author
           ? [input.metadata.author]
           : [],
+    authorsStructured,
+    affiliations,
+    doi: doiMatch ?? null,
     publication: pickPublication(input.metadata.title),
     year: null,
     pageCount: input.metadata.pageCount,
@@ -437,6 +457,10 @@ export function projectCanonicalToPaper(input: {
     updatedAt: new Date().toISOString(),
   };
 
-  return { paper, sections, blocks };
+  const reconciled = input.previousBlocks?.length
+    ? reconcileBlockIds(input.previousBlocks, blocks).blocks
+    : blocks;
+
+  return { paper, sections, blocks: reconciled };
 }
 

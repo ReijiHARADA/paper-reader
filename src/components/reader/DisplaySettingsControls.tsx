@@ -3,7 +3,8 @@ import { useAppStore, type Theme } from "../../stores/appStore";
 import styles from "./DisplaySettingsControls.module.css";
 
 export function DisplaySettingsControls() {
-  const { displaySettings, setDisplaySettings } = useAppStore();
+  const displaySettings = useAppStore((state) => state.displaySettings);
+  const setDisplaySettings = useAppStore((state) => state.setDisplaySettings);
 
   const handleFontSizeChange = (delta: number) => {
     const newSize = Math.max(12, Math.min(24, displaySettings.fontSize + delta));

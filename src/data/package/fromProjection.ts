@@ -1,5 +1,6 @@
 import type { Paper, PaperBlock, Section } from "../../types/paper";
-import { PACKAGE_SCHEMA_VERSION, STRUCTURE_SCHEMA_VERSION } from "../schemaVersion";
+import { PACKAGE_SCHEMA_VERSION, STRUCTURE_SCHEMA_VERSION, TRANSLATION_SCHEMA_VERSION } from "../schemaVersion";
+import type { TranslationFile } from "../types/translation";
 import { applyCitationLinks, blocksToDocument, documentToMarkdown } from "../markdown/documentAst";
 import type { LayoutFile } from "../types/layout";
 import type { PaperJson, PaperPackage } from "../types/package";
@@ -14,15 +15,17 @@ export function paperToPaperJson(paper: Paper, revision = 1): PaperJson {
       original: paper.titleOriginal,
       translated: paper.titleTranslated,
     },
-    authors: paper.authors.map((name, index) => ({
-      id: `author-${index + 1}`,
-      name,
-      affiliationIds: [],
-    })),
-    affiliations: [],
+    authors: paper.authorsStructured?.length
+      ? paper.authorsStructured
+      : paper.authors.map((name, index) => ({
+          id: `author-${index + 1}`,
+          name,
+          affiliationIds: [],
+        })),
+    affiliations: paper.affiliations ?? [],
     publication: paper.publication,
     year: paper.year,
-    doi: null,
+    doi: paper.doi ?? null,
     pageCount: paper.pageCount,
     sourceFileHash: paper.sourceFileHash,
     sourceFileName: paper.sourceFileName,
@@ -70,7 +73,6 @@ export function projectionToStructure(
       lines,
       sectionId: block.sectionId,
       parentBlockId: block.parentBlockId,
-      translationStatus: block.translationStatus,
       metadata: block.metadata,
     };
     if (i > 0) {
@@ -89,6 +91,16 @@ export function projectionToStructure(
     }
   }
   return structure;
+}
+
+export function translationFileFromBlocks(blocks: PaperBlock[]): TranslationFile {
+  return {
+    schemaVersion: TRANSLATION_SCHEMA_VERSION,
+    targetLanguage: "ja",
+    blocks: Object.fromEntries(
+      blocks.map((block) => [block.id, { status: block.translationStatus }])
+    ),
+  };
 }
 
 export function projectionToPackage(input: {
@@ -136,6 +148,7 @@ export function projectionToPackage(input: {
     originalMarkdown: documentToMarkdown(input.paper.id, "en", originalDoc.nodes),
     translatedMarkdown: documentToMarkdown(input.paper.id, "ja", translatedDoc.nodes),
     structure,
+    translation: translationFileFromBlocks(input.blocks),
     layout: input.layout,
     assets: originalDoc.assets,
     sourcePdf: input.sourcePdf,

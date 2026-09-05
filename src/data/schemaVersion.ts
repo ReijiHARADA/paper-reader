@@ -1,5 +1,6 @@
 export const PACKAGE_SCHEMA_VERSION = 1;
 export const STRUCTURE_SCHEMA_VERSION = 1;
 export const MARKDOWN_SCHEMA_VERSION = 1;
-export const SQLITE_SCHEMA_VERSION = 1;
+export const TRANSLATION_SCHEMA_VERSION = 1;
+export const SQLITE_SCHEMA_VERSION = 3;
 export const LEGACY_IDB_VERSION = 4;

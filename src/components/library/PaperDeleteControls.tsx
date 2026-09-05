@@ -54,7 +54,7 @@ export function PaperDeleteControls({
     <button
       type="button"
       className={styles.actionButton}
-      title="削除"
+      title="ライブラリから削除…"
       onClick={(event) => onRequest(event, paperId)}
     >
       <Trash2 size={16} />

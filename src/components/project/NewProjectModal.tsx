@@ -10,7 +10,7 @@ type NewProjectModalProps = {
 };
 
 export function NewProjectModal({
-  title = "New Project",
+  title = "新規プロジェクト",
   nameLabel = "研究テーマ",
   onClose,
   onCreate,

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { showToast as showAppToast } from "./toastStore";
 
 export type PaperDropToast = {
   kind: "duplicate" | "added" | "error";
@@ -20,15 +21,12 @@ type PaperDragState = {
   pointerX: number;
   pointerY: number;
   dropTargetId: string | null;
-  toast: PaperDropToast | null;
   beginDrag: (paperId: string, label: string, x: number, y: number) => void;
   movePointer: (x: number, y: number, dropTargetId: string | null) => void;
   endDrag: () => void;
   showToast: (toast: PaperDropToast) => void;
-  clearToast: () => void;
 };
 
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let paperDropHandler: PaperDropHandler | null = null;
 
 export function setPaperDropHandler(handler: PaperDropHandler | null): void {
@@ -55,7 +53,6 @@ export const usePaperDragStore = create<PaperDragState>((set) => ({
   pointerX: 0,
   pointerY: 0,
   dropTargetId: null,
-  toast: null,
 
   beginDrag: (paperId, label, x, y) => {
     document.body.classList.add("paper-dragging");
@@ -81,17 +78,9 @@ export const usePaperDragStore = create<PaperDragState>((set) => ({
   },
 
   showToast: (toast) => {
-    if (toastTimer) clearTimeout(toastTimer);
-    set({ toast });
-    toastTimer = setTimeout(() => {
-      set({ toast: null });
-      toastTimer = undefined;
-    }, 3200);
-  },
-
-  clearToast: () => {
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = undefined;
-    set({ toast: null });
+    showAppToast({
+      kind: toast.kind === "added" ? "success" : toast.kind === "duplicate" ? "info" : "error",
+      message: toast.message,
+    });
   },
 }));

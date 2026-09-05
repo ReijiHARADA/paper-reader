@@ -4,6 +4,7 @@ import { openDB } from "idb";
 import { resetStorageForTests, getStorage } from "../../data/runtime";
 import { migrateIndexedDbV4IfNeeded } from "../../data/migration/migrate";
 import { loadPaperPackage } from "../../data/package/persist";
+import { upsertPaperIndex } from "../../data/repositories/paperRepository";
 import { getAnnotation, getPaper, getProject, getProjectPaper, savePaper } from "../../services/database";
 import type { Paper, PaperBlock, Section } from "../../types/paper";
 
@@ -118,6 +119,7 @@ async function seedLegacy() {
     createdAt: now,
     updatedAt: now,
   });
+  db.close();
 }
 
 describe("IndexedDB v4 migration", () => {
@@ -152,5 +154,31 @@ describe("IndexedDB v4 migration", () => {
 
     await savePaper({ ...paper!, titleTranslated: "更新" });
     expect((await getPaper("legacy-paper"))?.titleTranslated).toBe("更新");
+  });
+
+  it("migrates remaining IDB papers when SQLite already has a row", { timeout: 15000 }, async () => {
+    await seedLegacy();
+    const { fs, db } = await getStorage();
+    upsertPaperIndex(db, {
+      id: "already-there",
+      sourceFilePath: "x.pdf",
+      sourceFileHash: "already-hash",
+      titleOriginal: "Existing",
+      titleTranslated: null,
+      authors: [],
+      publication: null,
+      year: null,
+      pageCount: 1,
+      processingStatus: "ready",
+      lastReadBlockId: null,
+      lastReadOffset: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const result = await migrateIndexedDbV4IfNeeded(fs, db);
+    expect(result.paperCount).toBe(1);
+    expect(db.get("SELECT id FROM papers WHERE id = ?", ["already-there"])).toBeTruthy();
+    expect(db.get("SELECT id FROM papers WHERE id = ?", ["legacy-paper"])).toBeTruthy();
+    expect(await loadPaperPackage(fs, "legacy-paper")).toBeTruthy();
   });
 });

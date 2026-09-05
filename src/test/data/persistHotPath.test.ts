@@ -129,6 +129,6 @@ describe("translation persist hot path", () => {
     expect(await fs.readText("papers/hot-1/ja.md")).toContain("訳 1");
     expect(await fs.readText("papers/hot-1/ja.md")).toContain("訳 2");
     expect(await fs.readBytes("papers/hot-1/source.pdf")).toEqual(new Uint8Array([9, 8, 7]));
-    db.close();
+    await db.close();
   });
 });

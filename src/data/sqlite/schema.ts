@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS papers (
   last_read_offset REAL,
   source_file_name TEXT,
   source_stored_path TEXT,
+  package_revision INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -57,7 +58,9 @@ CREATE TABLE IF NOT EXISTS project_papers (
   quotes_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (project_id, paper_id)
+  PRIMARY KEY (project_id, paper_id),
+  FOREIGN KEY (project_id) REFERENCES workspace_nodes(id) ON DELETE CASCADE,
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS project_papers_by_paper ON project_papers(paper_id);
 
@@ -75,33 +78,38 @@ CREATE TABLE IF NOT EXISTS annotations (
   note TEXT NOT NULL,
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS annotations_by_paper ON annotations(paper_id);
 CREATE INDEX IF NOT EXISTS annotations_by_block ON annotations(block_id);
+CREATE INDEX IF NOT EXISTS annotations_by_paper_block ON annotations(paper_id, block_id);
 
 CREATE TABLE IF NOT EXISTS reading_positions (
   paper_id TEXT PRIMARY KEY,
   block_id TEXT NOT NULL,
   offset REAL NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS glossaries (
   paper_id TEXT PRIMARY KEY,
   entries_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS translation_cache (
-  text_hash TEXT PRIMARY KEY,
+  text_hash TEXT NOT NULL,
   model TEXT NOT NULL,
   model_version TEXT NOT NULL,
   source_language TEXT NOT NULL,
   target_language TEXT NOT NULL,
   translated_text TEXT NOT NULL,
-  cached_at INTEGER NOT NULL
+  cached_at INTEGER NOT NULL,
+  PRIMARY KEY (text_hash, model, model_version, source_language, target_language)
 );
 CREATE INDEX IF NOT EXISTS translation_cache_by_model ON translation_cache(model);
 
@@ -110,7 +118,8 @@ CREATE TABLE IF NOT EXISTS translation_jobs (
   block_id TEXT NOT NULL,
   status TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (paper_id, block_id)
+  PRIMARY KEY (paper_id, block_id),
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -129,7 +138,8 @@ CREATE TABLE IF NOT EXISTS benchmarks (
   translation_time_ms INTEGER NOT NULL,
   chars_per_sec REAL NOT NULL,
   tokens_per_sec REAL,
-  timestamp TEXT NOT NULL
+  timestamp TEXT NOT NULL,
+  FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS benchmarks_by_paper ON benchmarks(paper_id);
 CREATE INDEX IF NOT EXISTS benchmarks_by_model ON benchmarks(model);
@@ -159,6 +169,6 @@ CREATE TABLE IF NOT EXISTS papers_fts (
 );
 `;
 
-export const SQLITE_SCHEMA_VERSION_SQL = `
-INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '${SQLITE_SCHEMA_VERSION}');
-`;
+export function sqliteSchemaVersionSql(version: number = SQLITE_SCHEMA_VERSION): string {
+  return `INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '${version}');`;
+}

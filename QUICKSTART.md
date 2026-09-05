@@ -67,7 +67,13 @@ npm run tauri:dev
 npm run dev
 ```
 
-http://localhost:5173 を開きます。翻訳サーバーの確認:
+http://localhost:5173 を開きます。エージェントから画面を確認するときは、dev server を上げたあと:
+
+```bash
+npm run verify:browser
+```
+
+スクリーンショットは `test-results/browser-verify/` に出ます（gitignore）。翻訳サーバーの確認:
 
 ```bash
 curl http://127.0.0.1:8765/health

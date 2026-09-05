@@ -88,7 +88,9 @@ export function packageToProjection(
       original: originalText,
       translated: translatedText,
       extractionConfidence: meta.extractionConfidence,
-      translationStatus: translationStatus(meta.translationStatus),
+      translationStatus: translationStatus(
+        pkg.translation?.blocks[id]?.status ?? meta.translationStatus
+      ),
       parentBlockId: meta.parentBlockId ?? null,
       metadata,
     };
@@ -100,6 +102,10 @@ export function packageToProjection(
     titleOriginal: pkg.paper.title.original,
     titleTranslated: pkg.paper.title.translated,
     authors: pkg.paper.authors.map((author) => author.name),
+    authorsStructured: pkg.paper.authors,
+    affiliations: pkg.paper.affiliations,
+    doi: pkg.paper.doi,
+    packageRevision: pkg.paper.revision,
     publication: pkg.paper.publication,
     year: pkg.paper.year,
     pageCount: pkg.paper.pageCount,

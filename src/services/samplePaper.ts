@@ -1,10 +1,9 @@
 import { sampleBlocks, samplePaper, sampleSections } from "../data/samplePaper";
 import { getPaper, saveBlocks, savePaper, saveSections } from "./database";
-import { useAppStore, usePaperDataStore } from "../stores/appStore";
+import { useLibraryCache } from "../stores/libraryCache";
 
 export async function addSamplePaper(): Promise<"added" | "exists"> {
-  const { papers, addPaper } = useAppStore.getState();
-  const { setSections, setBlocks } = usePaperDataStore.getState();
+  const { papers, addPaper, setSections, setBlocks } = useLibraryCache.getState();
 
   if (papers.some((paper) => paper.id === samplePaper.id)) {
     return "exists";

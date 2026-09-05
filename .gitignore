@@ -37,6 +37,9 @@ translation-server/models/
 # Real paper PDFs used for reading-order tests (not committed)
 test-data/real-papers/
 
+# Local browser verification
+test-results/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

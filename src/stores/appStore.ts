@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Paper, Section, PaperBlock } from "../types/paper";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -11,20 +10,13 @@ export type DisplaySettings = {
   theme: Theme;
 };
 
-type AppState = {
-  papers: Paper[];
+type AppUiState = {
   currentPaperId: string | null;
   displaySettings: DisplaySettings;
   expandedOriginalBlocks: Set<string>;
 
   setCurrentPaper: (paperId: string | null) => void;
-  addPaper: (paper: Paper) => void;
-  setPapers: (papers: Paper[]) => void;
-  updatePaper: (paperId: string, updates: Partial<Paper>) => void;
-  removePaper: (paperId: string) => void;
-
   setDisplaySettings: (settings: Partial<DisplaySettings>) => void;
-
   toggleOriginalExpanded: (blockId: string) => void;
   setOriginalExpanded: (blockId: string, expanded: boolean) => void;
   clearExpandedOriginals: () => void;
@@ -37,42 +29,14 @@ const defaultDisplaySettings: DisplaySettings = {
   theme: "system",
 };
 
-export const useAppStore = create<AppState>()(
+export const useAppStore = create<AppUiState>()(
   persist(
     (set) => ({
-      papers: [],
       currentPaperId: null,
       displaySettings: defaultDisplaySettings,
       expandedOriginalBlocks: new Set<string>(),
 
       setCurrentPaper: (paperId) => set({ currentPaperId: paperId }),
-
-      addPaper: (paper) =>
-        set((state) => {
-          const exists = state.papers.some((p) => p.id === paper.id);
-          if (exists) {
-            return {
-              papers: state.papers.map((p) => (p.id === paper.id ? paper : p)),
-            };
-          }
-          return { papers: [...state.papers, paper] };
-        }),
-
-      setPapers: (papers) => set({ papers }),
-
-      updatePaper: (paperId, updates) =>
-        set((state) => ({
-          papers: state.papers.map((p) =>
-            p.id === paperId ? { ...p, ...updates } : p
-          ),
-        })),
-
-      removePaper: (paperId) =>
-        set((state) => ({
-          papers: state.papers.filter((p) => p.id !== paperId),
-          currentPaperId:
-            state.currentPaperId === paperId ? null : state.currentPaperId,
-        })),
 
       setDisplaySettings: (settings) =>
         set((state) => ({
@@ -81,28 +45,21 @@ export const useAppStore = create<AppState>()(
 
       toggleOriginalExpanded: (blockId) =>
         set((state) => {
-          const newSet = new Set(state.expandedOriginalBlocks);
-          if (newSet.has(blockId)) {
-            newSet.delete(blockId);
-          } else {
-            newSet.add(blockId);
-          }
-          return { expandedOriginalBlocks: newSet };
+          const next = new Set(state.expandedOriginalBlocks);
+          if (next.has(blockId)) next.delete(blockId);
+          else next.add(blockId);
+          return { expandedOriginalBlocks: next };
         }),
 
       setOriginalExpanded: (blockId, expanded) =>
         set((state) => {
-          const newSet = new Set(state.expandedOriginalBlocks);
-          if (expanded) {
-            newSet.add(blockId);
-          } else {
-            newSet.delete(blockId);
-          }
-          return { expandedOriginalBlocks: newSet };
+          const next = new Set(state.expandedOriginalBlocks);
+          if (expanded) next.add(blockId);
+          else next.delete(blockId);
+          return { expandedOriginalBlocks: next };
         }),
 
-      clearExpandedOriginals: () =>
-        set({ expandedOriginalBlocks: new Set<string>() }),
+      clearExpandedOriginals: () => set({ expandedOriginalBlocks: new Set<string>() }),
     }),
     {
       name: "paper-reader-storage",
@@ -119,65 +76,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-type PaperDataState = {
-  sections: Record<string, Section[]>;
-  blocks: Record<string, PaperBlock[]>;
-
-  setSections: (paperId: string, sections: Section[] | ((prev: Section[]) => Section[])) => void;
-  setBlocks: (paperId: string, blocks: PaperBlock[] | ((prev: PaperBlock[]) => PaperBlock[])) => void;
-  updateBlock: (paperId: string, blockId: string, updates: Partial<PaperBlock>) => void;
-  removePaperData: (paperId: string) => void;
-  getSections: (paperId: string) => Section[];
-  getBlocks: (paperId: string) => PaperBlock[];
-};
-
-export const usePaperDataStore = create<PaperDataState>()((set, get) => ({
-  sections: {},
-  blocks: {},
-
-  setSections: (paperId, sections) =>
-    set((state) => ({
-      sections: {
-        ...state.sections,
-        [paperId]: typeof sections === "function" ? sections(state.sections[paperId] || []) : sections,
-      },
-    })),
-
-  setBlocks: (paperId, blocks) =>
-    set((state) => ({
-      blocks: {
-        ...state.blocks,
-        [paperId]: typeof blocks === "function" ? blocks(state.blocks[paperId] || []) : blocks,
-      },
-    })),
-
-  updateBlock: (paperId, blockId, updates) =>
-    set((state) => {
-      const list = state.blocks[paperId] || [];
-      const exists = list.some((b) => b.id === blockId);
-      const next = exists
-        ? list.map((b) => (b.id === blockId ? { ...b, ...updates } : b))
-        : updates.id
-          ? [...list, updates as PaperBlock]
-          : list;
-      return {
-        blocks: {
-          ...state.blocks,
-          [paperId]: next,
-        },
-      };
-    }),
-
-  removePaperData: (paperId) =>
-    set((state) => {
-      const sections = { ...state.sections };
-      const blocks = { ...state.blocks };
-      delete sections[paperId];
-      delete blocks[paperId];
-      return { sections, blocks };
-    }),
-
-  getSections: (paperId) => get().sections[paperId] || [],
-  getBlocks: (paperId) => get().blocks[paperId] || [],
-}));

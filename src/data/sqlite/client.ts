@@ -1,12 +1,8 @@
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import type { FileSystem } from "../fs/types";
 import { persistMetrics } from "../package/persist";
-import {
-  SQLITE_FTS5_SQL,
-  SQLITE_FTS_FALLBACK_SQL,
-  SQLITE_SCHEMA_SQL,
-  SQLITE_SCHEMA_VERSION_SQL,
-} from "./schema";
+import { applySqliteSchemaMigrations } from "./migrateSchema";
+import { SQLITE_FTS5_SQL, SQLITE_FTS_FALLBACK_SQL, SQLITE_SCHEMA_SQL } from "./schema";
 
 export type SqlRow = Record<string, unknown>;
 
@@ -14,9 +10,10 @@ export type SqliteClient = {
   exec(sql: string, params?: unknown[]): void;
   query<T extends SqlRow = SqlRow>(sql: string, params?: unknown[]): T[];
   get<T extends SqlRow = SqlRow>(sql: string, params?: unknown[]): T | undefined;
+  transaction(work: () => void): void;
   persist(): Promise<void>;
   exportBytes(): Uint8Array;
-  close(): void;
+  close(): Promise<void>;
   hasFts5: boolean;
 };
 
@@ -67,10 +64,12 @@ export async function openSqlite(fs: FileSystem): Promise<SqliteClient> {
   } catch {
     db.run(SQLITE_FTS_FALLBACK_SQL);
   }
-  db.run(SQLITE_SCHEMA_VERSION_SQL);
+  applySqliteSchemaMigrations(db);
 
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
   const persistNow = async () => {
+    if (closed) return;
     persistMetrics.sqliteExports += 1;
     await fs.writeBytes(SQLITE_PATH, db.export());
   };
@@ -96,6 +95,24 @@ export async function openSqlite(fs: FileSystem): Promise<SqliteClient> {
     get<T extends SqlRow = SqlRow>(sql: string, params: unknown[] = []) {
       return client.query<T>(sql, params)[0];
     },
+    transaction(work) {
+      bind(db, "BEGIN");
+      try {
+        work();
+        bind(db, "COMMIT");
+      } catch (error) {
+        try {
+          bind(db, "ROLLBACK");
+        } catch {
+          // ignore rollback failure
+        }
+        throw error;
+      }
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        void persistNow();
+      }, 3000);
+    },
     async persist() {
       if (persistTimer) {
         clearTimeout(persistTimer);
@@ -106,9 +123,16 @@ export async function openSqlite(fs: FileSystem): Promise<SqliteClient> {
     exportBytes() {
       return db.export();
     },
-    close() {
-      if (persistTimer) clearTimeout(persistTimer);
-      db.close();
+    async close() {
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      if (!closed) {
+        await persistNow();
+        closed = true;
+        db.close();
+      }
     },
     hasFts5,
   };

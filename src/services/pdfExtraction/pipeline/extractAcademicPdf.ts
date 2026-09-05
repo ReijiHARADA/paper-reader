@@ -34,6 +34,7 @@ export type ExtractAcademicPdfInput = {
   pages?: ExtractedPage[];
   metadata?: { title?: string; author?: string; pageCount: number };
   extractFigures?: boolean;
+  previousBlocks?: PaperBlock[];
   onProgress?: (progress: ExtractProgress) => void;
 };
 
@@ -130,6 +131,7 @@ export async function extractAcademicPdf(
     metadata,
     native,
     pageKind,
+    previousBlocks: input.previousBlocks,
   });
 
   if (input.file && input.extractFigures !== false) {
@@ -193,6 +195,7 @@ export function extractFromPages(input: {
   metadata: { title?: string; author?: string; pageCount: number };
   native?: NativeDocument;
   pageKind?: PageTextKind;
+  previousBlocks?: PaperBlock[];
 }): ExtractAcademicPdfResult {
   const pageKind = input.pageKind ?? classifyDocument(input.pages);
   const native =
@@ -234,6 +237,7 @@ export function extractFromPages(input: {
     layoutBlocks: generic.blocks,
     layouts: generic.layouts,
     baseFontSize: generic.baseFontSize,
+    previousBlocks: input.previousBlocks,
   });
 
   return {

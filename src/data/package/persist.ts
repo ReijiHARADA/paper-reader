@@ -2,6 +2,7 @@ import type { FileSystem } from "../fs/types";
 import type { LayoutFile } from "../types/layout";
 import type { PaperJson, PaperPackage } from "../types/package";
 import type { StructureFile } from "../types/structure";
+import type { TranslationFile } from "../types/translation";
 import { gunzipJson, gzipJson } from "./gzip";
 import { validatePaperPackage } from "./validate";
 
@@ -38,6 +39,9 @@ async function writeTree(fs: FileSystem, root: string, pkg: PaperPackage): Promi
   await fs.writeText(`${root}/original.md`, pkg.originalMarkdown);
   await fs.writeText(`${root}/ja.md`, pkg.translatedMarkdown);
   await fs.writeText(`${root}/structure.json`, JSON.stringify(pkg.structure, null, 2));
+  if (pkg.translation) {
+    await fs.writeText(`${root}/translation.json`, JSON.stringify(pkg.translation, null, 2));
+  }
   if (pkg.layout) {
     persistMetrics.layoutWrites += 1;
     await fs.writeBytes(`${root}/layout.json.gz`, gzipJson(pkg.layout));
@@ -62,6 +66,7 @@ export async function persistMutablePaperFiles(
     jaMarkdown?: string;
     paperJson?: PaperJson;
     structure?: StructureFile;
+    translation?: TranslationFile;
   }
 ): Promise<void> {
   const root = paperDir(paperId);
@@ -74,6 +79,9 @@ export async function persistMutablePaperFiles(
   }
   if (files.structure) {
     await writeTextAtomic(fs, `${root}/structure.json`, JSON.stringify(files.structure, null, 2));
+  }
+  if (files.translation) {
+    await writeTextAtomic(fs, `${root}/translation.json`, JSON.stringify(files.translation, null, 2));
   }
 }
 
@@ -134,6 +142,8 @@ export async function loadPaperPackage(
   }
   const paper = JSON.parse(paperText) as PaperJson;
   const structure = JSON.parse(structureText) as StructureFile;
+  const translationText = await fs.readText(`${root}/translation.json`);
+  const translation = translationText ? (JSON.parse(translationText) as TranslationFile) : undefined;
   const layoutBytes = await fs.readBytes(`${root}/layout.json.gz`);
   const layout = layoutBytes ? gunzipJson<LayoutFile>(layoutBytes) : undefined;
   const sourcePdf = (await fs.readBytes(`${root}/source.pdf`)) ?? undefined;
@@ -152,6 +162,7 @@ export async function loadPaperPackage(
     originalMarkdown,
     translatedMarkdown,
     structure,
+    translation,
     layout,
     assets,
     sourcePdf,

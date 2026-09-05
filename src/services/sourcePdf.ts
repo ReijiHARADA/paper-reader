@@ -56,6 +56,13 @@ export async function deleteStoredSourcePdf(paperId: string): Promise<void> {
 }
 
 export async function sourcePdfExists(paperId: string): Promise<boolean> {
+  try {
+    const { getStorage } = await import("../data/runtime");
+    const { fs } = await getStorage();
+    if (await fs.exists(`papers/${paperId}/source.pdf`)) return true;
+  } catch {
+    // fall through to the Tauri command
+  }
   if (!isTauriApp()) return false;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<boolean>("source_pdf_exists", { paperId });

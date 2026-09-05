@@ -1,6 +1,4 @@
-import type { NavigateFunction } from "react-router-dom";
-import { checkMADLADAvailability } from "./importServiceV2";
-import { setPendingImportFile } from "./pendingImport";
+import { startBackgroundImport } from "./import/startBackgroundImport";
 
 export function isPdfFilename(name: string): boolean {
   return name.toLowerCase().split("?")[0].endsWith(".pdf");
@@ -40,21 +38,7 @@ export async function fileFromDroppedPath(path: string): Promise<File> {
 
 export async function tryStartPdfImport(
   file: File,
-  navigate: NavigateFunction,
   options?: { projectId?: string }
 ): Promise<boolean> {
-  if (!isPdfFile(file)) {
-    alert("PDFファイルのみ対応しています");
-    return false;
-  }
-  const madladStatus = await checkMADLADAvailability();
-  if (!madladStatus.available) {
-    alert(
-      "翻訳サーバーに接続できません。\ntranslation-server で `python server.py` を実行してください。"
-    );
-    return false;
-  }
-  setPendingImportFile(file, { projectId: options?.projectId });
-  navigate("/import");
-  return true;
+  return startBackgroundImport(file, options);
 }

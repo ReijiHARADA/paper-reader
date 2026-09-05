@@ -152,6 +152,7 @@ pub fn run() {
             source_pdf::save_source_pdf,
             source_pdf::copy_source_pdf,
             source_pdf::open_source_pdf,
+            source_pdf::open_external_url,
             source_pdf::delete_source_pdf,
             source_pdf::source_pdf_exists,
             source_pdf::read_dropped_pdf,

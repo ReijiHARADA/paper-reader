@@ -7,13 +7,17 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Paper } from "../../types/paper";
-import { usePaperDataStore } from "../../stores/appStore";
+import { useLibraryCache } from "../../stores/libraryCache";
+import { shouldTranslateBlock } from "../../services/importServiceV2";
 import {
-  processingStatusLabel,
-  isBusyProcessingStatus,
-  displayProcessingStatus,
-} from "../../services/paperStatus";
-import { isRetryableTranslationFailure } from "../../services/importServiceV2";
+  derivePaperReadiness,
+  formatTranslationProgressLabel,
+  translationPercent,
+} from "../../domain/paperReadiness";
+import {
+  formatReadingProgress,
+  readingProgressPercent,
+} from "../../domain/readingProgress";
 import {
   displayPaperTitle,
   usableTranslatedText,
@@ -29,36 +33,30 @@ type PaperCardProps = {
   actions?: ReactNode;
 };
 
-function getStatusIcon(status: Paper["processingStatus"]) {
-  if (isBusyProcessingStatus(status)) {
+function getStatusIcon(readiness: ReturnType<typeof derivePaperReadiness>["readiness"]) {
+  if (readiness === "preparing" || readiness === "translating") {
     return <Loader2 size={16} className={styles.statusProcessing} />;
   }
-  switch (status) {
-    case "ready":
-      return <CheckCircle size={16} className={styles.statusReady} />;
-    case "partial":
-    case "failed":
-      return <AlertCircle size={16} className={styles.statusFailed} />;
-    default:
-      return <Clock size={16} className={styles.statusPending} />;
+  if (readiness === "readable") {
+    return <CheckCircle size={16} className={styles.statusReady} />;
   }
-}
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  if (readiness === "needs_attention") {
+    return <AlertCircle size={16} className={styles.statusFailed} />;
+  }
+  return <Clock size={16} className={styles.statusPending} />;
 }
 
 export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardProps) {
-  const lastViewed = paper.lastOpenedAt ?? paper.updatedAt;
-  const blocks = usePaperDataStore((state) => state.blocks[paper.id]);
-  const status = displayProcessingStatus(
-    paper.processingStatus,
+  const blocks = useLibraryCache((state) => state.blocks[paper.id]);
+  const view = derivePaperReadiness({
+    processingStatus: paper.processingStatus,
     blocks,
-    (block) => isRetryableTranslationFailure(block)
+  });
+  const percent = translationPercent(blocks, (block) => shouldTranslateBlock(block));
+  const progress = formatReadingProgress(readingProgressPercent(paper.lastReadBlockId, blocks));
+  const statusLabel = formatTranslationProgressLabel(
+    view.readiness,
+    view.readiness === "translating" ? percent : null
   );
 
   return (
@@ -86,11 +84,11 @@ export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardP
           </p>
         )}
         <div className={styles.meta}>
+          {progress && <span className={styles.date}>{progress}</span>}
           <span className={styles.status}>
-            {getStatusIcon(status)}
-            {processingStatusLabel(status)}
+            {getStatusIcon(view.readiness)}
+            {statusLabel}
           </span>
-          <span className={styles.date}>最終閲覧: {formatDate(lastViewed)}</span>
         </div>
       </div>
       {actions}

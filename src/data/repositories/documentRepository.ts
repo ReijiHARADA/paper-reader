@@ -8,7 +8,7 @@ import {
   persistPaperPackage,
 } from "../package/persist";
 import { packageToProjection } from "../package/toProjection";
-import { indexPaperText } from "./paperRepository";
+import { indexPaperText, upsertPaperIndex } from "./paperRepository";
 import type { SqliteClient } from "../sqlite/client";
 
 const MUTABLE_FLUSH_MS = 1500;
@@ -17,6 +17,7 @@ type CachedDocument = {
   paper: Paper;
   sections: Section[];
   blocks: PaperBlock[];
+  sourcePdf?: Uint8Array;
 };
 
 type PendingFlush = {
@@ -34,6 +35,21 @@ export function rememberDocument(paper: Paper, sections?: Section[], blocks?: Pa
     paper,
     sections: sections ?? current?.sections ?? [],
     blocks: blocks ?? current?.blocks ?? [],
+    sourcePdf: current?.sourcePdf,
+  });
+}
+
+export function rememberSourcePdf(paperId: string, sourcePdf: Uint8Array): void {
+  const current = cache.get(paperId);
+  if (current) {
+    current.sourcePdf = sourcePdf;
+    return;
+  }
+  cache.set(paperId, {
+    paper: placeholderPaper(paperId),
+    sections: [],
+    blocks: [],
+    sourcePdf,
   });
 }
 
@@ -81,13 +97,16 @@ async function persistCached(
     blocks: cached.blocks,
     revision: existing?.paper.revision ?? 0,
     layout: existing?.layout,
-    sourcePdf: existing?.sourcePdf,
+    sourcePdf: existing?.sourcePdf ?? cached.sourcePdf,
   });
   if (existing?.assets.length && pkg.assets.length === 0) {
     pkg.assets = existing.assets;
   }
   try {
-    await persistPaperPackage(fs, pkg);
+    const persisted = await persistPaperPackage(fs, pkg);
+    cached.sourcePdf = undefined;
+    cached.paper.packageRevision = persisted.revision;
+    upsertPaperIndex(db, cached.paper);
     indexPaperText(db, cached.paper, pkg.originalMarkdown, pkg.translatedMarkdown);
   } catch (error) {
     console.warn("Paper Package persist failed:", error);
@@ -120,6 +139,7 @@ async function persistMutableFromCache(
       jaMarkdown: pkg.translatedMarkdown,
       paperJson: paperToPaperJson(cached.paper, currentRevision),
       structure: pkg.structure,
+      translation: pkg.translation,
     });
   } catch (error) {
     console.warn("Translation checkpoint persist failed:", error);
@@ -206,10 +226,13 @@ export async function updateDocumentBlock(
 export async function updateBlockTranslationText(
   fs: FileSystem,
   db: SqliteClient,
+  paperId: string,
   blockId: string,
   translated: string
 ): Promise<void> {
-  for (const [paperId, doc] of cache) {
+  const docs = cache.get(paperId) ? [[paperId, cache.get(paperId)!] as const] : [...cache];
+  for (const [id, doc] of docs) {
+    if (id !== paperId) continue;
     const block = doc.blocks.find((item) => item.id === blockId);
     if (!block) continue;
     block.translated = translated;

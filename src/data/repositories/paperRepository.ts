@@ -1,4 +1,5 @@
 import type { Paper } from "../../types/paper";
+import { listAnnotationsByPaper } from "./annotationRepository";
 import { rebuildPaperFts } from "../sqlite/fts";
 import type { SqliteClient } from "../sqlite/client";
 
@@ -29,6 +30,7 @@ function rowToPaper(row: Record<string, unknown>): Paper {
     lastReadOffset: row.last_read_offset == null ? null : Number(row.last_read_offset),
     favorite: Number(row.favorite ?? 0) === 1,
     lastOpenedAt: row.last_opened_at ? String(row.last_opened_at) : undefined,
+    packageRevision: Number(row.package_revision ?? 0),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -40,8 +42,8 @@ export function upsertPaperIndex(db: SqliteClient, paper: Paper): void {
       id, source_file_hash, title_original, title_translated, authors_json,
       publication, year, page_count, processing_status, favorite, last_opened_at,
       last_read_block_id, last_read_offset, source_file_name, source_stored_path,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      package_revision, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       source_file_hash=excluded.source_file_hash,
       title_original=excluded.title_original,
@@ -57,6 +59,7 @@ export function upsertPaperIndex(db: SqliteClient, paper: Paper): void {
       last_read_offset=excluded.last_read_offset,
       source_file_name=excluded.source_file_name,
       source_stored_path=excluded.source_stored_path,
+      package_revision=excluded.package_revision,
       updated_at=excluded.updated_at`,
     [
       paper.id,
@@ -74,6 +77,7 @@ export function upsertPaperIndex(db: SqliteClient, paper: Paper): void {
       paper.lastReadOffset,
       paper.sourceFileName ?? paper.sourceFilePath,
       paper.sourceStoredPath ?? null,
+      paper.packageRevision ?? 0,
       paper.createdAt,
       paper.updatedAt,
     ]
@@ -124,13 +128,15 @@ export function saveReadingPositionRow(
   );
 }
 
-export function indexPaperText(
+export function rebuildPaperSearchIndex(
   db: SqliteClient,
   paper: Paper,
   original: string,
-  translation: string,
-  annotation = ""
+  translation: string
 ): void {
+  const annotation = listAnnotationsByPaper(db, paper.id)
+    .map((item) => [item.note, item.selectedText].filter(Boolean).join(" "))
+    .join(" ");
   rebuildPaperFts(db, paper.id, {
     title: [paper.titleOriginal, paper.titleTranslated].filter(Boolean).join(" "),
     authors: paper.authors.join(" "),
@@ -138,4 +144,13 @@ export function indexPaperText(
     translation,
     annotation,
   });
+}
+
+export function indexPaperText(
+  db: SqliteClient,
+  paper: Paper,
+  original: string,
+  translation: string
+): void {
+  rebuildPaperSearchIndex(db, paper, original, translation);
 }

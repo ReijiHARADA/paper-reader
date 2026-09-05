@@ -118,6 +118,85 @@
   color: var(--color-text-tertiary);
 }
 
+.menuRoot {
+  position: relative;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.menuButton:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text);
+}
+
+.menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: 0 8px 24px var(--color-shadow);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.menu button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.menuSep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--color-border-light);
+}
+
+.menuDanger {
+  color: #c5221f;
+}
+
+.menuEmpty {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
 .actionButton {
   flex-shrink: 0;
   align-self: center;

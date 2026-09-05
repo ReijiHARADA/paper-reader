@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useAppStore, usePaperDataStore } from "../../stores/appStore";
+import { useLibraryCache } from "../../stores/libraryCache";
 import { useProjectStore } from "../../stores/projectStore";
 import {
   getAllPapers,
@@ -28,6 +28,7 @@ import { AppSidebar } from "./AppSidebar";
 import { PaperDragPreview } from "./PaperDragPreview";
 import { NewProjectModal } from "../project/NewProjectModal";
 import { setPaperDropHandler, INBOX_DROP_ID, usePaperDragStore } from "../../stores/paperDragStore";
+import { useToastStore } from "../../stores/toastStore";
 import { displayProcessingStatus } from "../../services/paperStatus";
 import { isRetryableTranslationFailure } from "../../services/importServiceV2";
 import styles from "./AppShell.module.css";
@@ -36,32 +37,33 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { paperId } = useParams<{ paperId?: string }>();
-  const setPapers = useAppStore((state) => state.setPapers);
-  const updatePaper = useAppStore((state) => state.updatePaper);
-  const setSections = usePaperDataStore((state) => state.setSections);
-  const setBlocks = usePaperDataStore((state) => state.setBlocks);
-  const {
-    projects,
-    workspaceNodes,
-    memberships,
-    searchQuery,
-    setLoaded,
-    setSearchQuery,
-    setProjects,
-    setWorkspaceNodes,
-    setMemberships,
-    upsertProject,
-    upsertWorkspaceNode,
-    upsertMembership,
-    removeMembershipsForPaper,
-    removeWorkspaceNodesLocal,
-  } = useProjectStore();
+  const setPapers = useLibraryCache((state) => state.setPapers);
+  const updatePaper = useLibraryCache((state) => state.updatePaper);
+  const setSections = useLibraryCache((state) => state.setSections);
+  const setBlocks = useLibraryCache((state) => state.setBlocks);
+  const projects = useProjectStore((state) => state.projects);
+  const workspaceNodes = useProjectStore((state) => state.workspaceNodes);
+  const memberships = useProjectStore((state) => state.memberships);
+  const searchQuery = useProjectStore((state) => state.searchQuery);
+  const setLoaded = useProjectStore((state) => state.setLoaded);
+  const setSearchQuery = useProjectStore((state) => state.setSearchQuery);
+  const mergeProjects = useProjectStore((state) => state.mergeProjects);
+  const mergeWorkspaceNodes = useProjectStore((state) => state.mergeWorkspaceNodes);
+  const setMemberships = useProjectStore((state) => state.setMemberships);
+  const upsertProject = useProjectStore((state) => state.upsertProject);
+  const upsertWorkspaceNode = useProjectStore((state) => state.upsertWorkspaceNode);
+  const upsertMembership = useProjectStore((state) => state.upsertMembership);
+  const removeMembershipsForPaper = useProjectStore(
+    (state) => state.removeMembershipsForPaper
+  );
+  const removeWorkspaceNodesLocal = useProjectStore(
+    (state) => state.removeWorkspaceNodesLocal
+  );
 
-  const toast = usePaperDragStore((state) => state.toast);
   const showToast = usePaperDragStore((state) => state.showToast);
-  const clearToast = usePaperDragStore((state) => state.clearToast);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [showNewFolder, setShowNewFolder] = useState(false);
+  const toast = useToastStore((state) => state.toast);
+  const clearToast = useToastStore((state) => state.clearToast);
+  const [createKind, setCreateKind] = useState<null | "project" | "folder">(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,8 +76,11 @@ export function AppShell() {
           listWorkspace(),
         ]);
         if (cancelled) return;
-        setProjects(dbProjects);
-        setWorkspaceNodes(dbNodes);
+        // A project can be created while the initial SQLite reads are in flight.
+        // Preserve those local cache updates instead of replacing them with the
+        // older snapshot returned by the reads.
+        mergeProjects(dbProjects);
+        mergeWorkspaceNodes(dbNodes);
         setMemberships(dbLinks);
         setPapers(dbPapers);
         for (const paper of dbPapers) {
@@ -84,7 +89,7 @@ export function AppShell() {
             getBlocksByPaper(paper.id),
           ]);
           if (cancelled) return;
-          if (!useAppStore.getState().papers.some((item) => item.id === paper.id)) {
+          if (!useLibraryCache.getState().papers.some((item) => item.id === paper.id)) {
             continue;
           }
           setSections(paper.id, (prev) =>
@@ -111,7 +116,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [setBlocks, setLoaded, setMemberships, setPapers, setProjects, setSections, setWorkspaceNodes, updatePaper]);
+  }, [mergeProjects, mergeWorkspaceNodes, setBlocks, setLoaded, setMemberships, setPapers, setSections, updatePaper]);
 
   const searchParams = new URLSearchParams(location.search);
   const queryProjectId = searchParams.get("project");
@@ -126,7 +131,7 @@ export function AppShell() {
     return links.length === 1 ? links[0].projectId : queryProjectId;
   }, [memberships, paperId, queryProjectId]);
 
-  const papers = useAppStore((state) => state.papers);
+  const papers = useLibraryCache((state) => state.papers);
   const inboxCount = useMemo(() => {
     const assigned = new Set(memberships.map((link) => link.paperId));
     return papers.filter((paper) => !assigned.has(paper.id)).length;
@@ -136,7 +141,7 @@ export function AppShell() {
     const project = await createProject(input);
     upsertProject(project);
     const nodes = await listWorkspace();
-    setWorkspaceNodes(nodes);
+    mergeWorkspaceNodes(nodes);
     navigate(`/project/${project.id}`);
   };
 
@@ -210,46 +215,75 @@ export function AppShell() {
     return () => setPaperDropHandler(null);
   }, [handleDropPaper]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        document.getElementById("library-search")?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const outletContext = useMemo(
+    () => ({ openNewProject: () => setCreateKind("project") }),
+    []
+  );
+
   return (
     <div className={styles.shell}>
       <AppSidebar
         workspaceNodes={workspaceNodes}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onNewProject={() => setShowNewProject(true)}
-        onNewFolder={() => setShowNewFolder(true)}
+        onNewProject={() => setCreateKind("project")}
+        onNewFolder={() => setCreateKind("folder")}
         onDeleteNode={(node) => void handleDeleteNode(node)}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
       />
       <div className={styles.main}>
-        <Outlet context={{ openNewProject: () => setShowNewProject(true) }} />
+        <Outlet context={outletContext} />
       </div>
       <PaperDragPreview />
       {toast && (
         <div
           className={`${styles.toast} ${
-            toast.kind === "duplicate" || toast.kind === "error"
+            toast.kind === "error"
               ? styles.toastError
-              : styles.toastOk
+              : toast.kind === "info"
+                ? styles.toastInfo
+                : styles.toastOk
           }`}
           role="status"
-          onClick={clearToast}
         >
-          {toast.message}
+          <span>{toast.message}</span>
+          {toast.actionLabel && toast.onAction && (
+            <button
+              type="button"
+              className={styles.toastAction}
+              onClick={() => {
+                toast.onAction?.();
+                clearToast();
+              }}
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
       )}
-      {showNewProject && (
+      {createKind === "project" && (
         <NewProjectModal
-          onClose={() => setShowNewProject(false)}
+          onClose={() => setCreateKind(null)}
           onCreate={handleCreate}
         />
       )}
-      {showNewFolder && (
+      {createKind === "folder" && (
         <NewProjectModal
-          title="New Folder"
+          title="新規フォルダ"
           nameLabel="フォルダ名"
-          onClose={() => setShowNewFolder(false)}
+          onClose={() => setCreateKind(null)}
           onCreate={handleCreateFolder}
         />
       )}

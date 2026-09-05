@@ -209,6 +209,17 @@ Why not `tauri-plugin-sql` as the only engine:
   available and otherwise uses a rebuildable LIKE index.
 - A `SqliteClient` interface keeps a later native swap possible.
 
+Startup reads `meta.schema_version` and runs numbered migrations in order.
+Version 2 adds a composite `translation_cache` primary key, `papers_unique_hash`,
+foreign keys with `ON DELETE CASCADE`, and a transaction API. Version 3 adds
+`papers.package_revision` and rebuilds the SQLite index when `paper.json`
+revision diverges. Closing the app flushes pending document checkpoints and
+`library.sqlite` before exit. Translation status lives in `translation.json`;
+`structure.json` is PDF provenance.
+
+Import writes `source.pdf` only via the first atomic `persistPaperPackage`
+(not a separate pre-write that the package rename can replace).
+
 Production persist: Tauri writes the sqlite bytes next to `papers/`.
 Browser preview: the same file map is stored as a fallback blob (not the
 legacy `papers` / `sections` / `blocks` object stores).
@@ -338,7 +349,8 @@ Not implemented. Required inputs are stored at extract time:
 | Paper Package / `paper.json` | `schemaVersion` | 1 |
 | `structure.json` | `schemaVersion` | 1 |
 | Markdown front matter | `schemaVersion` | 1 |
-| SQLite `meta.schema_version` | integer | 1 |
+| SQLite `meta.schema_version` | integer | 3 |
+| `translation.json` | `schemaVersion` | 1 |
 | IndexedDB (legacy backup) | `paper-reader` | 4 |
 
 Bump the matching version and add a migrator. Do not silently rewrite

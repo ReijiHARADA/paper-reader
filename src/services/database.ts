@@ -63,6 +63,7 @@ import {
   saveTranslationCacheRow,
 } from "../data/repositories/settingsRepository";
 import { paperDir } from "../data/package/persist";
+import { syncPaperIndexesFromPackages } from "../data/package/syncIndex";
 
 export type { BenchmarkEntry };
 
@@ -72,6 +73,7 @@ async function ready() {
   const storage = await getStorage();
   if (!migrated) {
     await migrateIndexedDbV4IfNeeded(storage.fs, storage.db);
+    await syncPaperIndexesFromPackages(storage.fs, storage.db);
     migrated = true;
   }
   return storage;
@@ -99,9 +101,34 @@ export async function savePaper(paper: Paper): Promise<void> {
   }
 }
 
+export async function markPaperOpened(paperId: string): Promise<void> {
+  const { db } = await ready();
+  const paper = getPaperIndex(db, paperId);
+  if (!paper) return;
+  const lastOpenedAt = new Date().toISOString();
+  upsertPaperIndex(db, { ...paper, lastOpenedAt });
+  const cached = peekDocument(paperId);
+  rememberDocument({ ...paper, lastOpenedAt }, cached?.sections, cached?.blocks);
+}
+
+export async function setPaperFavorite(paperId: string, favorite: boolean): Promise<void> {
+  const { db } = await ready();
+  const paper = getPaperIndex(db, paperId);
+  if (!paper) return;
+  upsertPaperIndex(db, { ...paper, favorite });
+  const cached = peekDocument(paperId);
+  rememberDocument({ ...paper, favorite }, cached?.sections, cached?.blocks);
+}
+
 export async function flushPaperPersist(paperId?: string): Promise<void> {
   const { fs, db } = await ready();
   await flushDocumentPersist(fs, db, paperId);
+}
+
+export async function flushPersistence(): Promise<void> {
+  const { fs, db } = await ready();
+  await flushDocumentPersist(fs, db);
+  await db.persist();
 }
 
 export async function getPaper(id: string): Promise<Paper | undefined> {
@@ -121,7 +148,9 @@ export async function getPaperByHash(hash: string): Promise<Paper | undefined> {
 
 export async function deletePaper(id: string): Promise<void> {
   const { fs, db } = await ready();
-  deletePaperIndex(db, id);
+  db.transaction(() => {
+    deletePaperIndex(db, id);
+  });
   forgetDocument(id);
   await fs.remove(paperDir(id));
 }
@@ -163,9 +192,13 @@ export async function updateBlock(block: PaperBlock): Promise<void> {
   await updateDocumentBlock(fs, db, block);
 }
 
-export async function updateBlockTranslation(blockId: string, translated: string): Promise<void> {
+export async function updateBlockTranslation(
+  paperId: string,
+  blockId: string,
+  translated: string
+): Promise<void> {
   const { fs, db } = await ready();
-  await updateBlockTranslationText(fs, db, blockId, translated);
+  await updateBlockTranslationText(fs, db, paperId, blockId, translated);
 }
 
 export async function saveSetting(key: string, value: unknown): Promise<void> {
@@ -335,9 +368,12 @@ export async function getAnnotationsByPaper(paperId: string): Promise<Annotation
   return listAnnotationsByPaper(db, paperId);
 }
 
-export async function getAnnotationsByBlock(blockId: string): Promise<Annotation[]> {
+export async function getAnnotationsByBlock(
+  paperId: string,
+  blockId: string
+): Promise<Annotation[]> {
   const { db } = await ready();
-  return listAnnotationsByBlock(db, blockId);
+  return listAnnotationsByBlock(db, paperId, blockId);
 }
 
 export async function deleteAnnotation(id: string): Promise<void> {

@@ -67,8 +67,14 @@ export function listAnnotationsByPaper(db: SqliteClient, paperId: string): Annot
   return db.query("SELECT * FROM annotations WHERE paper_id = ?", [paperId]).map(rowToAnnotation);
 }
 
-export function listAnnotationsByBlock(db: SqliteClient, blockId: string): Annotation[] {
-  return db.query("SELECT * FROM annotations WHERE block_id = ?", [blockId]).map(rowToAnnotation);
+export function listAnnotationsByBlock(
+  db: SqliteClient,
+  paperId: string,
+  blockId: string
+): Annotation[] {
+  return db
+    .query("SELECT * FROM annotations WHERE paper_id = ? AND block_id = ?", [paperId, blockId])
+    .map(rowToAnnotation);
 }
 
 export function deleteAnnotationRow(db: SqliteClient, id: string): void {

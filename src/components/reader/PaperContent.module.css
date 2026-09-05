@@ -88,6 +88,17 @@
   line-height: 1.6;
 }
 
+.referenceLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  text-indent: 0;
+}
+
+.referenceLink:hover {
+  text-decoration: underline;
+}
+
 .processingBanner {
   display: flex;
   align-items: center;
@@ -120,6 +131,29 @@
 [data-theme="dark"] .partialBanner {
   background-color: #3c1f1e;
   color: #f28b82;
+}
+
+.attentionBanner {
+  display: inline-flex;
+  align-items: center;
+  appearance: none;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #fef3c7;
+  color: #92400e;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-xl);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.attentionBanner:hover {
+  background-color: #fde68a;
+}
+
+[data-theme="dark"] .attentionBanner {
+  background-color: #3f2d12;
+  color: #fbbf24;
 }
 
 .processingSpinner {

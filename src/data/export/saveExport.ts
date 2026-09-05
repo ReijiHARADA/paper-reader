@@ -26,6 +26,10 @@ function downloadBlob(fileName: string, bytes: Uint8Array, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
+function assetDestPath(assetPath: string): string {
+  return assetPath.startsWith("assets/") ? assetPath : `assets/${assetPath}`;
+}
+
 export async function saveMarkdownExport(result: MarkdownExportResult): Promise<SavedExport | null> {
   const fileName = `${result.fileName}.md`;
   const bytes = new TextEncoder().encode(result.markdown);
@@ -34,10 +38,30 @@ export async function saveMarkdownExport(result: MarkdownExportResult): Promise<
     if (!path) return null;
     const dest = path.endsWith(".md") ? path : `${path}.md`;
     await invoke("write_user_file", { path: dest, data: Array.from(bytes) });
+    const slash = dest.lastIndexOf("/");
+    if (slash >= 0) {
+      const destDir = dest.slice(0, slash);
+      for (const asset of result.assets) {
+        await invoke("write_user_file", {
+          path: `${destDir}/${assetDestPath(asset.path)}`,
+          data: Array.from(asset.bytes),
+        });
+      }
+    }
     return { kind: "markdown", path: dest };
   }
-  downloadBlob(fileName, bytes, "text/markdown;charset=utf-8");
-  return { kind: "markdown", path: fileName };
+  if (result.assets.length === 0) {
+    downloadBlob(fileName, bytes, "text/markdown;charset=utf-8");
+    return { kind: "markdown", path: fileName };
+  }
+  const files: Record<string, Uint8Array> = {
+    [fileName]: strToU8(result.markdown),
+  };
+  for (const asset of result.assets) {
+    files[assetDestPath(asset.path)] = asset.bytes;
+  }
+  downloadBlob(`${result.fileName}.zip`, zipSync(files), "application/zip");
+  return { kind: "markdown", path: `${result.fileName}.zip` };
 }
 
 export async function saveVerificationExport(

@@ -113,7 +113,11 @@ describe("Paper Package", () => {
     expect(await fs.exists("papers/paper-1/original.md")).toBe(true);
     expect(await fs.exists("papers/paper-1/ja.md")).toBe(true);
 
+    expect(pkg.translation?.blocks["b-002"]?.status).toBe("completed");
+    expect(pkg.structure.blocks["b-002"].translationStatus).toBeUndefined();
+
     const loaded = await loadPaperPackage(fs, "paper-1");
+    expect(loaded.translation?.blocks["b-002"]?.status).toBe("completed");
     const projected = packageToProjection(loaded, paper);
     expect(projected.blocks.find((b) => b.id === "b-002")?.original).toContain("Recent advances");
     expect(projected.blocks.find((b) => b.id === "b-002")?.translated).toContain("ウェアラブル");

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useEffect, useRef, useCallback, useMemo, memo, type ReactNode } from "react";
 import type { Paper, Section, PaperBlock, FigureMetadata, EquationMetadata, TableMetadata } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
 import { Paragraph } from "./Paragraph";
@@ -9,10 +9,41 @@ import { Footnote } from "./Footnote";
 import { displayPaperTitle, usableTranslatedText, isGarbageTitle, sectionDisplayTitle, isReferencesHeading } from "../../services/translation/quality";
 import { shouldTranslateBlock, isRetryableTranslationFailure } from "../../services/importServiceV2";
 import { isBusyProcessingStatus } from "../../services/paperStatus";
-import { indexReferenceBlocks } from "../../services/citations";
+import { indexReferenceBlocks, parseReferenceLinks } from "../../services/citations";
+import {
+  countLowConfidenceBlocks,
+  isLowExtractionConfidence,
+} from "../../services/extractionConfidence";
+import { openExternalUrl } from "../../services/openExternalUrl";
 import styles from "./PaperContent.module.css";
 
 const EMPTY_ANNOTATIONS: Annotation[] = [];
+
+function renderReferenceText(text: string): ReactNode {
+  const links = parseReferenceLinks(text);
+  if (links.length === 0) return text;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  links.forEach((link, index) => {
+    if (link.start > cursor) parts.push(text.slice(cursor, link.start));
+    parts.push(
+      <a
+        key={`${link.href}-${index}`}
+        className={styles.referenceLink}
+        href={link.href}
+        onClick={(event) => {
+          event.preventDefault();
+          void openExternalUrl(link.href);
+        }}
+      >
+        {text.slice(link.start, link.end)}
+      </a>
+    );
+    cursor = link.end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
+}
 
 type PaperContentProps = {
   paper: Paper;
@@ -84,7 +115,7 @@ const PaperBlockView = memo(function PaperBlockView({
         typeof block.metadata.referenceId === "string" ? block.metadata.referenceId : undefined;
       content = (
         <p id={referenceId} className={styles.reference}>
-          {block.original}
+          {renderReferenceText(block.original || "")}
         </p>
       );
       break;
@@ -226,6 +257,10 @@ export const PaperContent = memo(function PaperContent({
     const failedCount = blocks.filter((block) =>
       isRetryableTranslationFailure(block, refSectionIds)
     ).length;
+    const attentionCount = countLowConfidenceBlocks(blocks);
+    const firstAttentionId = blocks.find((block) =>
+      isLowExtractionConfidence(block.extractionConfidence)
+    )?.id;
     const showBusyBanner =
       isBusyProcessingStatus(paper.processingStatus) &&
       (unfinishedCount > 0 ||
@@ -238,6 +273,8 @@ export const PaperContent = memo(function PaperContent({
       totalCount,
       unfinishedCount,
       failedCount,
+      attentionCount,
+      firstAttentionId,
       showBusyBanner,
       showPartialBanner: !showBusyBanner && failedCount > 0,
     };
@@ -287,6 +324,20 @@ export const PaperContent = memo(function PaperContent({
         <div className={styles.partialBanner}>
           一部の段落の翻訳に失敗しています（{banner.failedCount}件）。該当箇所から再試行できます。
         </div>
+      )}
+      {banner.attentionCount > 0 && (
+        <button
+          type="button"
+          className={styles.attentionBanner}
+          onClick={() => {
+            if (!banner.firstAttentionId) return;
+            document
+              .getElementById(`block-${banner.firstAttentionId}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        >
+          要確認 {banner.attentionCount}箇所
+        </button>
       )}
 
       <header className={styles.header}>

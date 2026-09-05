@@ -12,9 +12,10 @@ import { SettingsScreen } from "./components/settings/SettingsScreen";
 import { PdfFileDropLayer } from "./components/shell/PdfFileDropLayer";
 import { useAppStore } from "./stores/appStore";
 import { isTauriApp, waitForServer } from "./utils/serverReady";
+import { flushPersistence } from "./services/database";
 
 function App() {
-  const { displaySettings } = useAppStore();
+  const displaySettings = useAppStore((state) => state.displaySettings);
   const [serverReady, setServerReady] = useState(!isTauriApp());
   const [serverError, setServerError] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -46,6 +47,38 @@ function App() {
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, [displaySettings.theme]);
+
+  useEffect(() => {
+    const flush = () => {
+      void flushPersistence();
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+
+    let unlisten: (() => void) | undefined;
+    let closing = false;
+    if (isTauriApp()) {
+      void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+        const current = getCurrentWindow();
+        unlisten = await current.onCloseRequested(async (event) => {
+          if (closing) return;
+          event.preventDefault();
+          closing = true;
+          try {
+            await flushPersistence();
+          } finally {
+            await current.destroy();
+          }
+        });
+      });
+    }
+
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      unlisten?.();
+    };
+  }, []);
 
   // Tauri アプリとして起動した場合のみサーバー待機
   useEffect(() => {

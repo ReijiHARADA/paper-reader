@@ -12,13 +12,20 @@ export function fingerprintText(text: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+export function quantizeBbox(box?: { x: number; y: number; width: number; height: number }): string {
+  if (!box) return "0,0,0,0";
+  const q = (value: number) => Math.round(value / 8);
+  return `${q(box.x)},${q(box.y)},${q(box.width)},${q(box.height)}`;
+}
+
 export function stableBlockId(parts: {
   type: string;
   page: number;
   text: string;
+  bbox?: { x: number; y: number; width: number; height: number };
   order?: number;
 }): string {
-  const raw = `${parts.type}|${parts.page}|${normalizeBlockText(parts.text)}|${parts.order ?? 0}`;
+  const raw = `${parts.type}|${parts.page}|${normalizeBlockText(parts.text)}|${quantizeBbox(parts.bbox)}`;
   return `b-${fingerprintText(raw)}`;
 }
 

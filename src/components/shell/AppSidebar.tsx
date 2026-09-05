@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   Clock,
   Folder,
@@ -39,8 +39,6 @@ export function AppSidebar({
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
-  const navigate = useNavigate();
-  const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
   const draggingPaperId = usePaperDragStore((state) => state.draggingPaperId);
   const dropTargetId = usePaperDragStore((state) => state.dropTargetId);
@@ -64,43 +62,36 @@ export function AppSidebar({
     );
   }, [draggingPaperId, pointerX, pointerY]);
 
-  const handleSearchFocus = () => {
-    if (location.pathname.startsWith("/reader")) {
-      navigate("/");
-    }
-  };
-
   return (
     <aside
       ref={sidebarRef}
       className={`${styles.sidebar} ${pointerOverSidebar ? styles.sidebarDropReady : ""}`}
     >
-      <label className={styles.search} title="Search">
+      <label className={styles.search} title="ライブラリを検索 (⌘K)">
         <Search size={16} className={styles.searchIcon} />
         <input
+          id="library-search"
           type="search"
-          placeholder="Search"
+          placeholder="ライブラリを検索"
           value={searchQuery}
-          onFocus={handleSearchFocus}
           onChange={(e) => onSearchChange(e.target.value)}
           className={styles.searchInput}
-          tabIndex={-1}
         />
       </label>
 
-      <button type="button" className={styles.newProject} onClick={onNewProject} title="New Project">
+      <button type="button" className={styles.newProject} onClick={onNewProject} title="新規プロジェクト">
         <Plus size={16} className={styles.icon} />
-        <span className={styles.label}>New Project</span>
+        <span className={styles.label}>新規プロジェクト</span>
       </button>
-      <button type="button" className={styles.newProject} onClick={onNewFolder} title="New Folder">
+      <button type="button" className={styles.newProject} onClick={onNewFolder} title="新規フォルダ">
         <Folder size={16} className={styles.icon} />
-        <span className={styles.label}>New Folder</span>
+        <span className={styles.label}>新規フォルダ</span>
       </button>
 
       <div className={styles.scroll}>
         <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
-          <span className={styles.label}>Projects</span>
+          <span className={styles.label}>プロジェクト</span>
         </h2>
         <WorkspaceTree
           nodes={workspaceNodes}
@@ -116,7 +107,7 @@ export function AppSidebar({
           <span className={styles.label}>Library</span>
         </h2>
         <nav className={styles.nav}>
-          <LibItem to="/" end icon={<Library size={16} />} label="All Papers" />
+          <LibItem to="/" end icon={<Library size={16} />} label="すべての論文" />
           <LibItem
             to="/inbox"
             icon={<Inbox size={16} />}
@@ -126,8 +117,8 @@ export function AppSidebar({
             dropTarget={dropTargetId === INBOX_DROP_ID}
             preventNav={Boolean(draggingPaperId)}
           />
-          <LibItem to="/favorites" icon={<Star size={16} />} label="Favorites" />
-          <LibItem to="/recent" icon={<Clock size={16} />} label="Recently Read" />
+          <LibItem to="/favorites" icon={<Star size={16} />} label="お気に入り" />
+          <LibItem to="/recent" icon={<Clock size={16} />} label="最近読んだ論文" />
         </nav>
       </section>
       </div>
