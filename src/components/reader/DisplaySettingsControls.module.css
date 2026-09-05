@@ -20,41 +20,10 @@
   margin-bottom: var(--spacing-sm);
 }
 
-.control {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.stepButton {
-  padding: var(--spacing-sm);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.stepButton:hover:not(:disabled) {
-  background-color: var(--color-bg-secondary);
-  border-color: var(--color-text-tertiary);
-}
-
-.stepButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.value {
-  min-width: 60px;
-  text-align: center;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-}
+.description { margin: calc(var(--spacing-xs) * -1) 0 var(--spacing-sm); font-size: .8125rem; line-height: 1.5; color: var(--color-text-tertiary); }
+.sliderRow { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; align-items: center; gap: var(--spacing-sm); font-size: .75rem; color: var(--color-text-tertiary); }
+.sliderRow input { width: 100%; accent-color: var(--color-accent); }
+.resetButton { align-self: flex-end; margin: 0 0 var(--spacing-md); border: 0; background: transparent; color: var(--color-accent); font-size: .8125rem; cursor: pointer; }
 
 .themeButtons {
   display: flex;

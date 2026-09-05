@@ -19,23 +19,24 @@ export function StorageSettingsSection({
 }: StorageSettingsSectionProps) {
   return (
     <>
-      <h2 className={styles.sectionTitle}>ストレージ</h2>
+      <h2 className={styles.sectionTitle}>データ</h2>
       <div className={styles.surface}>
         <h3 className={styles.surfaceTitle}>翻訳キャッシュ</h3>
         <p className={styles.sectionDescription}>
-          再インポート時に使う翻訳キャッシュだけを消します。論文、保存済みの訳文、メモ、用語集、元
-          PDF、読書位置は残ります。
+          同じ文章を速く翻訳するための一時データです。
         </p>
+        <p className={styles.cacheNote}>削除しても、保存済みの論文・翻訳・元PDF・メモは消えません。</p>
+        <p className={styles.cacheNote}>翻訳結果をリセットしたいときに削除してください。</p>
         {confirming ? (
           <div className={styles.confirmRow}>
-            <p className={styles.confirmText}>翻訳キャッシュを削除しますか？</p>
+            <p className={styles.confirmText}>翻訳キャッシュを削除しますか？ 保存済みの論文や翻訳、元PDF、メモは削除されません。</p>
             <button
               type="button"
               className={styles.dangerButton}
               disabled={busy}
               onClick={onConfirmClear}
             >
-              {busy ? "削除中..." : "削除する"}
+              {busy ? "削除中..." : "キャッシュを削除"}
             </button>
             <button
               type="button"

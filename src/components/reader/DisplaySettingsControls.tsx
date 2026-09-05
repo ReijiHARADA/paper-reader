@@ -1,31 +1,10 @@
-import { Sun, Moon, Monitor, Minus, Plus } from "lucide-react";
+import { Sun, Moon, Monitor } from "lucide-react";
 import { useAppStore, type Theme } from "../../stores/appStore";
 import styles from "./DisplaySettingsControls.module.css";
 
-export function DisplaySettingsControls() {
+export function DisplaySettingsControls({ onReset }: { onReset?: () => void }) {
   const displaySettings = useAppStore((state) => state.displaySettings);
   const setDisplaySettings = useAppStore((state) => state.setDisplaySettings);
-
-  const handleFontSizeChange = (delta: number) => {
-    const newSize = Math.max(12, Math.min(24, displaySettings.fontSize + delta));
-    setDisplaySettings({ fontSize: newSize });
-  };
-
-  const handleLineHeightChange = (delta: number) => {
-    const newHeight = Math.max(
-      1.4,
-      Math.min(2.4, displaySettings.lineHeight + delta)
-    );
-    setDisplaySettings({ lineHeight: Math.round(newHeight * 10) / 10 });
-  };
-
-  const handleContentWidthChange = (delta: number) => {
-    const newWidth = Math.max(
-      480,
-      Math.min(960, displaySettings.contentWidth + delta)
-    );
-    setDisplaySettings({ contentWidth: newWidth });
-  };
 
   const handleThemeChange = (theme: Theme) => {
     setDisplaySettings({ theme });
@@ -39,8 +18,10 @@ export function DisplaySettingsControls() {
 
   return (
     <div className={styles.content}>
+      {onReset && <button type="button" className={styles.resetButton} onClick={onReset}>デフォルトに戻す</button>}
       <div className={styles.setting}>
         <label className={styles.label}>テーマ</label>
+        <p className={styles.description}>アプリ全体の明るさを選びます。</p>
         <div className={styles.themeButtons}>
           <button
             type="button"
@@ -73,79 +54,25 @@ export function DisplaySettingsControls() {
             <span>システム</span>
           </button>
         </div>
+        {displaySettings.theme === "system" && <p className={styles.hint}>Macの表示設定に合わせます。</p>}
       </div>
 
       <div className={styles.setting}>
         <label className={styles.label}>文字サイズ</label>
-        <div className={styles.control}>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleFontSizeChange(-1)}
-            disabled={displaySettings.fontSize <= 12}
-          >
-            <Minus size={16} />
-          </button>
-          <span className={styles.value}>{displaySettings.fontSize}px</span>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleFontSizeChange(1)}
-            disabled={displaySettings.fontSize >= 24}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <p className={styles.description}>本文の文字を読みやすい大きさに調整します。</p>
+        <div className={styles.sliderRow}><span>小さい</span><input aria-label="文字サイズ" type="range" min="12" max="24" step="1" value={displaySettings.fontSize} onChange={(e) => setDisplaySettings({ fontSize: Number(e.target.value) })} /><span>大きい</span></div>
       </div>
 
       <div className={styles.setting}>
         <label className={styles.label}>行間</label>
-        <div className={styles.control}>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleLineHeightChange(-0.1)}
-            disabled={displaySettings.lineHeight <= 1.4}
-          >
-            <Minus size={16} />
-          </button>
-          <span className={styles.value}>
-            {displaySettings.lineHeight.toFixed(1)}
-          </span>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleLineHeightChange(0.1)}
-            disabled={displaySettings.lineHeight >= 2.4}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <p className={styles.description}>文章の行と行の間隔を調整します。</p>
+        <div className={styles.sliderRow}><span>狭い</span><input aria-label="行間" type="range" min="1.4" max="2.4" step="0.1" value={displaySettings.lineHeight} onChange={(e) => setDisplaySettings({ lineHeight: Number(e.target.value) })} /><span>広い</span></div>
       </div>
 
       <div className={styles.setting}>
         <label className={styles.label}>本文幅</label>
-        <div className={styles.control}>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleContentWidthChange(-40)}
-            disabled={displaySettings.contentWidth <= 480}
-          >
-            <Minus size={16} />
-          </button>
-          <span className={styles.value}>
-            {displaySettings.contentWidth}px
-          </span>
-          <button
-            type="button"
-            className={styles.stepButton}
-            onClick={() => handleContentWidthChange(40)}
-            disabled={displaySettings.contentWidth >= 960}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <p className={styles.description}>1行の長さを調整します。</p>
+        <div className={styles.sliderRow}><span>狭い</span><input aria-label="本文幅" type="range" min="480" max="960" step="10" value={displaySettings.contentWidth} onChange={(e) => setDisplaySettings({ contentWidth: Number(e.target.value) })} /><span>広い</span></div>
       </div>
     </div>
   );

@@ -9,13 +9,12 @@ import {
 } from "../utils/translationSettings";
 
 describe("settings TOC", () => {
-  it("lists the five settings sections in navigation order", () => {
+  it("lists the four settings sections in navigation order", () => {
     expect(SETTINGS_SECTIONS.map((section) => section.label)).toEqual([
-      "一般",
-      "翻訳",
       "読書",
-      "ストレージ",
-      "診断",
+      "翻訳",
+      "データ",
+      "詳細設定",
     ]);
     expect(settingsSectionElementId("reading")).toBe("section-reading");
   });

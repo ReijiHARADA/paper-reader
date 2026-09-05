@@ -2,12 +2,14 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type Theme = "light" | "dark" | "system";
+export type OriginalDisplayMode = "on-demand" | "always" | "when-untranslated";
 
 export type DisplaySettings = {
   fontSize: number;
   lineHeight: number;
   contentWidth: number;
   theme: Theme;
+  originalDisplay: OriginalDisplayMode;
 };
 
 type AppUiState = {
@@ -27,6 +29,7 @@ const defaultDisplaySettings: DisplaySettings = {
   lineHeight: 1.8,
   contentWidth: 720,
   theme: "system",
+  originalDisplay: "on-demand",
 };
 
 export const useAppStore = create<AppUiState>()(
@@ -67,7 +70,7 @@ export const useAppStore = create<AppUiState>()(
       migrate: (persisted) => {
         const value = persisted as { displaySettings?: DisplaySettings } | undefined;
         return {
-          displaySettings: value?.displaySettings ?? defaultDisplaySettings,
+          displaySettings: { ...defaultDisplaySettings, ...value?.displaySettings },
         };
       },
       partialize: (state) => ({

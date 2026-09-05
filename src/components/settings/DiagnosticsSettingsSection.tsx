@@ -1,113 +1,21 @@
-import { AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, RefreshCw } from "lucide-react";
+import type { TranslationSettingsV2 } from "../../utils/translationSettings";
 import type { ServiceStatus } from "./settingsTypes";
 import styles from "./SettingsScreen.module.css";
 
-type DiagnosticsSettingsSectionProps = {
-  madladStatus: ServiceStatus;
-  ollamaStatus: ServiceStatus;
-  onRecheck: () => void;
-};
-
-export function DiagnosticsSettingsSection({
-  madladStatus,
-  ollamaStatus,
-  onRecheck,
-}: DiagnosticsSettingsSectionProps) {
-  const checking = madladStatus.checking || ollamaStatus.checking;
-
-  return (
-    <>
-      <h2 className={styles.sectionTitle}>診断</h2>
-      <div className={styles.surface}>
-        <div className={styles.diagHeader}>
-          <h3 className={styles.surfaceTitle}>接続</h3>
-          <button
-            type="button"
-            className={styles.sectionButton}
-            onClick={onRecheck}
-            disabled={checking}
-          >
-            <RefreshCw size={14} className={checking ? styles.spinning : ""} />
-            再確認
-          </button>
-        </div>
-        <dl className={styles.diagList}>
-          <div className={styles.diagRow}>
-            <dt>MADLAD 接続状態</dt>
-            <dd>
-              <DiagValue
-                checking={madladStatus.checking}
-                ok={madladStatus.available}
-                okText="接続OK"
-                error={madladStatus.error}
-              />
-            </dd>
-          </div>
-          <div className={styles.diagRow}>
-            <dt>MADLAD Model 読み込み状態</dt>
-            <dd>
-              <DiagValue
-                checking={madladStatus.checking}
-                ok={Boolean(madladStatus.available && madladStatus.modelLoaded)}
-                okText="読み込み済み"
-                error={
-                  madladStatus.available
-                    ? madladStatus.modelLoaded
-                      ? undefined
-                      : "未読み込み"
-                    : madladStatus.error || "未接続"
-                }
-              />
-            </dd>
-          </div>
-          <div className={styles.diagRow}>
-            <dt>Ollama 接続状態</dt>
-            <dd>
-              <DiagValue
-                checking={ollamaStatus.checking}
-                ok={ollamaStatus.available}
-                okText="接続OK"
-                error={ollamaStatus.error}
-              />
-            </dd>
-          </div>
-        </dl>
-      </div>
-    </>
-  );
-}
-
-function DiagValue({
-  checking,
-  ok,
-  okText,
-  error,
-}: {
-  checking: boolean;
-  ok: boolean;
-  okText: string;
-  error?: string;
-}) {
-  if (checking) {
-    return (
-      <span className={styles.diagChecking}>
-        <Loader2 size={14} className={styles.spinning} />
-        確認中...
-      </span>
-    );
-  }
-  if (ok) {
-    return (
-      <span className={styles.diagOk}>
-        <CheckCircle size={14} />
-        {okText}
-      </span>
-    );
-  }
-  return (
-    <span className={styles.diagError}>
-      <AlertCircle size={14} />
-      {error || "接続できません"}
-    </span>
-  );
+type Props = { settings: TranslationSettingsV2; onChange: (patch: Partial<TranslationSettingsV2>) => void; madladStatus: ServiceStatus; ollamaStatus: ServiceStatus; onRecheck: () => void; sampleAlreadyAdded: boolean; isAddingSample: boolean; sampleMessage: string | null; onAddSample: () => void };
+const state = (status: ServiceStatus) => status.checking ? "確認中" : status.available ? "正常" : "接続できません";
+export function DiagnosticsSettingsSection({ settings, onChange, madladStatus, ollamaStatus, onRecheck, sampleAlreadyAdded, isAddingSample, sampleMessage, onAddSample }: Props) {
+ const checking = madladStatus.checking || ollamaStatus.checking;
+ return <><h2 className={styles.sectionTitle}>詳細設定</h2><div className={styles.surface}>
+   <div className={styles.statusRows}><div><span>翻訳エンジン</span><small>MADLAD</small></div><b className={madladStatus.available ? styles.okDot : styles.errorDot}>● {state(madladStatus)}</b><div><span>用語解析</span><small>Ollama</small></div><b className={ollamaStatus.available ? styles.okDot : styles.errorDot}>● {state(ollamaStatus)}</b></div>
+   <button type="button" className={styles.sectionButton} onClick={onRecheck} disabled={checking}><RefreshCw size={14} className={checking ? styles.spinning : ""}/>接続を再確認</button>
+   <details className={styles.details}><summary className={styles.detailsSummary}>開発者向け <ChevronDown size={14}/></summary><div className={styles.devFields}>
+     <label className={styles.label}>MADLAD Server URL<input className={styles.input} value={settings.madladServerUrl} onChange={(e) => onChange({ madladServerUrl: e.target.value })}/></label>
+     <label className={styles.label}>Ollama Server URL<input className={styles.input} value={settings.ollamaServerUrl} onChange={(e) => onChange({ ollamaServerUrl: e.target.value })}/></label>
+     <label className={styles.label}>Ollama Model<input className={styles.input} value={settings.ollamaModel} onChange={(e) => onChange({ ollamaModel: e.target.value })}/></label>
+     <label className={styles.label}>Translation concurrency<input className={styles.input} type="number" min="1" max="8" value={settings.translationConcurrency} onChange={(e) => onChange({ translationConcurrency: Number(e.target.value) })}/></label>
+     <button type="button" className={styles.sectionButton} onClick={onAddSample} disabled={sampleAlreadyAdded || isAddingSample}>{sampleAlreadyAdded ? "サンプル論文は追加済み" : isAddingSample ? "追加中..." : "サンプル論文を追加"}</button>{sampleMessage && <p className={styles.sectionStatus}>{sampleMessage}</p>}
+   </div></details>
+ </div></>;
 }

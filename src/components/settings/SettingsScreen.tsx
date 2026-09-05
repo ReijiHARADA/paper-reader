@@ -16,7 +16,6 @@ import {
   type SettingsSectionId,
 } from "../../utils/settingsToc";
 import { SettingsToc } from "./SettingsToc";
-import { GeneralSettingsSection } from "./GeneralSettingsSection";
 import { TranslationSettingsSection } from "./TranslationSettingsSection";
 import { ReadingSettingsSection } from "./ReadingSettingsSection";
 import { StorageSettingsSection } from "./StorageSettingsSection";
@@ -41,7 +40,7 @@ export function SettingsScreen() {
     ...IDLE_STATUS,
     models: [],
   });
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("reading");
   const [confirmClearCache, setConfirmClearCache] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
@@ -156,29 +155,17 @@ export function SettingsScreen() {
   const handleSelectSection = (id: SettingsSectionId) => {
     setActiveSection(id);
     const element = document.getElementById(settingsSectionElementId(id));
-    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (element && contentRef.current) contentRef.current.scrollTo({ top: element.offsetTop - 24, behavior: "smooth" });
   };
 
   useEffect(() => {
     const root = contentRef.current;
     if (!root) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const id = visible[0]?.target.id.replace(/^section-/, "");
-        if (id && SETTINGS_SECTIONS.some((section) => section.id === id)) {
-          setActiveSection(id as SettingsSectionId);
-        }
-      },
-      { root, rootMargin: "-20% 0px -70% 0px", threshold: 0 }
-    );
-    for (const section of SETTINGS_SECTIONS) {
-      const el = document.getElementById(settingsSectionElementId(section.id));
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+    let frame = 0;
+    const update = () => { frame = 0; const atBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 8; const next = atBottom ? SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id : SETTINGS_SECTIONS.filter((section) => (document.getElementById(settingsSectionElementId(section.id))?.offsetTop ?? Infinity) <= root.scrollTop + 80).at(-1)?.id ?? SETTINGS_SECTIONS[0].id; setActiveSection((current) => current === next ? current : next); };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    root.addEventListener("scroll", onScroll, { passive: true }); update();
+    return () => { root.removeEventListener("scroll", onScroll); if (frame) cancelAnimationFrame(frame); };
   }, []);
 
   return (
@@ -195,17 +182,7 @@ export function SettingsScreen() {
           <SettingsToc activeId={activeSection} onSelect={handleSelectSection} />
         </aside>
         <main ref={contentRef} className={styles.content}>
-          <section
-            id={settingsSectionElementId("general")}
-            className={styles.section}
-          >
-            <GeneralSettingsSection
-              sampleAlreadyAdded={sampleAlreadyAdded}
-              isAddingSample={isAddingSample}
-              sampleMessage={sampleMessage}
-              onAddSample={() => void handleAddSample()}
-            />
-          </section>
+          <section id={settingsSectionElementId("reading")} className={styles.section}><ReadingSettingsSection /></section>
           <section
             id={settingsSectionElementId("translation")}
             className={styles.section}
@@ -214,19 +191,10 @@ export function SettingsScreen() {
               settings={settings}
               onChange={updateSettings}
               madladStatus={madladStatus}
-              ollamaStatus={ollamaStatus}
-              onCheckMadlad={() => void checkMadlad()}
-              onCheckOllama={() => void checkOllama()}
             />
           </section>
           <section
-            id={settingsSectionElementId("reading")}
-            className={styles.section}
-          >
-            <ReadingSettingsSection />
-          </section>
-          <section
-            id={settingsSectionElementId("storage")}
+            id={settingsSectionElementId("data")}
             className={styles.section}
           >
             <StorageSettingsSection
@@ -242,16 +210,22 @@ export function SettingsScreen() {
             />
           </section>
           <section
-            id={settingsSectionElementId("diagnostics")}
+            id={settingsSectionElementId("advanced")}
             className={styles.section}
           >
             <DiagnosticsSettingsSection
               madladStatus={madladStatus}
               ollamaStatus={ollamaStatus}
+              settings={settings}
+              onChange={updateSettings}
               onRecheck={() => {
                 void checkMadlad();
                 void checkOllama();
               }}
+              sampleAlreadyAdded={sampleAlreadyAdded}
+              isAddingSample={isAddingSample}
+              sampleMessage={sampleMessage}
+              onAddSample={() => void handleAddSample()}
             />
           </section>
         </main>
