@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useLibraryCache } from "../../stores/libraryCache";
 import { useProjectStore } from "../../stores/projectStore";
@@ -18,7 +18,9 @@ import {
   removePaperFromAllProjects,
   listWorkspace,
   removeWorkspaceItem,
+  updateProject,
 } from "../../services/projectService";
+import { tryStartPdfImport } from "../../services/pdfImport";
 import type { WorkspaceNode } from "../../types/project";
 import {
   mergePreferTranslated,
@@ -64,6 +66,9 @@ export function AppShell() {
   const toast = useToastStore((state) => state.toast);
   const clearToast = useToastStore((state) => state.clearToast);
   const [createKind, setCreateKind] = useState<null | "project" | "folder">(null);
+  const [renamingProject, setRenamingProject] = useState<WorkspaceNode | null>(null);
+  const [fileProjectId, setFileProjectId] = useState<string | null>(null);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +155,23 @@ export function AppShell() {
     upsertWorkspaceNode(folder);
   };
 
+  const handleRenameProject = async (input: { name: string }) => {
+    if (!renamingProject) return;
+    const project = await updateProject(renamingProject.id, { name: input.name });
+    upsertProject(project);
+    upsertWorkspaceNode({
+      ...renamingProject,
+      name: project.name,
+      updatedAt: project.updatedAt,
+    });
+    setRenamingProject(null);
+  };
+
+  const handleAddPaperFromSidebar = (node: WorkspaceNode) => {
+    setFileProjectId(node.id);
+    projectFileInputRef.current?.click();
+  };
+
   const handleDeleteNode = async (node: WorkspaceNode) => {
     const childCount = workspaceNodes.filter((item) => item.parentId === node.id).length;
     const message =
@@ -233,6 +255,19 @@ export function AppShell() {
 
   return (
     <div className={styles.shell}>
+      <input
+        ref={projectFileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className={styles.hiddenInput}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          const projectId = fileProjectId;
+          if (file && projectId) void tryStartPdfImport(file, { projectId });
+          event.target.value = "";
+          setFileProjectId(null);
+        }}
+      />
       <AppSidebar
         workspaceNodes={workspaceNodes}
         searchQuery={searchQuery}
@@ -240,6 +275,8 @@ export function AppShell() {
         onNewProject={() => setCreateKind("project")}
         onNewFolder={() => setCreateKind("folder")}
         onDeleteNode={(node) => void handleDeleteNode(node)}
+        onRenameProject={setRenamingProject}
+        onAddPaperToProject={handleAddPaperFromSidebar}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
       />
@@ -285,6 +322,17 @@ export function AppShell() {
           nameLabel="フォルダ名"
           onClose={() => setCreateKind(null)}
           onCreate={handleCreateFolder}
+        />
+      )}
+      {renamingProject && (
+        <NewProjectModal
+          title="プロジェクト名を変更"
+          nameLabel="プロジェクト名"
+          initialName={renamingProject.name}
+          submitLabel="変更を保存"
+          showDescription={false}
+          onClose={() => setRenamingProject(null)}
+          onCreate={handleRenameProject}
         />
       )}
     </div>

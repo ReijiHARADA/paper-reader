@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   FileText,
   Plus,
-  Trash2,
   Loader2,
   FolderX,
 } from "lucide-react";
@@ -18,7 +17,6 @@ import {
   addPaperToProject,
   removePaperFromProject,
   listPapersForProject,
-  removeProject,
 } from "../../services/projectService";
 import { tryStartPdfImport } from "../../services/pdfImport";
 import { PaperCard } from "../library/PaperCard";
@@ -42,14 +40,11 @@ export function ProjectScreen() {
   const projects = useProjectStore((state) => state.projects);
   const memberships = useProjectStore((state) => state.memberships);
   const removeMembershipLocal = useProjectStore((state) => state.removeMembershipLocal);
-  const removeProjectLocal = useProjectStore((state) => state.removeProjectLocal);
   const upsertMembership = useProjectStore((state) => state.upsertMembership);
 
   const project = projects.find((p) => p.id === projectId);
   const [projectPapers, setProjectPapers] = useState<Paper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,15 +56,6 @@ export function ProjectScreen() {
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [projectId, memberships]);
-
-  useEffect(() => {
-    if (!confirmDelete) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !deleting) setConfirmDelete(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmDelete, deleting]);
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -109,19 +95,6 @@ export function ProjectScreen() {
         });
       },
     });
-  };
-
-  const handleDeleteProject = async () => {
-    if (!projectId || deleting) return;
-    setDeleting(true);
-    try {
-      await removeProject(projectId);
-      removeProjectLocal(projectId);
-      navigate("/inbox");
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-      setDeleting(false);
-    }
   };
 
   if (!project && !isLoading) {
@@ -164,62 +137,8 @@ export function ProjectScreen() {
             <Plus size={18} />
             論文を追加
           </button>
-          <button
-            type="button"
-            className={styles.deleteIconButton}
-            onClick={() => setConfirmDelete(true)}
-            title="プロジェクトを削除"
-          >
-            <Trash2 size={18} />
-          </button>
         </div>
       </header>
-
-      {confirmDelete && (
-        <div
-          className={styles.deleteOverlay}
-          role="presentation"
-          onClick={() => {
-            if (!deleting) setConfirmDelete(false);
-          }}
-        >
-          <div
-            className={styles.deleteDialog}
-            role="dialog"
-            aria-labelledby="delete-project-title"
-            aria-describedby="delete-project-body"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={styles.deleteDialogIcon}>
-              <Trash2 size={22} />
-            </div>
-            <h2 id="delete-project-title" className={styles.deleteDialogTitle}>
-              「{project?.name}」を削除しますか？
-            </h2>
-            <p id="delete-project-body" className={styles.deleteDialogBody}>
-              論文ファイルは残ります。このプロジェクトにしか入っていない論文は Inbox に戻ります。
-            </p>
-            <div className={styles.deleteDialogActions}>
-              <button
-                type="button"
-                className={styles.deleteConfirmNo}
-                disabled={deleting}
-                onClick={() => setConfirmDelete(false)}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                className={styles.deleteConfirmYes}
-                disabled={deleting}
-                onClick={() => void handleDeleteProject()}
-              >
-                {deleting ? "削除中..." : "削除する"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isLoading ? (
         <div className={styles.loadingWrap}>

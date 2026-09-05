@@ -44,7 +44,10 @@ export function visibleImportJobs(
   options?: { projectId?: string; inboxOnly?: boolean }
 ): ImportJob[] {
   return jobs.filter((job) => {
-    if (job.paperId && job.stage !== "failed") return false;
+    // The normal PaperCard owns all states after a paper has materialized,
+    // including failures. Keeping the transient card would show one import as
+    // two separate papers.
+    if (job.paperId) return false;
     if (options?.projectId) return job.projectId === options.projectId;
     if (options?.inboxOnly) return !job.projectId;
     return true;

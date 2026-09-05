@@ -25,6 +25,8 @@ type AppSidebarProps = {
   onNewProject: () => void;
   onNewFolder: () => void;
   onDeleteNode: (node: WorkspaceNode) => void;
+  onRenameProject: (node: WorkspaceNode) => void;
+  onAddPaperToProject: (node: WorkspaceNode) => void;
   activeProjectId?: string | null;
   inboxCount: number;
 };
@@ -36,6 +38,8 @@ export function AppSidebar({
   onNewProject,
   onNewFolder,
   onDeleteNode,
+  onRenameProject,
+  onAddPaperToProject,
   activeProjectId,
   inboxCount,
 }: AppSidebarProps) {
@@ -99,6 +103,8 @@ export function AppSidebar({
           dropTargetId={dropTargetId}
           draggingPaperId={draggingPaperId}
           onDelete={onDeleteNode}
+          onRenameProject={onRenameProject}
+          onAddPaper={onAddPaperToProject}
         />
       </section>
 

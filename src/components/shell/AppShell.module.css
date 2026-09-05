@@ -6,6 +6,10 @@
   background: var(--color-bg);
 }
 
+.hiddenInput {
+  display: none;
+}
+
 .main {
   flex: 1;
   min-width: 0;

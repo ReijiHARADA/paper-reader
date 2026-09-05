@@ -5,6 +5,9 @@ import styles from "./ProjectModal.module.css";
 type NewProjectModalProps = {
   title?: string;
   nameLabel?: string;
+  initialName?: string;
+  submitLabel?: string;
+  showDescription?: boolean;
   onClose: () => void;
   onCreate: (input: { name: string; description?: string }) => Promise<void>;
 };
@@ -12,10 +15,13 @@ type NewProjectModalProps = {
 export function NewProjectModal({
   title = "新規プロジェクト",
   nameLabel = "研究テーマ",
+  initialName = "",
+  submitLabel = "作成",
+  showDescription = true,
   onClose,
   onCreate,
 }: NewProjectModalProps) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,23 +74,25 @@ export function NewProjectModal({
               autoFocus
             />
           </label>
-          <label className={styles.label}>
-            説明（任意）
-            <textarea
-              className={styles.textarea}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="この Project で調べたいこと"
-              rows={3}
-            />
-          </label>
+          {showDescription && (
+            <label className={styles.label}>
+              説明（任意）
+              <textarea
+                className={styles.textarea}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="この Project で調べたいこと"
+                rows={3}
+              />
+            </label>
+          )}
           {error && <p className={styles.error}>{error}</p>}
           <div className={styles.actions}>
             <button type="button" className={styles.secondary} onClick={onClose}>
               キャンセル
             </button>
             <button type="submit" className={styles.primary} disabled={saving}>
-              {saving ? "作成中..." : "作成"}
+              {saving ? "保存中..." : submitLabel}
             </button>
           </div>
         </form>

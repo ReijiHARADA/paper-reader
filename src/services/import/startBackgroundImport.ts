@@ -60,14 +60,18 @@ async function runImport(jobId: string, file: File, fileKey: string, projectId?:
       file,
       {
         onProgress: (next) => {
-          patch(jobId, {
+          const progressPatch = {
             stage: next.stage,
             stageProgress: next.stageProgress,
             stageTotal: next.stageTotal,
             message: next.message,
-            paperId: next.paper?.id,
             error: next.error,
-          });
+            ...(next.paper ? { paperId: next.paper.id } : {}),
+          };
+          // Most progress events do not carry the paper. Once partial-ready has
+          // materialized the real card, do not clear its id and resurrect the
+          // temporary import card on the next progress event.
+          patch(jobId, progressPatch);
           if (next.stage === "completed" && next.paper) {
             useLibraryCache.getState().addPaper(next.paper);
             if (projectId && !attached) {
