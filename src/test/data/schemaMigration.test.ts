@@ -119,6 +119,8 @@ async function v1LibraryBytes(): Promise<Uint8Array> {
     INSERT INTO meta (key, value) VALUES ('schema_version', '1');
     INSERT INTO papers (id, source_file_hash, authors_json, processing_status, created_at, updated_at)
       VALUES ('p1', 'hash-1', '[]', 'ready', 't', 't');
+    INSERT INTO workspace_nodes VALUES ('project', NULL, 'project', 'Research', 0, 't', 't');
+    INSERT INTO project_papers VALUES ('project', 'p1', 'keep note', 0.9, 'reading', 'adopt', '["tag"]', '["quote"]', 't', 't');
     INSERT INTO translation_cache VALUES ('abc', 'madlad', '3b', 'en', 'ja', '訳A', 1);
   `);
   const bytes = db.export();
@@ -132,8 +134,12 @@ describe("SQLite schema migration", () => {
     await fs.writeBytes("library.sqlite", await v1LibraryBytes());
     const db = await openSqlite(fs);
     expect(db.get<{ value: string }>("SELECT value FROM meta WHERE key = ?", ["schema_version"])?.value).toBe(
-      "3"
+      "4"
     );
+    expect(db.get("SELECT folder_id, sort_order, note, status, tags_json FROM project_papers")).toEqual({
+      folder_id: null, sort_order: 0, note: "keep note", status: "reading", tags_json: '["tag"]',
+    });
+    expect(db.get("SELECT title_original, source_file_hash FROM papers")?.source_file_hash).toBe("hash-1");
     expect(getCachedTranslationRow(db, "abc", "madlad", "3b", "en", "ja")).toBe("訳A");
     saveTranslationCacheRow(db, "abc", {
       model: "other",

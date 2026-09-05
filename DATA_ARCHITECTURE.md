@@ -349,7 +349,7 @@ Not implemented. Required inputs are stored at extract time:
 | Paper Package / `paper.json` | `schemaVersion` | 1 |
 | `structure.json` | `schemaVersion` | 1 |
 | Markdown front matter | `schemaVersion` | 1 |
-| SQLite `meta.schema_version` | integer | 3 |
+| SQLite `meta.schema_version` | integer | 4 |
 | `translation.json` | `schemaVersion` | 1 |
 | IndexedDB (legacy backup) | `paper-reader` | 4 |
 
@@ -368,3 +368,7 @@ UI / stores
 No factories or abstract base repositories. `src/services/database.ts` is a
 compatibility façade used by existing import / reader / test call sites.
 )
+
+### Workspace placement (SQLite v4)
+
+Folder / Project は引き続き WorkspaceNode の parent_id / sort_order を共有する。Project の subtree に別 Project を置く操作は create / move のデータ層で拒否する。Paper はグローバルなままで、ProjectPaper の folder_id（nullable、削除時 SET NULL）と sort_order（既定 0）が Project 内の配置を保持する。v3 → v4 は列追加のみで既存所属を Project 直下に残し、Paper Package は変更しない。Folder が Project 境界を越える移動では、元 Project の所属と研究メタデータを維持して配置のみ直下へ戻す。

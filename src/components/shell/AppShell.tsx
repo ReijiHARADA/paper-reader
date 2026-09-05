@@ -13,12 +13,12 @@ import {
 import {
   createProject,
   createFolder,
-  addPaperToProject,
-  DuplicateProjectPaperError,
+  placePaperInWorkspace,
   removePaperFromAllProjects,
   listWorkspace,
   removeWorkspaceItem,
   updateProject,
+  renameWorkspaceItem,
 } from "../../services/projectService";
 import { tryStartPdfImport } from "../../services/pdfImport";
 import type { WorkspaceNode } from "../../types/project";
@@ -26,6 +26,7 @@ import {
   mergePreferTranslated,
   mergePreferTranslatedSections,
 } from "../../utils/mergePaperData";
+import { owningProjectId } from "../../data/workspace/tree";
 import { AppSidebar } from "./AppSidebar";
 import { PaperDragPreview } from "./PaperDragPreview";
 import { NewProjectModal } from "../project/NewProjectModal";
@@ -43,7 +44,6 @@ export function AppShell() {
   const updatePaper = useLibraryCache((state) => state.updatePaper);
   const setSections = useLibraryCache((state) => state.setSections);
   const setBlocks = useLibraryCache((state) => state.setBlocks);
-  const projects = useProjectStore((state) => state.projects);
   const workspaceNodes = useProjectStore((state) => state.workspaceNodes);
   const memberships = useProjectStore((state) => state.memberships);
   const searchQuery = useProjectStore((state) => state.searchQuery);
@@ -66,8 +66,7 @@ export function AppShell() {
   const toast = useToastStore((state) => state.toast);
   const clearToast = useToastStore((state) => state.clearToast);
   const [createKind, setCreateKind] = useState<null | "project" | "folder">(null);
-  const [renamingProject, setRenamingProject] = useState<WorkspaceNode | null>(null);
-  const [fileProjectId, setFileProjectId] = useState<string | null>(null);
+  const [fileTarget, setFileTarget] = useState<{ projectId: string; folderId?: string } | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -155,35 +154,28 @@ export function AppShell() {
     upsertWorkspaceNode(folder);
   };
 
-  const handleRenameProject = async (input: { name: string }) => {
-    if (!renamingProject) return;
-    const project = await updateProject(renamingProject.id, { name: input.name });
-    upsertProject(project);
-    upsertWorkspaceNode({
-      ...renamingProject,
-      name: project.name,
-      updatedAt: project.updatedAt,
-    });
-    setRenamingProject(null);
+  const handleRenameNode = async (node: WorkspaceNode, name: string) => {
+    if (node.kind === "project") {
+      const project = await updateProject(node.id, { name });
+      upsertProject(project);
+      upsertWorkspaceNode({ ...node, name: project.name, updatedAt: project.updatedAt });
+    } else {
+      upsertWorkspaceNode(await renameWorkspaceItem(node.id, name));
+    }
   };
 
   const handleAddPaperFromSidebar = (node: WorkspaceNode) => {
-    setFileProjectId(node.id);
+    const projectId = owningProjectId(workspaceNodes, node.id);
+    if (!projectId) return;
+    setFileTarget({ projectId, folderId: node.kind === "folder" ? node.id : undefined });
     projectFileInputRef.current?.click();
   };
 
   const handleDeleteNode = async (node: WorkspaceNode) => {
-    const childCount = workspaceNodes.filter((item) => item.parentId === node.id).length;
-    const message =
-      node.kind === "folder" && childCount > 0
-        ? `フォルダ「${node.name}」とその中の ${childCount} 件を削除しますか？論文ファイルは消えません。`
-        : `「${node.name}」を削除しますか？`;
-    if (!window.confirm(message)) return;
     const removed = await removeWorkspaceItem(node.id);
     removeWorkspaceNodesLocal(removed);
-    if (node.kind === "project" && location.pathname.includes(node.id)) {
-      navigate("/inbox");
-    }
+    setMemberships(await getAllProjectPapers());
+    if (routeProjectId && removed.includes(routeProjectId)) navigate("/inbox");
   };
 
   const handleDropPaper = useCallback(async (targetId: string, paperId: string) => {
@@ -197,40 +189,21 @@ export function AppShell() {
       return;
     }
 
-    const project = projects.find((item) => item.id === targetId);
-    const projectName = project?.name ?? "このプロジェクト";
-    const already = memberships.some(
-      (link) => link.projectId === targetId && link.paperId === paperId
+    const alreadyPlaced = useProjectStore.getState().memberships.some(
+      (link) => link.paperId === paperId && (link.folderId ?? link.projectId) === targetId
     );
-    if (already) {
-      showToast({
-        kind: "duplicate",
-        message: `「${projectName}」にはすでに入っています`,
-      });
+    if (alreadyPlaced) {
+      showToast({ kind: "duplicate", message: "この場所にはすでに入っています" });
       return;
     }
     try {
-      const link = await addPaperToProject({ projectId: targetId, paperId });
+      const link = await placePaperInWorkspace(paperId, targetId);
       upsertMembership(link);
-      showToast({
-        kind: "added",
-        message: `「${projectName}」に追加しました`,
-      });
+      showToast({ kind: "added", message: "論文の配置を更新しました" });
     } catch (error) {
-      if (error instanceof DuplicateProjectPaperError) {
-        showToast({
-          kind: "duplicate",
-          message: `「${projectName}」にはすでに入っています`,
-        });
-        return;
-      }
-      console.error("Failed to add paper to project:", error);
-      showToast({
-        kind: "error",
-        message: "プロジェクトへの追加に失敗しました",
-      });
+      showToast({ kind: "error", message: error instanceof Error ? error.message : "論文の配置に失敗しました" });
     }
-  }, [memberships, projects, removeMembershipsForPaper, showToast, upsertMembership]);
+  }, [removeMembershipsForPaper, showToast, upsertMembership]);
 
   useEffect(() => {
     setPaperDropHandler(handleDropPaper);
@@ -262,10 +235,9 @@ export function AppShell() {
         className={styles.hiddenInput}
         onChange={(event) => {
           const file = event.target.files?.[0];
-          const projectId = fileProjectId;
-          if (file && projectId) void tryStartPdfImport(file, { projectId });
+          if (file && fileTarget) void tryStartPdfImport(file, fileTarget);
           event.target.value = "";
-          setFileProjectId(null);
+          setFileTarget(null);
         }}
       />
       <AppSidebar
@@ -274,8 +246,8 @@ export function AppShell() {
         onSearchChange={setSearchQuery}
         onNewProject={() => setCreateKind("project")}
         onNewFolder={() => setCreateKind("folder")}
-        onDeleteNode={(node) => void handleDeleteNode(node)}
-        onRenameProject={setRenamingProject}
+        onDeleteNode={handleDeleteNode}
+        onRenameNode={handleRenameNode}
         onAddPaperToProject={handleAddPaperFromSidebar}
         activeProjectId={readerProjectId ?? routeProjectId}
         inboxCount={inboxCount}
@@ -324,17 +296,7 @@ export function AppShell() {
           onCreate={handleCreateFolder}
         />
       )}
-      {renamingProject && (
-        <NewProjectModal
-          title="プロジェクト名を変更"
-          nameLabel="プロジェクト名"
-          initialName={renamingProject.name}
-          submitLabel="変更を保存"
-          showDescription={false}
-          onClose={() => setRenamingProject(null)}
-          onCreate={handleRenameProject}
-        />
-      )}
+
     </div>
   );
 }

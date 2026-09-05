@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS project_papers (
   project_id TEXT NOT NULL,
   paper_id TEXT NOT NULL,
+  folder_id TEXT REFERENCES workspace_nodes(id) ON DELETE SET NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   note TEXT,
   relevance REAL,
   status TEXT,

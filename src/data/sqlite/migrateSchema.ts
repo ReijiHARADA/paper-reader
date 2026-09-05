@@ -213,9 +213,16 @@ function migrateV1ToV2(db: Database): void {
   db.run("PRAGMA foreign_keys = ON");
 }
 
+function migrateV3ToV4(db: Database): void {
+  const columns = tableInfo(db, "project_papers").map((column) => column.name);
+  if (!columns.includes("folder_id")) db.run("ALTER TABLE project_papers ADD COLUMN folder_id TEXT REFERENCES workspace_nodes(id) ON DELETE SET NULL");
+  if (!columns.includes("sort_order")) db.run("ALTER TABLE project_papers ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+}
+
 const MIGRATIONS: SchemaMigration[] = [
   { from: 1, to: 2, run: migrateV1ToV2 },
   { from: 2, to: 3, run: migrateV2ToV3 },
+  { from: 3, to: 4, run: migrateV3ToV4 },
 ];
 
 export function applySqliteSchemaMigrations(db: Database): number {

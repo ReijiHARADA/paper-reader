@@ -36,6 +36,7 @@ export function setPaperDropHandler(handler: PaperDropHandler | null): void {
 export function paperDropTargetAtPoint(x: number, y: number): string | null {
   const node = document.elementFromPoint(x, y);
   if (!(node instanceof Element)) return null;
+  if (node.closest("[data-paper-drop-invalid]")) return null;
   if (node.closest(`[${INBOX_DROP_ATTR}]`)) return INBOX_DROP_ID;
   return node.closest(`[${PROJECT_DROP_ATTR}]`)?.getAttribute(PROJECT_DROP_ATTR) ?? null;
 }

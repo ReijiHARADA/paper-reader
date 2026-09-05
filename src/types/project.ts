@@ -16,6 +16,10 @@ export type Project = {
 export type ProjectPaper = {
   projectId: string;
   paperId: string;
+  /** Placement within this project; omitted legacy values mean project root. */
+  folderId?: string | null;
+  /** Persisted as 0 when omitted by older callers. */
+  order?: number;
   note?: string;
   relevance?: number;
   status?: ProjectPaperStatus;

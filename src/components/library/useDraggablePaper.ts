@@ -66,7 +66,7 @@ export function useDraggablePaper(
         skipClick.current = true;
         const targetId = paperDropTargetAtPoint(upEvent.clientX, upEvent.clientY);
         endDrag();
-        if (targetId) {
+        if (targetId && upEvent.type !== "pointercancel") {
           void completePaperDrop(targetId, paperIdRef.current);
         }
       };

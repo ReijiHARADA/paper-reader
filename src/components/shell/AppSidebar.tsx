@@ -24,8 +24,8 @@ type AppSidebarProps = {
   onSearchChange: (query: string) => void;
   onNewProject: () => void;
   onNewFolder: () => void;
-  onDeleteNode: (node: WorkspaceNode) => void;
-  onRenameProject: (node: WorkspaceNode) => void;
+  onDeleteNode: (node: WorkspaceNode) => Promise<void>;
+  onRenameNode: (node: WorkspaceNode, name: string) => Promise<void>;
   onAddPaperToProject: (node: WorkspaceNode) => void;
   activeProjectId?: string | null;
   inboxCount: number;
@@ -38,7 +38,7 @@ export function AppSidebar({
   onNewProject,
   onNewFolder,
   onDeleteNode,
-  onRenameProject,
+  onRenameNode,
   onAddPaperToProject,
   activeProjectId,
   inboxCount,
@@ -103,7 +103,7 @@ export function AppSidebar({
           dropTargetId={dropTargetId}
           draggingPaperId={draggingPaperId}
           onDelete={onDeleteNode}
-          onRenameProject={onRenameProject}
+          onRenameNode={onRenameNode}
           onAddPaper={onAddPaperToProject}
         />
       </section>

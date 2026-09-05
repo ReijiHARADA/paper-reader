@@ -25,7 +25,7 @@ function node(
 }
 
 describe("workspace tree", () => {
-  it("nests folders and keeps projects as leaves", () => {
+  it("nests folders and includes projects", () => {
     const nodes = [
       node("root", null, "folder", 0),
       node("child", "root", "folder", 0),
@@ -42,7 +42,7 @@ describe("workspace tree", () => {
     expect(wouldCreateCycle(nodes, "a", "b")).toBe(true);
     expect(() => assertMoveAllowed(nodes, "a", "b")).toThrow(/自分の子/);
     expect(() => assertMoveAllowed([...nodes, node("q", null, "project")], "q", "p")).toThrow(
-      /Project/
+      /プロジェクト/
     );
   });
 

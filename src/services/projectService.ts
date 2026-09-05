@@ -28,6 +28,7 @@ import {
   deleteWorkspaceNode,
   listWorkspaceNodes,
   moveWorkspaceNode,
+  placeProjectPaper,
   renameWorkspaceNode,
   reorderWorkspaceSiblings,
 } from "../data/repositories/workspaceRepository";
@@ -93,9 +94,9 @@ export async function renameWorkspaceItem(id: string, name: string): Promise<Wor
   return renameWorkspaceNode(db, id, name);
 }
 
-export async function moveWorkspaceItem(id: string, parentId: string | null): Promise<WorkspaceNode> {
+export async function moveWorkspaceItem(id: string, parentId: string | null, order?: number): Promise<WorkspaceNode> {
   const { db } = await getStorage();
-  return moveWorkspaceNode(db, id, parentId);
+  return moveWorkspaceNode(db, id, parentId, order);
 }
 
 export async function reorderWorkspaceItems(parentId: string | null, orderedIds: string[]): Promise<void> {
@@ -229,4 +230,9 @@ export async function getProjectCorpus(projectId: string): Promise<ProjectCorpus
 
 export function isPaperInInbox(paperId: string, memberships: ProjectPaper[]): boolean {
   return !memberships.some((link) => link.paperId === paperId);
+}
+
+export async function placePaperInWorkspace(paperId: string, targetId: string): Promise<ProjectPaper> {
+  const { db } = await getStorage();
+  return placeProjectPaper(db, paperId, targetId);
 }

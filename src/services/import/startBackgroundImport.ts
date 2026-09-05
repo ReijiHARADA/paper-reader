@@ -8,6 +8,7 @@ import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
 import { getSetting } from "../database";
 import {
   addPaperToProject,
+  placePaperInWorkspace,
   DuplicateProjectPaperError,
 } from "../projectService";
 import {
@@ -28,17 +29,20 @@ function fileKeyOf(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
 
-async function attachToProject(projectId: string, paperId: string): Promise<void> {
+async function attachToProject(projectId: string, paperId: string, folderId?: string): Promise<void> {
   try {
-    const link = await addPaperToProject({ projectId, paperId });
+    const link = folderId
+      ? await placePaperInWorkspace(paperId, folderId)
+      : await addPaperToProject({ projectId, paperId });
     useProjectStore.getState().upsertMembership(link);
   } catch (error) {
     if (error instanceof DuplicateProjectPaperError) return;
     console.error("Failed to add imported paper to project:", error);
+    showToast({ kind: "error", message: "論文はライブラリに保存しましたが、指定先への配置に失敗しました" });
   }
 }
 
-async function runImport(jobId: string, file: File, fileKey: string, projectId?: string): Promise<void> {
+async function runImport(jobId: string, file: File, fileKey: string, projectId?: string, folderId?: string): Promise<void> {
   const patch = useImportJobStore.getState().patchJob;
   const madlad = await checkMADLADAvailability();
   if (!madlad.available) {
@@ -76,7 +80,7 @@ async function runImport(jobId: string, file: File, fileKey: string, projectId?:
             useLibraryCache.getState().addPaper(next.paper);
             if (projectId && !attached) {
               attached = true;
-              void attachToProject(projectId, next.paper.id);
+              void attachToProject(projectId, next.paper.id, folderId);
             }
           }
         },
@@ -90,7 +94,7 @@ async function runImport(jobId: string, file: File, fileKey: string, projectId?:
           patch(jobId, { paperId: paper.id });
           if (projectId && !attached) {
             attached = true;
-            void attachToProject(projectId, paper.id);
+            void attachToProject(projectId, paper.id, folderId);
           }
         },
         onBlockTranslated: (block) => {
@@ -115,7 +119,7 @@ async function runImport(jobId: string, file: File, fileKey: string, projectId?:
       patch(jobId, { paperId: result.paper.id, stage: "completed" });
       if (projectId && !attached) {
         attached = true;
-        void attachToProject(projectId, result.paper.id);
+        void attachToProject(projectId, result.paper.id, folderId);
       }
       return;
     }
@@ -133,7 +137,7 @@ async function runImport(jobId: string, file: File, fileKey: string, projectId?:
 
 export async function startBackgroundImport(
   file: File,
-  options?: { projectId?: string }
+  options?: { projectId?: string; folderId?: string }
 ): Promise<boolean> {
   const looksPdf = file.type.includes("pdf") || file.name.toLowerCase().split("?")[0].endsWith(".pdf");
   if (!looksPdf) {
@@ -162,6 +166,6 @@ export async function startBackgroundImport(
     message: "読み込み中...",
   });
   showToast({ kind: "success", message: "PDFを追加しました" });
-  void runImport(jobId, file, fileKey, options?.projectId);
+  void runImport(jobId, file, fileKey, options?.projectId, options?.folderId);
   return true;
 }

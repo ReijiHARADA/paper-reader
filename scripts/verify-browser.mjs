@@ -59,19 +59,19 @@ try {
     await menuButton.click();
     await page.getByRole("menuitem", { name: "名称を変更" }).waitFor();
     await page.getByRole("menuitem", { name: "論文ファイルを追加" }).waitFor();
-    await page.getByRole("menuitem", { name: "プロジェクトを削除" }).waitFor();
+    await page.getByRole("menuitem", { name: "削除", exact: true }).waitFor();
 
     await page.getByRole("menuitem", { name: "名称を変更" }).click();
-    await page.getByRole("textbox", { name: "プロジェクト名", exact: true }).fill(renamedProjectName);
-    await page.getByRole("button", { name: "変更を保存" }).click();
+    await page.getByRole("textbox", { name: "名称", exact: true }).fill(renamedProjectName);
+    await page.getByRole("textbox", { name: "名称", exact: true }).press("Enter");
     await page.getByRole("link", { name: renamedProjectName }).waitFor();
     await page.locator("aside").first().hover();
 
     await page.getByRole("button", {
       name: `「${renamedProjectName}」のメニュー`,
     }).click();
-    page.once("dialog", (dialog) => dialog.accept());
-    await page.getByRole("menuitem", { name: "プロジェクトを削除" }).click();
+    await page.getByRole("menuitem", { name: "削除", exact: true }).click();
+    await page.getByRole("menuitem", { name: "削除する", exact: true }).click();
     await page.getByRole("link", { name: renamedProjectName }).waitFor({
       state: "detached",
     });

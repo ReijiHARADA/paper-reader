@@ -4,6 +4,7 @@ import type { SqliteClient } from "../sqlite/client";
 import type { WorkspaceNode } from "../types/workspace";
 import {
   assertMoveAllowed,
+  owningProjectId,
   nextSiblingOrder,
   reorderSiblings,
 } from "../workspace/tree";
@@ -68,12 +69,6 @@ export function createWorkspaceNode(
   }
 ): WorkspaceNode {
   const nodes = listWorkspaceNodes(db);
-  if (input.kind === "project" && input.parentId) {
-    const parent = nodes.find((node) => node.id === input.parentId);
-    if (parent?.kind === "project") {
-      throw new Error("Project の下に Project は置けません");
-    }
-  }
   const stamp = nowIso();
   const node: WorkspaceNode = {
     id: input.id ?? uuidv4(),
@@ -85,6 +80,8 @@ export function createWorkspaceNode(
     updatedAt: input.updatedAt ?? stamp,
   };
   if (!node.name) throw new Error("名前を入力してください");
+  if (nodes.some((item) => item.id === node.id)) throw new Error("Workspace node already exists");
+  assertMoveAllowed([...nodes, { ...node, parentId: null }], node.id, node.parentId);
   writeNode(db, node);
   return node;
 }
@@ -92,6 +89,7 @@ export function createWorkspaceNode(
 export function renameWorkspaceNode(db: SqliteClient, id: string, name: string): WorkspaceNode {
   const node = getWorkspaceNode(db, id);
   if (!node) throw new Error("Workspace node not found");
+  if (!name.trim()) throw new Error("名前を入力してください");
   const next = { ...node, name: name.trim(), updatedAt: nowIso() };
   writeNode(db, next);
   return next;
@@ -100,7 +98,8 @@ export function renameWorkspaceNode(db: SqliteClient, id: string, name: string):
 export function moveWorkspaceNode(
   db: SqliteClient,
   id: string,
-  parentId: string | null
+  parentId: string | null,
+  order?: number
 ): WorkspaceNode {
   const nodes = listWorkspaceNodes(db);
   assertMoveAllowed(nodes, id, parentId);
@@ -112,8 +111,22 @@ export function moveWorkspaceNode(
     order: nextSiblingOrder(nodes, parentId),
     updatedAt: nowIso(),
   };
-  writeNode(db, next);
-  return next;
+  const siblings = nodes.filter((item) => item.parentId === parentId && item.id !== id)
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  const index = order === undefined ? siblings.length : Math.max(0, Math.min(siblings.length, Math.trunc(order)));
+  if (!Number.isFinite(index)) throw new Error("Invalid order");
+  siblings.splice(index, 0, next);
+  db.transaction(() => {
+    siblings.forEach((item, position) => writeNode(db, { ...item, order: position }));
+    // A folder crossing a project boundary must not take that project's links with it.
+    const updated = listWorkspaceNodes(db);
+    for (const link of listAllProjectPapers(db)) {
+      if (link.folderId && owningProjectId(updated, link.folderId) !== link.projectId) {
+        saveProjectPaperRow(db, { ...link, folderId: null, updatedAt: nowIso() });
+      }
+    }
+  });
+  return { ...next, order: index };
 }
 
 export function reorderWorkspaceSiblings(
@@ -139,11 +152,13 @@ export function deleteWorkspaceNode(db: SqliteClient, id: string): string[] {
       stack.push(child.id);
     }
   }
+  db.transaction(() => {
   for (const nodeId of removed) {
     db.exec("DELETE FROM project_papers WHERE project_id = ?", [nodeId]);
     db.exec("DELETE FROM projects WHERE id = ?", [nodeId]);
     db.exec("DELETE FROM workspace_nodes WHERE id = ?", [nodeId]);
   }
+  });
   return removed;
 }
 
@@ -193,6 +208,8 @@ function rowToLink(row: Record<string, unknown>): ProjectPaper {
   return {
     projectId: String(row.project_id),
     paperId: String(row.paper_id),
+    folderId: row.folder_id == null ? null : String(row.folder_id),
+    order: Number(row.sort_order ?? 0),
     note: row.note ? String(row.note) : undefined,
     relevance: row.relevance == null ? undefined : Number(row.relevance),
     status: row.status ? (String(row.status) as ProjectPaper["status"]) : undefined,
@@ -205,11 +222,19 @@ function rowToLink(row: Record<string, unknown>): ProjectPaper {
 }
 
 export function saveProjectPaperRow(db: SqliteClient, link: ProjectPaper): void {
+  const nodes = listWorkspaceNodes(db);
+  if (nodes.find((node) => node.id === link.projectId)?.kind !== "project") throw new Error("Project not found");
+  if (link.folderId && (nodes.find((node) => node.id === link.folderId)?.kind !== "folder" ||
+      owningProjectId(nodes, link.folderId) !== link.projectId)) {
+    throw new Error("論文は同じプロジェクト内のフォルダに配置してください");
+  }
   db.exec(
     `INSERT INTO project_papers (
-      project_id, paper_id, note, relevance, status, decision, tags_json, quotes_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      project_id, paper_id, folder_id, sort_order, note, relevance, status, decision, tags_json, quotes_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(project_id, paper_id) DO UPDATE SET
+      folder_id=excluded.folder_id,
+      sort_order=excluded.sort_order,
       note=excluded.note,
       relevance=excluded.relevance,
       status=excluded.status,
@@ -220,6 +245,8 @@ export function saveProjectPaperRow(db: SqliteClient, link: ProjectPaper): void 
     [
       link.projectId,
       link.paperId,
+      link.folderId ?? null,
+      link.order ?? 0,
       link.note ?? null,
       link.relevance ?? null,
       link.status ?? null,
@@ -258,4 +285,22 @@ export function listAllProjectPapers(db: SqliteClient): ProjectPaper[] {
 
 export function deleteProjectPaperRow(db: SqliteClient, projectId: string, paperId: string): void {
   db.exec("DELETE FROM project_papers WHERE project_id = ? AND paper_id = ?", [projectId, paperId]);
+}
+
+/** Update placement only; preserve the target project's research metadata. */
+export function placeProjectPaper(db: SqliteClient, paperId: string, targetId: string): ProjectPaper {
+  const nodes = listWorkspaceNodes(db);
+  const projectId = owningProjectId(nodes, targetId);
+  if (!projectId) throw new Error("論文はプロジェクト内に配置してください");
+  const folderId = targetId === projectId ? null : targetId;
+  const existing = getProjectPaperRow(db, projectId, paperId);
+  if (existing && (existing.folderId ?? null) === folderId) return existing;
+  const order = listProjectPapersByProject(db, projectId)
+    .filter((link) => (link.folderId ?? null) === folderId)
+    .reduce((max, link) => Math.max(max, link.order ?? 0), -1) + 1;
+  const stamp = nowIso();
+  const link: ProjectPaper = { ...existing, projectId, paperId, folderId, order,
+    status: existing?.status ?? "unread", createdAt: existing?.createdAt ?? stamp, updatedAt: stamp };
+  saveProjectPaperRow(db, link);
+  return link;
 }

@@ -19,42 +19,50 @@ export function buildWorkspaceTree(nodes: WorkspaceNode[]): WorkspaceTreeNode[] 
 }
 
 export function collectDescendantIds(nodes: WorkspaceNode[], id: string): string[] {
-  const children = nodes.filter((node) => node.parentId === id);
-  return children.flatMap((child) => [child.id, ...collectDescendantIds(nodes, child.id)]);
+  const seen = new Set<string>([id]);
+  const stack = [id];
+  const result: string[] = [];
+  while (stack.length) {
+    const parent = stack.pop();
+    for (const child of nodes.filter((node) => node.parentId === parent)) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      result.push(child.id);
+      stack.push(child.id);
+    }
+  }
+  return result;
 }
 
-export function wouldCreateCycle(
-  nodes: WorkspaceNode[],
-  nodeId: string,
-  newParentId: string | null
-): boolean {
-  if (newParentId === null) return false;
-  if (newParentId === nodeId) return true;
-  return collectDescendantIds(nodes, nodeId).includes(newParentId);
+export const PROJECT_NESTING_ERROR = "プロジェクトの中に別のプロジェクトを移動することはできません。";
+
+export function owningProjectId(nodes: WorkspaceNode[], id: string | null): string | null {
+  const seen = new Set<string>();
+  while (id !== null) {
+    if (seen.has(id)) throw new Error("ツリーに循環があります");
+    seen.add(id);
+    const node = nodes.find((item) => item.id === id);
+    if (!node) throw new Error("移動先が見つかりません");
+    if (node.kind === "project") return node.id;
+    id = node.parentId;
+  }
+  return null;
 }
 
-export function assertMoveAllowed(
-  nodes: WorkspaceNode[],
-  nodeId: string,
-  newParentId: string | null
-): void {
+export function wouldCreateCycle(nodes: WorkspaceNode[], nodeId: string, newParentId: string | null): boolean {
+  return newParentId !== null && (newParentId === nodeId || collectDescendantIds(nodes, nodeId).includes(newParentId));
+}
+
+export function assertMoveAllowed(nodes: WorkspaceNode[], nodeId: string, newParentId: string | null): void {
   const node = nodes.find((item) => item.id === nodeId);
   if (!node) throw new Error("Workspace node not found");
   if (wouldCreateCycle(nodes, nodeId, newParentId)) {
     throw new Error("フォルダを自分の子へ移動することはできません");
   }
-  if (newParentId) {
-    const parent = nodes.find((item) => item.id === newParentId);
-    if (!parent) throw new Error("移動先が見つかりません");
-    if (parent.kind === "project") {
-      throw new Error("Project の下に Folder / Project は置けません");
-    }
-  }
-  if (node.kind === "project" && newParentId) {
-    const parent = nodes.find((item) => item.id === newParentId);
-    if (parent?.kind === "project") {
-      throw new Error("Project の下に Project は置けません");
-    }
+  const projectId = owningProjectId(nodes, newParentId);
+  const subtree = new Set([nodeId, ...collectDescendantIds(nodes, nodeId)]);
+  if (projectId && nodes.some((item) => subtree.has(item.id) && item.kind === "project")) {
+    throw new Error(PROJECT_NESTING_ERROR);
   }
 }
 

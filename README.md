@@ -19,7 +19,7 @@
 - **macOS アプリ**: Tauri 2 で `.app` / `.dmg` をビルドできる。配布版は翻訳サーバーを同梱して自動起動する
 - **論文ライブラリ**: すべての論文 / Inbox / お気に入り / 最近読んだ論文 / プロジェクト。論文カードは同じレイアウト（タイトル、著者、読了進捗、読める状態）。内部処理の raw status は出さず、準備中 / 読めます / 日本語化中 / 要確認で見せる。PDF受け取り直後だけ一時カードを出し、実論文カードが生成されたら置き換えるため二重表示しない。All Papers 上部に「続きを読む」（最近読んだ 2〜3 件）。カードの `…` からお気に入り・プロジェクト追加・ライブラリ削除ができる。Project では「Projectから外す」と undo toast。PDF 追加後は Import 画面に留まらず Library へ戻り、カードで進行を見せる。ドロップ直後に受け取り表示と toast を出す。サイドバー検索は「ライブラリを検索」（⌘K）。Reader の ⌘F は「この論文を検索」で、Library 検索にフォーカスしても Reader を離れない
 - **設定**: 左サイドバー最下部から、ライブラリと同じ画面遷移で開く。本文は一般 / 翻訳 / 読書 / ストレージ / 診断に分かれ、リーダーのアウトラインと同じ目次で同一ページ内を移動する。サンプル論文の追加は一般。表示設定はリーダーと共通。読書セクションに本文プレビューがあり、文字サイズ・行間・本文幅の変更がすぐ見える。翻訳キャッシュだけを消せる。接続確認は診断（および翻訳の詳細設定）。変更は自動保存
-- **Project / Folder**: Folder は整理だけ、Project は論文所属を持つ。Folder の下に Folder / Project を置ける。Project の下に Project は置けない。論文実体は 1 つ（所属は多対多）。カードメニューまたはドラッグで所属を変える。同じ Project へ再度落とすと「すでに入っています」と出す。作成直後の Project もサイドバーとカードメニューへ即時反映する。プロジェクト名の右端にある三点メニューから、名称変更・そのProjectへの論文ファイル追加・Project削除ができる。プロジェクト画面の「論文を追加」から PDF を入れてもその Project に所属する。削除時も論文レコードは消さない。Folder に子があるときは確認を出す。New Project と New Folder は同時に開かない
+- **Project / Folder**: Folder / Project / Paper をサイドバーの1本のツリーに表示する。Project と Folder は Chevron で展開でき、Project 名は画面を開く。Folder の下に Folder / Project、Project の下に Folder / Paper を置ける。Project の子孫に別 Project は置けない。ノード行の中央へドラッグすると子へ移動、上下端へドラッグすると種類を分けず並び替え、ドラッグ中の「ルートへ移動」で最上位へ戻せる。禁止先は赤く表示し、ドロップ時に Toast で理由を伝える。論文実体は 1 つ（所属は多対多）。カードメニューまたはドラッグで所属を変える。Paper は Project またはその配下 Folder へドロップして配置する（ProjectPaper の folderId / order のみ更新）。別 Project へ落とした場合も既存 Project の所属は維持する。Folder を Project 外へ移動・削除した場合、その中の Paper の配置は元 Project 直下へ戻す。作成直後の Project もサイドバーとカードメニューへ即時反映する。プロジェクト名の右端にある三点メニューから、名称変更・そのProjectへの論文ファイル追加・Project削除ができる。プロジェクト画面の「論文を追加」から PDF を入れてもその Project に所属する。削除時も論文レコードは消さない。Folder に子があるときは確認を出す。New Project と New Folder は同時に開かない
 - **日本語リーダー**: 目次 | 本文 | メモ／用語集の 3 ペイン。目次はヘッダーから隠せる。1 カラム本文、段落ごとの原文展開、検索（⌘F。矢印または Enter で次のヒット、Shift+Enter / ↑ で前へ）、表示設定（文字サイズ・行間・本文幅・ライト／ダーク／システム）、読書位置の保存と復元。論文タイトルは 1 ページ目で本文より大きい行から取る。著者・所属は見出しにせず、リーダー本文にも出さない。日本語の節番号（`1 はじめに`、`2.1` など）と `参考文献` を目次にする。英語副題やローマ字著者行は目次に出さない
 - **途中から読む**: PDF 追加後は Library のカードが「準備中」→「読めます / 日本語化中」になる。構造解析が終わった時点でリーダーを開ける。論文を開くと `lastOpenedAt` を記録する。翻訳はタイトル → 見出し → Abstract → 本文の順。いま読んでいる付近を優先して訳す。未完了の翻訳は次回起動時に再開する
 - **メモ**: 訳文を選択すると近くに「メモを追加」が出る。Notes と用語集の右パネルは同時には出さない。現行 `.app` では追加〜保存・ハイライトの一連が安定していない（[ROADMAP 3.0](./ROADMAP.md)）。再翻訳で位置がずれたメモは orphan 扱い
@@ -79,7 +79,7 @@ All Papers / Inbox / Favorites / Recently Read のカードを、左サイドバ
 - Finder から PDF をアプリ画面へドロップしてもインポートできます。Project を開いているときはその Project に入ります。受け取るとファイル名を出し、Library のカードで進行を見せます
 - カードの `…` からプロジェクトへ追加、お気に入り、ライブラリ削除ができる。Project 画面では「Projectから外す」で所属だけ外し、undo できる
 
-カードの「Add to Project」ボタンはありません。Project の新規作成はサイドバーの New Project、Folder は New Folder です。Folder の削除はサイドバーで右クリックして確認します。
+カードの「Add to Project」ボタンはありません。Project の新規作成はサイドバーの New Project、Folder は New Folder です。Folder の削除もサイドバーの三点メニューから確認します。
 
 ### 開発
 
@@ -173,7 +173,7 @@ paper-reader/
 永続化:
 
 - Paper Package（`<AppData>/papers/<paperId>/`）: `source.pdf`、`paper.json`、`original.md`、`ja.md`、`translation.json`、`structure.json`、任意の `layout.json.gz`、`assets/`。`source.pdf` は初回の atomic persist で一緒に書く。`paper.json` は構造化 author / affiliation / DOI を捨てない
-- SQLite（`<AppData>/library.sqlite`）: 論文 index、Folder / Project ツリー、所属、Annotation、読書位置、用語集、翻訳キャッシュ、検索 index。本文の正本ではない。schema_version 3（cache 複合キー、hash UNIQUE、FK、`package_revision` handshake）。終了時に flush する
+- SQLite（`<AppData>/library.sqlite`）: 論文 index、Folder / Project ツリー、所属、Annotation、読書位置、用語集、翻訳キャッシュ、検索 index。本文の正本ではない。schema_version 4（v3 までの制約に加え、ProjectPaper の nullable `folder_id` と `sort_order DEFAULT 0`。既存所属は Project 直下へ配置）。終了時に flush する
 - 旧 IndexedDB（`paper-reader` v4）: 起動時に一度移行し、バックアップとして残す。設定の「翻訳キャッシュを削除」は SQLite の cache だけを消す
 - 表示設定: Zustand persist（`paper-reader-storage`）
 
@@ -208,3 +208,9 @@ Paper Reader のソースコードは MIT License で公開しています。
 利用している第三者ライブラリ・モデルには、それぞれのライセンスが適用されます。
 
 詳細: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
+
+ツリーのブラウザ回帰確認: `npm run dev` の起動後に `node scripts/verify-workspace.mjs`。展開・DnD禁止通知・混在並び順・Paper配置・再読込後の永続化を使い捨てブラウザで確認する。
+
+- サイドバーの三点メニューは、開いている行全体を後続のツリー行より前面に表示し、Project / Folder の操作項目が隠れないようにする。
+
+Project / Folder の三点メニューは「名称を変更・論文ファイルを追加・削除」に統一。名前はサイドバー内で編集し、Enter またはフォーカス移動で保存、Escape で取消。編集中はサイドバーを展開保持する。三点メニューはサイドバーから離れると閉じる。削除はメニュー内の「削除する」で確認し、配下の項目を削除しても論文ファイルは残す。Project 内 Folder から追加した PDF はその Folder に配置する。Project 外 Folder の追加項目は理由を添えて無効にする。

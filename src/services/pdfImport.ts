@@ -38,7 +38,7 @@ export async function fileFromDroppedPath(path: string): Promise<File> {
 
 export async function tryStartPdfImport(
   file: File,
-  options?: { projectId?: string }
+  options?: { projectId?: string; folderId?: string }
 ): Promise<boolean> {
   return startBackgroundImport(file, options);
 }
