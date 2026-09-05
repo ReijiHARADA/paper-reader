@@ -10,15 +10,18 @@ const DRAG_THRESHOLD_PX = 8;
 export function useDraggablePaper(
   paperId: string,
   label: string,
-  enabled = true
+  enabled = true,
+  sourceNodeId?: string
 ) {
   const skipClick = useRef(false);
   const paperIdRef = useRef(paperId);
   const labelRef = useRef(label);
   const enabledRef = useRef(enabled);
+  const sourceNodeIdRef = useRef(sourceNodeId);
   paperIdRef.current = paperId;
   labelRef.current = label;
   enabledRef.current = enabled;
+  sourceNodeIdRef.current = sourceNodeId;
 
   const beginDrag = usePaperDragStore((state) => state.beginDrag);
   const movePointer = usePaperDragStore((state) => state.movePointer);
@@ -49,7 +52,7 @@ export function useDraggablePaper(
         if (!dragging) {
           if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
           dragging = true;
-          beginDrag(paperIdRef.current, labelRef.current, moveEvent.clientX, moveEvent.clientY);
+          beginDrag(paperIdRef.current, labelRef.current, moveEvent.clientX, moveEvent.clientY, sourceNodeIdRef.current);
         }
         moveEvent.preventDefault();
         movePointer(
@@ -67,7 +70,7 @@ export function useDraggablePaper(
         const targetId = paperDropTargetAtPoint(upEvent.clientX, upEvent.clientY);
         endDrag();
         if (targetId && upEvent.type !== "pointercancel") {
-          void completePaperDrop(targetId, paperIdRef.current);
+          void completePaperDrop(targetId, paperIdRef.current, sourceNodeIdRef.current ?? null);
         }
       };
 

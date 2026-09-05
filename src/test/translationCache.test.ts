@@ -16,13 +16,11 @@ import {
   saveSetting,
   saveTranslationCache,
   saveReadingPosition,
-  saveProject,
-  saveProjectPaper,
-  getProject,
-  getProjectPaper,
+  getWorkspacePaperLink,
   saveAnnotation,
   getAnnotation,
 } from "../services/database";
+import { addPaperToWorkspace, createWorkspaceNode } from "../services/projectService";
 
 const now = "2026-09-04T00:00:00.000Z";
 
@@ -89,22 +87,15 @@ describe("clearTranslationCache", () => {
     await saveGlossary("cache-clear-paper", [
       { term: "cache", translation: "キャッシュ", definition: "" },
     ]);
-    await saveProject({
-      id: "cache-clear-project",
+    const node = await createWorkspaceNode({
       name: "Cache Project",
-      createdAt: now,
-      updatedAt: now,
+      parentId: null,
     });
-    await saveProjectPaper({
-      projectId: "cache-clear-project",
-      paperId: "cache-clear-paper",
-      createdAt: now,
-      updatedAt: now,
-    });
+    await addPaperToWorkspace(node.id, "cache-clear-paper");
     await saveAnnotation({
       id: "cache-clear-note",
       paperId: "cache-clear-paper",
-      projectId: "cache-clear-project",
+      workspaceNodeId: "cache-clear-workspace",
       blockId: "cache-clear-block",
       startOffset: 0,
       endOffset: 5,
@@ -146,12 +137,7 @@ describe("clearTranslationCache", () => {
     expect(await getGlossary("cache-clear-paper")).toEqual([
       { term: "cache", translation: "キャッシュ", definition: "" },
     ]);
-    expect(await getProject("cache-clear-project")).toMatchObject({
-      name: "Cache Project",
-    });
-    expect(
-      await getProjectPaper("cache-clear-project", "cache-clear-paper")
-    ).toBeTruthy();
+    expect(await getWorkspacePaperLink(node.id, "cache-clear-paper")).toBeTruthy();
     expect((await getAnnotation("cache-clear-note"))?.note).toBe("keep me");
     expect(await getSetting("translationSettingsV2")).toMatchObject({
       useCache: true,

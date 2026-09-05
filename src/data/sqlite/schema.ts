@@ -32,25 +32,19 @@ CREATE INDEX IF NOT EXISTS papers_by_updated ON papers(updated_at);
 CREATE TABLE IF NOT EXISTS workspace_nodes (
   id TEXT PRIMARY KEY,
   parent_id TEXT,
-  kind TEXT NOT NULL CHECK (kind IN ('folder', 'project')),
   name TEXT NOT NULL,
   sort_order INTEGER NOT NULL,
+  description TEXT,
+  research_question TEXT,
+  keywords_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS workspace_nodes_parent ON workspace_nodes(parent_id, sort_order);
 
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY,
-  description TEXT,
-  research_question TEXT,
-  keywords_json TEXT
-);
-
-CREATE TABLE IF NOT EXISTS project_papers (
-  project_id TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS workspace_papers (
+  node_id TEXT NOT NULL,
   paper_id TEXT NOT NULL,
-  folder_id TEXT REFERENCES workspace_nodes(id) ON DELETE SET NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   note TEXT,
   relevance REAL,
@@ -60,16 +54,16 @@ CREATE TABLE IF NOT EXISTS project_papers (
   quotes_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (project_id, paper_id),
-  FOREIGN KEY (project_id) REFERENCES workspace_nodes(id) ON DELETE CASCADE,
+  PRIMARY KEY (node_id, paper_id),
+  FOREIGN KEY (node_id) REFERENCES workspace_nodes(id) ON DELETE CASCADE,
   FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS project_papers_by_paper ON project_papers(paper_id);
+CREATE INDEX IF NOT EXISTS workspace_papers_by_paper ON workspace_papers(paper_id);
 
 CREATE TABLE IF NOT EXISTS annotations (
   id TEXT PRIMARY KEY,
   paper_id TEXT NOT NULL,
-  project_id TEXT,
+  workspace_node_id TEXT,
   block_id TEXT NOT NULL,
   start_offset INTEGER NOT NULL,
   end_offset INTEGER NOT NULL,

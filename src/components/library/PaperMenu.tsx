@@ -6,43 +6,42 @@ import { useProjectStore } from "../../stores/projectStore";
 import { showToast } from "../../stores/toastStore";
 import { setPaperFavorite } from "../../services/database";
 import {
-  addPaperToProject,
-  DuplicateProjectPaperError,
+  addPaperToWorkspace,
 } from "../../services/projectService";
 import styles from "./PaperCard.module.css";
 
 type PaperMenuProps = {
   paper: Paper;
-  variant: "library" | "project";
+  variant: "library" | "workspace";
   onDeleteRequest?: (event: React.MouseEvent, paperId: string) => void;
-  onRemoveFromProject?: (paperId: string) => void;
+  onRemoveFromWorkspace?: (paperId: string) => void;
 };
 
 export function PaperMenu({
   paper,
   variant,
   onDeleteRequest,
-  onRemoveFromProject,
+  onRemoveFromWorkspace,
 }: PaperMenuProps) {
   const [open, setOpen] = useState(false);
-  const [pickingProject, setPickingProject] = useState(false);
+  const [pickingWorkspace, setPickingWorkspace] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const updatePaper = useLibraryCache((state) => state.updatePaper);
-  const projects = useProjectStore((state) => state.projects);
+  const workspaceNodes = useProjectStore((state) => state.workspaceNodes);
   const memberships = useProjectStore((state) => state.memberships);
   const upsertMembership = useProjectStore((state) => state.upsertMembership);
 
   useEffect(() => {
-    if (!open && !pickingProject) return;
+    if (!open && !pickingWorkspace) return;
     const onPointer = (event: PointerEvent) => {
       if (rootRef.current?.contains(event.target as Node)) return;
       setOpen(false);
-      setPickingProject(false);
+      setPickingWorkspace(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
-        setPickingProject(false);
+        setPickingWorkspace(false);
       }
     };
     window.addEventListener("pointerdown", onPointer);
@@ -51,7 +50,7 @@ export function PaperMenu({
       window.removeEventListener("pointerdown", onPointer);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, pickingProject]);
+  }, [open, pickingWorkspace]);
 
   const toggleFavorite = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -65,27 +64,27 @@ export function PaperMenu({
     });
   };
 
-  const addToProject = async (event: React.MouseEvent, projectId: string) => {
+  const addToWorkspace = async (event: React.MouseEvent, nodeId: string) => {
     event.stopPropagation();
-    const project = projects.find((item) => item.id === projectId);
+    const node = workspaceNodes.find((item) => item.id === nodeId);
     try {
-      const link = await addPaperToProject({ projectId, paperId: paper.id });
+      const link = await addPaperToWorkspace(nodeId, paper.id);
       upsertMembership(link);
       showToast({
         kind: "success",
-        message: `「${project?.name ?? "プロジェクト"}」に追加しました`,
+        message: `「${node?.name ?? "ワークスペース"}」に追加しました`,
       });
     } catch (error) {
-      if (error instanceof DuplicateProjectPaperError) {
+      if (error instanceof Error && error.message.includes("すでに")) {
         showToast({
           kind: "info",
-          message: `「${project?.name ?? "プロジェクト"}」にはすでに入っています`,
+          message: `「${node?.name ?? "ワークスペース"}」にはすでに入っています`,
         });
       } else {
-        showToast({ kind: "error", message: "プロジェクトへの追加に失敗しました" });
+        showToast({ kind: "error", message: "ワークスペースへの追加に失敗しました" });
       }
     }
-    setPickingProject(false);
+    setPickingWorkspace(false);
     setOpen(false);
   };
 
@@ -100,7 +99,7 @@ export function PaperMenu({
         onClick={(event) => {
           event.stopPropagation();
           setOpen((value) => !value);
-          setPickingProject(false);
+          setPickingWorkspace(false);
         }}
       >
         <MoreHorizontal size={16} />
@@ -117,25 +116,25 @@ export function PaperMenu({
               role="menuitem"
               onClick={(event) => {
                 event.stopPropagation();
-                setPickingProject(true);
+                setPickingWorkspace(true);
               }}
             >
               <FolderPlus size={14} />
-              プロジェクトに追加…
+              ワークスペースに追加…
             </button>
           )}
-          {variant === "project" && onRemoveFromProject && (
+          {variant === "workspace" && onRemoveFromWorkspace && (
             <button
               type="button"
               role="menuitem"
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
-                onRemoveFromProject(paper.id);
+                onRemoveFromWorkspace(paper.id);
               }}
             >
               <UserMinus size={14} />
-              Projectから外す
+              ワークスペースから外す
             </button>
           )}
           {variant === "library" && onDeleteRequest && (
@@ -157,24 +156,24 @@ export function PaperMenu({
           )}
         </div>
       )}
-      {pickingProject && (
+      {pickingWorkspace && (
         <div className={styles.menu} role="menu">
-          {projects.length === 0 ? (
-            <p className={styles.menuEmpty}>プロジェクトがありません</p>
+          {workspaceNodes.length === 0 ? (
+            <p className={styles.menuEmpty}>フォルダがありません</p>
           ) : (
-            projects.map((project) => {
+            workspaceNodes.map((node) => {
               const already = memberships.some(
-                (link) => link.projectId === project.id && link.paperId === paper.id
+                (link) => link.nodeId === node.id && link.paperId === paper.id
               );
               return (
                 <button
-                  key={project.id}
+                  key={node.id}
                   type="button"
                   role="menuitem"
                   disabled={already}
-                  onClick={(event) => void addToProject(event, project.id)}
+                  onClick={(event) => void addToWorkspace(event, node.id)}
                 >
-                  {project.name}
+                  {node.name}
                   {already ? "（追加済み）" : ""}
                 </button>
               );

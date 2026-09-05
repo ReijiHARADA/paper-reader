@@ -1,306 +1,82 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Project, ProjectPaper } from "../../types/project";
+import type { WorkspacePaper } from "../../types/project";
 import type { SqliteClient } from "../sqlite/client";
 import type { WorkspaceNode } from "../types/workspace";
-import {
-  assertMoveAllowed,
-  owningProjectId,
-  nextSiblingOrder,
-  reorderSiblings,
-} from "../workspace/tree";
+import { assertMoveAllowed, nextSiblingOrder, reorderSiblings } from "../workspace/tree";
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-function parseJson<T>(value: unknown, fallback: T): T {
-  if (typeof value !== "string" || !value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
+const nowIso = () => new Date().toISOString();
+const json = <T>(value: unknown): T | undefined => {
+  if (typeof value !== "string" || !value) return undefined;
+  try { return JSON.parse(value) as T; } catch { return undefined; }
+};
 
 function rowToNode(row: Record<string, unknown>): WorkspaceNode {
   return {
-    id: String(row.id),
-    parentId: row.parent_id == null ? null : String(row.parent_id),
-    kind: String(row.kind) as WorkspaceNode["kind"],
-    name: String(row.name),
-    order: Number(row.sort_order),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
+    id: String(row.id), parentId: row.parent_id == null ? null : String(row.parent_id), name: String(row.name), order: Number(row.sort_order),
+    description: row.description == null ? undefined : String(row.description), researchQuestion: row.research_question == null ? undefined : String(row.research_question),
+    keywords: json<string[]>(row.keywords_json), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
   };
 }
-
-export function listWorkspaceNodes(db: SqliteClient): WorkspaceNode[] {
-  return db.query("SELECT * FROM workspace_nodes").map(rowToNode);
+function rowToPaper(row: Record<string, unknown>): WorkspacePaper {
+  return {
+    nodeId: String(row.node_id), paperId: String(row.paper_id), order: Number(row.sort_order),
+    note: row.note == null ? undefined : String(row.note), relevance: row.relevance == null ? undefined : Number(row.relevance),
+    status: row.status == null ? undefined : row.status as WorkspacePaper["status"], decision: row.decision == null ? undefined : row.decision as WorkspacePaper["decision"],
+    tags: json<string[]>(row.tags_json), quotes: json<string[]>(row.quotes_json), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+  };
 }
-
-export function getWorkspaceNode(db: SqliteClient, id: string): WorkspaceNode | undefined {
-  const row = db.get("SELECT * FROM workspace_nodes WHERE id = ?", [id]);
-  return row ? rowToNode(row) : undefined;
-}
-
+export const listWorkspaceNodes = (db: SqliteClient) => db.query("SELECT * FROM workspace_nodes").map(rowToNode);
+export const getWorkspaceNode = (db: SqliteClient, id: string) => { const row = db.get("SELECT * FROM workspace_nodes WHERE id = ?", [id]); return row ? rowToNode(row) : undefined; };
 function writeNode(db: SqliteClient, node: WorkspaceNode): void {
-  db.exec(
-    `INSERT INTO workspace_nodes (id, parent_id, kind, name, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       parent_id=excluded.parent_id,
-       kind=excluded.kind,
-       name=excluded.name,
-       sort_order=excluded.sort_order,
-       updated_at=excluded.updated_at`,
-    [node.id, node.parentId, node.kind, node.name, node.order, node.createdAt, node.updatedAt]
-  );
+  db.exec(`INSERT INTO workspace_nodes (id, parent_id, name, sort_order, description, research_question, keywords_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET parent_id=excluded.parent_id, name=excluded.name,
+    sort_order=excluded.sort_order, description=excluded.description, research_question=excluded.research_question,
+    keywords_json=excluded.keywords_json, updated_at=excluded.updated_at`, [node.id, node.parentId, node.name, node.order,
+    node.description ?? null, node.researchQuestion ?? null, node.keywords ? JSON.stringify(node.keywords) : null, node.createdAt, node.updatedAt]);
 }
-
-export function createWorkspaceNode(
-  db: SqliteClient,
-  input: {
-    kind: WorkspaceNode["kind"];
-    name: string;
-    parentId?: string | null;
-    id?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  }
-): WorkspaceNode {
-  const nodes = listWorkspaceNodes(db);
-  const stamp = nowIso();
-  const node: WorkspaceNode = {
-    id: input.id ?? uuidv4(),
-    parentId: input.parentId ?? null,
-    kind: input.kind,
-    name: input.name.trim(),
-    order: nextSiblingOrder(nodes, input.parentId ?? null),
-    createdAt: input.createdAt ?? stamp,
-    updatedAt: input.updatedAt ?? stamp,
-  };
+export function createWorkspaceNode(db: SqliteClient, input: Omit<Partial<WorkspaceNode>, "order"> & { name: string }): WorkspaceNode {
+  const nodes = listWorkspaceNodes(db); const stamp = nowIso();
+  const node: WorkspaceNode = { id: input.id ?? uuidv4(), parentId: input.parentId ?? null, name: input.name.trim(), order: nextSiblingOrder(nodes, input.parentId ?? null),
+    description: input.description?.trim() || undefined, researchQuestion: input.researchQuestion?.trim() || undefined, keywords: input.keywords?.filter(Boolean), createdAt: input.createdAt ?? stamp, updatedAt: input.updatedAt ?? stamp };
   if (!node.name) throw new Error("名前を入力してください");
   if (nodes.some((item) => item.id === node.id)) throw new Error("Workspace node already exists");
-  assertMoveAllowed([...nodes, { ...node, parentId: null }], node.id, node.parentId);
-  writeNode(db, node);
-  return node;
+  assertMoveAllowed([...nodes, { ...node, parentId: null }], node.id, node.parentId); writeNode(db, node); return node;
 }
+export function updateWorkspaceNode(db: SqliteClient, id: string, updates: Partial<Omit<WorkspaceNode, "id" | "parentId" | "order" | "createdAt" | "updatedAt">>): WorkspaceNode {
+  const node = getWorkspaceNode(db, id); if (!node) throw new Error("Workspace node not found");
+  const name = updates.name === undefined ? node.name : updates.name.trim(); if (!name) throw new Error("名前を入力してください");
+  const next = { ...node, ...updates, name, updatedAt: nowIso() }; writeNode(db, next); return next;
+}
+export const renameWorkspaceNode = (db: SqliteClient, id: string, name: string) => updateWorkspaceNode(db, id, { name });
+export function moveWorkspaceNode(db: SqliteClient, id: string, parentId: string | null, order?: number): WorkspaceNode {
+  const nodes = listWorkspaceNodes(db); assertMoveAllowed(nodes, id, parentId); const node = nodes.find((item) => item.id === id); if (!node) throw new Error("Workspace node not found");
+  const siblings = nodes.filter((item) => item.parentId === parentId && item.id !== id).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  const index = order === undefined ? siblings.length : Math.max(0, Math.min(siblings.length, Math.trunc(order))); if (!Number.isFinite(index)) throw new Error("Invalid order");
+  const next = { ...node, parentId, order: index, updatedAt: nowIso() }; siblings.splice(index, 0, next);
+  db.transaction(() => siblings.forEach((item, position) => writeNode(db, { ...item, order: position }))); return next;
+}
+export function reorderWorkspaceSiblings(db: SqliteClient, parentId: string | null, orderedIds: string[]): void { for (const node of reorderSiblings(listWorkspaceNodes(db), parentId, orderedIds).filter((item) => item.parentId === parentId)) writeNode(db, { ...node, updatedAt: nowIso() }); }
+function descendants(nodes: WorkspaceNode[], id: string): string[] { return nodes.filter((node) => node.parentId === id).flatMap((child) => [child.id, ...descendants(nodes, child.id)]); }
+export function deleteWorkspaceNode(db: SqliteClient, id: string): string[] { const nodes = listWorkspaceNodes(db); if (!nodes.some((node) => node.id === id)) throw new Error("Workspace node not found"); const removed = [id, ...descendants(nodes, id)]; db.transaction(() => removed.forEach((nodeId) => db.exec("DELETE FROM workspace_nodes WHERE id = ?", [nodeId]))); return removed; }
 
-export function renameWorkspaceNode(db: SqliteClient, id: string, name: string): WorkspaceNode {
-  const node = getWorkspaceNode(db, id);
-  if (!node) throw new Error("Workspace node not found");
-  if (!name.trim()) throw new Error("名前を入力してください");
-  const next = { ...node, name: name.trim(), updatedAt: nowIso() };
-  writeNode(db, next);
-  return next;
+export const listAllWorkspacePapers = (db: SqliteClient) => db.query("SELECT * FROM workspace_papers").map(rowToPaper);
+export const listWorkspacePapersByNode = (db: SqliteClient, nodeId: string) => db.query("SELECT * FROM workspace_papers WHERE node_id = ? ORDER BY sort_order", [nodeId]).map(rowToPaper);
+export const listWorkspacePapersByPaper = (db: SqliteClient, paperId: string) => db.query("SELECT * FROM workspace_papers WHERE paper_id = ?", [paperId]).map(rowToPaper);
+export const getWorkspacePaper = (db: SqliteClient, nodeId: string, paperId: string) => { const row = db.get("SELECT * FROM workspace_papers WHERE node_id = ? AND paper_id = ?", [nodeId, paperId]); return row ? rowToPaper(row) : undefined; };
+export function saveWorkspacePaper(db: SqliteClient, link: WorkspacePaper): void {
+  if (!getWorkspaceNode(db, link.nodeId)) throw new Error("Workspace node not found");
+  db.exec(`INSERT INTO workspace_papers (node_id, paper_id, sort_order, note, relevance, status, decision, tags_json, quotes_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(node_id, paper_id) DO UPDATE SET sort_order=excluded.sort_order, note=excluded.note,
+    relevance=excluded.relevance, status=excluded.status, decision=excluded.decision, tags_json=excluded.tags_json, quotes_json=excluded.quotes_json, updated_at=excluded.updated_at`,
+    [link.nodeId, link.paperId, link.order, link.note ?? null, link.relevance ?? null, link.status ?? null, link.decision ?? null, link.tags ? JSON.stringify(link.tags) : null, link.quotes ? JSON.stringify(link.quotes) : null, link.createdAt, link.updatedAt]);
 }
-
-export function moveWorkspaceNode(
-  db: SqliteClient,
-  id: string,
-  parentId: string | null,
-  order?: number
-): WorkspaceNode {
-  const nodes = listWorkspaceNodes(db);
-  assertMoveAllowed(nodes, id, parentId);
-  const node = nodes.find((item) => item.id === id);
-  if (!node) throw new Error("Workspace node not found");
-  const next = {
-    ...node,
-    parentId,
-    order: nextSiblingOrder(nodes, parentId),
-    updatedAt: nowIso(),
-  };
-  const siblings = nodes.filter((item) => item.parentId === parentId && item.id !== id)
-    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-  const index = order === undefined ? siblings.length : Math.max(0, Math.min(siblings.length, Math.trunc(order)));
-  if (!Number.isFinite(index)) throw new Error("Invalid order");
-  siblings.splice(index, 0, next);
-  db.transaction(() => {
-    siblings.forEach((item, position) => writeNode(db, { ...item, order: position }));
-    // A folder crossing a project boundary must not take that project's links with it.
-    const updated = listWorkspaceNodes(db);
-    for (const link of listAllProjectPapers(db)) {
-      if (link.folderId && owningProjectId(updated, link.folderId) !== link.projectId) {
-        saveProjectPaperRow(db, { ...link, folderId: null, updatedAt: nowIso() });
-      }
-    }
-  });
-  return { ...next, order: index };
+export function addPaperToWorkspace(db: SqliteClient, input: Omit<WorkspacePaper, "order" | "createdAt" | "updatedAt">): WorkspacePaper {
+  if (getWorkspacePaper(db, input.nodeId, input.paperId)) throw new Error("この場所にはすでに入っています"); const stamp = nowIso();
+  const link = { ...input, order: listWorkspacePapersByNode(db, input.nodeId).length, createdAt: stamp, updatedAt: stamp }; saveWorkspacePaper(db, link); return link;
 }
-
-export function reorderWorkspaceSiblings(
-  db: SqliteClient,
-  parentId: string | null,
-  orderedIds: string[]
-): void {
-  const next = reorderSiblings(listWorkspaceNodes(db), parentId, orderedIds);
-  for (const node of next.filter((item) => item.parentId === parentId)) {
-    writeNode(db, { ...node, updatedAt: nowIso() });
-  }
+export function movePaperInWorkspace(db: SqliteClient, paperId: string, sourceNodeId: string, targetNodeId: string): WorkspacePaper {
+  const source = getWorkspacePaper(db, sourceNodeId, paperId); if (!source) throw new Error("Workspace paper not found"); if (sourceNodeId === targetNodeId || getWorkspacePaper(db, targetNodeId, paperId)) throw new Error("この場所にはすでに入っています");
+  const next = { ...source, nodeId: targetNodeId, order: listWorkspacePapersByNode(db, targetNodeId).length, updatedAt: nowIso() };
+  db.transaction(() => { db.exec("DELETE FROM workspace_papers WHERE node_id = ? AND paper_id = ?", [sourceNodeId, paperId]); saveWorkspacePaper(db, next); }); return next;
 }
-
-export function deleteWorkspaceNode(db: SqliteClient, id: string): string[] {
-  const nodes = listWorkspaceNodes(db);
-  const stack = [id];
-  const removed: string[] = [];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) break;
-    removed.push(current);
-    for (const child of nodes.filter((node) => node.parentId === current)) {
-      stack.push(child.id);
-    }
-  }
-  db.transaction(() => {
-  for (const nodeId of removed) {
-    db.exec("DELETE FROM project_papers WHERE project_id = ?", [nodeId]);
-    db.exec("DELETE FROM projects WHERE id = ?", [nodeId]);
-    db.exec("DELETE FROM workspace_nodes WHERE id = ?", [nodeId]);
-  }
-  });
-  return removed;
-}
-
-export function upsertProjectMeta(
-  db: SqliteClient,
-  project: Pick<Project, "id" | "description" | "researchQuestion" | "keywords">
-): void {
-  db.exec(
-    `INSERT INTO projects (id, description, research_question, keywords_json)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       description=excluded.description,
-       research_question=excluded.research_question,
-       keywords_json=excluded.keywords_json`,
-    [
-      project.id,
-      project.description ?? null,
-      project.researchQuestion ?? null,
-      project.keywords ? JSON.stringify(project.keywords) : null,
-    ]
-  );
-}
-
-export function listProjectsFromNodes(db: SqliteClient): Project[] {
-  const nodes = listWorkspaceNodes(db).filter((node) => node.kind === "project");
-  return nodes
-    .map((node) => {
-      const meta = db.get("SELECT * FROM projects WHERE id = ?", [node.id]);
-      return {
-        id: node.id,
-        name: node.name,
-        description: meta?.description ? String(meta.description) : undefined,
-        researchQuestion: meta?.research_question ? String(meta.research_question) : undefined,
-        keywords: parseJson<string[]>(meta?.keywords_json, undefined as unknown as string[]),
-        createdAt: node.createdAt,
-        updatedAt: node.updatedAt,
-      } satisfies Project;
-    })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-export function getProjectFromNodes(db: SqliteClient, id: string): Project | undefined {
-  return listProjectsFromNodes(db).find((project) => project.id === id);
-}
-
-function rowToLink(row: Record<string, unknown>): ProjectPaper {
-  return {
-    projectId: String(row.project_id),
-    paperId: String(row.paper_id),
-    folderId: row.folder_id == null ? null : String(row.folder_id),
-    order: Number(row.sort_order ?? 0),
-    note: row.note ? String(row.note) : undefined,
-    relevance: row.relevance == null ? undefined : Number(row.relevance),
-    status: row.status ? (String(row.status) as ProjectPaper["status"]) : undefined,
-    decision: row.decision ? (String(row.decision) as ProjectPaper["decision"]) : undefined,
-    tags: parseJson<string[]>(row.tags_json, undefined as unknown as string[]),
-    quotes: parseJson<string[]>(row.quotes_json, undefined as unknown as string[]),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
-  };
-}
-
-export function saveProjectPaperRow(db: SqliteClient, link: ProjectPaper): void {
-  const nodes = listWorkspaceNodes(db);
-  if (nodes.find((node) => node.id === link.projectId)?.kind !== "project") throw new Error("Project not found");
-  if (link.folderId && (nodes.find((node) => node.id === link.folderId)?.kind !== "folder" ||
-      owningProjectId(nodes, link.folderId) !== link.projectId)) {
-    throw new Error("論文は同じプロジェクト内のフォルダに配置してください");
-  }
-  db.exec(
-    `INSERT INTO project_papers (
-      project_id, paper_id, folder_id, sort_order, note, relevance, status, decision, tags_json, quotes_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(project_id, paper_id) DO UPDATE SET
-      folder_id=excluded.folder_id,
-      sort_order=excluded.sort_order,
-      note=excluded.note,
-      relevance=excluded.relevance,
-      status=excluded.status,
-      decision=excluded.decision,
-      tags_json=excluded.tags_json,
-      quotes_json=excluded.quotes_json,
-      updated_at=excluded.updated_at`,
-    [
-      link.projectId,
-      link.paperId,
-      link.folderId ?? null,
-      link.order ?? 0,
-      link.note ?? null,
-      link.relevance ?? null,
-      link.status ?? null,
-      link.decision ?? null,
-      link.tags ? JSON.stringify(link.tags) : null,
-      link.quotes ? JSON.stringify(link.quotes) : null,
-      link.createdAt,
-      link.updatedAt,
-    ]
-  );
-}
-
-export function getProjectPaperRow(
-  db: SqliteClient,
-  projectId: string,
-  paperId: string
-): ProjectPaper | undefined {
-  const row = db.get(
-    "SELECT * FROM project_papers WHERE project_id = ? AND paper_id = ?",
-    [projectId, paperId]
-  );
-  return row ? rowToLink(row) : undefined;
-}
-
-export function listProjectPapersByProject(db: SqliteClient, projectId: string): ProjectPaper[] {
-  return db.query("SELECT * FROM project_papers WHERE project_id = ?", [projectId]).map(rowToLink);
-}
-
-export function listProjectPapersByPaper(db: SqliteClient, paperId: string): ProjectPaper[] {
-  return db.query("SELECT * FROM project_papers WHERE paper_id = ?", [paperId]).map(rowToLink);
-}
-
-export function listAllProjectPapers(db: SqliteClient): ProjectPaper[] {
-  return db.query("SELECT * FROM project_papers").map(rowToLink);
-}
-
-export function deleteProjectPaperRow(db: SqliteClient, projectId: string, paperId: string): void {
-  db.exec("DELETE FROM project_papers WHERE project_id = ? AND paper_id = ?", [projectId, paperId]);
-}
-
-/** Update placement only; preserve the target project's research metadata. */
-export function placeProjectPaper(db: SqliteClient, paperId: string, targetId: string): ProjectPaper {
-  const nodes = listWorkspaceNodes(db);
-  const projectId = owningProjectId(nodes, targetId);
-  if (!projectId) throw new Error("論文はプロジェクト内に配置してください");
-  const folderId = targetId === projectId ? null : targetId;
-  const existing = getProjectPaperRow(db, projectId, paperId);
-  if (existing && (existing.folderId ?? null) === folderId) return existing;
-  const order = listProjectPapersByProject(db, projectId)
-    .filter((link) => (link.folderId ?? null) === folderId)
-    .reduce((max, link) => Math.max(max, link.order ?? 0), -1) + 1;
-  const stamp = nowIso();
-  const link: ProjectPaper = { ...existing, projectId, paperId, folderId, order,
-    status: existing?.status ?? "unread", createdAt: existing?.createdAt ?? stamp, updatedAt: stamp };
-  saveProjectPaperRow(db, link);
-  return link;
-}
+export const deleteWorkspacePaper = (db: SqliteClient, nodeId: string, paperId: string) => db.exec("DELETE FROM workspace_papers WHERE node_id = ? AND paper_id = ?", [nodeId, paperId]);

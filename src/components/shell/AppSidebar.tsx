@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Clock,
-  Folder,
   Inbox,
   Library,
   Plus,
@@ -22,12 +21,11 @@ type AppSidebarProps = {
   workspaceNodes: WorkspaceNode[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onNewProject: () => void;
-  onNewFolder: () => void;
+  onNewWorkspace: () => void;
+  onNewChild: (node: WorkspaceNode) => void;
   onDeleteNode: (node: WorkspaceNode) => Promise<void>;
-  onRenameNode: (node: WorkspaceNode, name: string) => Promise<void>;
-  onAddPaperToProject: (node: WorkspaceNode) => void;
-  activeProjectId?: string | null;
+  onAddPaperToWorkspace: (node: WorkspaceNode) => void;
+  activeNodeId?: string | null;
   inboxCount: number;
 };
 
@@ -35,12 +33,11 @@ export function AppSidebar({
   workspaceNodes,
   searchQuery,
   onSearchChange,
-  onNewProject,
-  onNewFolder,
+  onNewWorkspace,
+  onNewChild,
   onDeleteNode,
-  onRenameNode,
-  onAddPaperToProject,
-  activeProjectId,
+  onAddPaperToWorkspace,
+  activeNodeId,
   inboxCount,
 }: AppSidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
@@ -83,28 +80,24 @@ export function AppSidebar({
         />
       </label>
 
-      <button type="button" className={styles.newProject} onClick={onNewProject} title="新規プロジェクト">
+      <button type="button" className={styles.newProject} onClick={onNewWorkspace} title="新規フォルダ">
         <Plus size={16} className={styles.icon} />
-        <span className={styles.label}>新規プロジェクト</span>
-      </button>
-      <button type="button" className={styles.newProject} onClick={onNewFolder} title="新規フォルダ">
-        <Folder size={16} className={styles.icon} />
         <span className={styles.label}>新規フォルダ</span>
       </button>
 
       <div className={styles.scroll}>
         <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
-          <span className={styles.label}>プロジェクト</span>
+          <span className={styles.label}>ワークスペース</span>
         </h2>
         <WorkspaceTree
           nodes={workspaceNodes}
-          activeProjectId={activeProjectId}
+          activeNodeId={activeNodeId}
           dropTargetId={dropTargetId}
           draggingPaperId={draggingPaperId}
           onDelete={onDeleteNode}
-          onRenameNode={onRenameNode}
-          onAddPaper={onAddPaperToProject}
+          onNewChild={onNewChild}
+          onAddPaper={onAddPaperToWorkspace}
         />
       </section>
 

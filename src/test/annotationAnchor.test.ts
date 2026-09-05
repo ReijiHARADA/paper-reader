@@ -10,7 +10,7 @@ function ann(partial: Partial<Annotation> & Pick<Annotation, "selectedText">): A
   return {
     id: "a1",
     paperId: "p1",
-    projectId: null,
+    workspaceNodeId: null,
     blockId: "b1",
     startOffset: 0,
     endOffset: partial.selectedText.length,

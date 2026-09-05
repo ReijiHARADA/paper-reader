@@ -2,24 +2,11 @@ export type ProjectPaperStatus = "unread" | "reading" | "read";
 
 export type ProjectPaperDecision = "adopt" | "hold" | "exclude";
 
-export type Project = {
-  id: string;
-  name: string;
-  description?: string;
-  researchQuestion?: string;
-  keywords?: string[];
-  createdAt: string;
-  updatedAt: string;
-};
-
-/** Theme-specific link. The Paper record is not copied. */
-export type ProjectPaper = {
-  projectId: string;
+/** A Paper record remains global; this is its workspace placement. */
+export type WorkspacePaper = {
+  nodeId: string;
   paperId: string;
-  /** Placement within this project; omitted legacy values mean project root. */
-  folderId?: string | null;
-  /** Persisted as 0 when omitted by older callers. */
-  order?: number;
+  order: number;
   note?: string;
   relevance?: number;
   status?: ProjectPaperStatus;
@@ -30,10 +17,10 @@ export type ProjectPaper = {
   updatedAt: string;
 };
 
-export type ProjectCorpus = {
-  project: Project;
+export type WorkspaceCorpus = {
+  node: import("../data/types/workspace").WorkspaceNode;
   papers: import("./paper").Paper[];
-  memberships: ProjectPaper[];
+  memberships: WorkspacePaper[];
 };
 
 export type LibraryView = "all" | "inbox" | "favorites" | "recent" | "project";

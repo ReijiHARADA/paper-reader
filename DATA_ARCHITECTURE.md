@@ -21,14 +21,14 @@ not IndexedDB object stores, pdfLayout internals, or GROBID TEI.
 
 | Concern | Authority | Not authority |
 |---|---|---|
-| Original PDF | `papers/<paperId>/source.pdf` | copies inside Project folders |
+| Original PDF | `papers/<paperId>/source.pdf` | copies inside workspace folders |
 | Bibliographic metadata | `paper.json` | SQLite `papers` row (index only) |
 | Readable original | `original.md` | IndexedDB `blocks.original` |
 | Readable translation | `ja.md` | IndexedDB `blocks.translated` |
 | PDF provenance (block / line) | `structure.json` | Markdown comments |
 | Span / glyph geometry | `layout.json.gz` | `structure.json` |
 | Figures / tables / equation images | `assets/` | IndexedDB data URLs |
-| Paper ↔ Project, folders, annotations, FTS, cache | SQLite `library.sqlite` | Paper Package |
+| Paper ↔ WorkspaceNode, annotations, FTS, cache | SQLite `library.sqlite` | Paper Package |
 | Runtime reading | Document AST | raw Markdown string alone |
 
 SQLite can be rebuilt from Paper Packages (plus workspace / annotation rows).
@@ -230,7 +230,7 @@ Tables:
 - `papers` — library index (no body)
 - `workspace_nodes` — folder / project tree
 - `projects` — project-only metadata
-- `project_papers` — many-to-many membership (paper is not copied)
+- `workspace_papers` — many-to-many membership (paper is not copied)
 - `annotations` — block-anchored notes
 - `reading_positions` — `paperId + blockId + offset`
 - `glossaries`, `translation_cache`, `translation_jobs`, `settings`, `benchmarks`
@@ -238,27 +238,16 @@ Tables:
 
 ## 9. Workspace tree
 
-```text
-Folder
-├ Folder
-│  ├ Project
-│  └ Project
-└ Project
-```
-
-- Folder: organization only. No paper membership.
-- Project: leaf. Holds `project_papers`. Project-inside-project is rejected
-  so inheritance of papers stays undefined.
-- Folders nest without a depth limit.
-- Safety: no cycles, no move under self, sibling order, confirm delete when
-  a folder has children.
+Every `WorkspaceNode` can have child nodes and direct `WorkspacePaper` memberships.
+There is no Project/Folder kind or nesting restriction: any node may be nested,
+reordered, or used as a paper destination. Moves reject only self/descendant cycles.
 
 ## 10. Annotation
 
 Stored in SQLite, never in Markdown.
 
 Fields: `paperId`, `blockId`, `startOffset`, `endOffset`, `selectedText`,
-`prefix`, `suffix`, `note`, `projectId`, status.
+`prefix`, `suffix`, `note`, `workspaceNodeId`, status.
 
 Re-anchor uses the existing `annotationAnchor` rules. Canonical export omits
 notes. Annotated export can wrap notes as `> [!NOTE]` later.
@@ -369,6 +358,6 @@ No factories or abstract base repositories. `src/services/database.ts` is a
 compatibility façade used by existing import / reader / test call sites.
 )
 
-### Workspace placement (SQLite v4)
+### Workspace placement (SQLite v5)
 
-Folder / Project は引き続き WorkspaceNode の parent_id / sort_order を共有する。Project の subtree に別 Project を置く操作は create / move のデータ層で拒否する。Paper はグローバルなままで、ProjectPaper の folder_id（nullable、削除時 SET NULL）と sort_order（既定 0）が Project 内の配置を保持する。v3 → v4 は列追加のみで既存所属を Project 直下に残し、Paper Package は変更しない。Folder が Project 境界を越える移動では、元 Project の所属と研究メタデータを維持して配置のみ直下へ戻す。
+WorkspaceNode は1種類だけで、parent_id / sort_order と任意の metadata を持つ。WorkspacePaper は node_id / paper_id / sort_order を持つ many-to-many relation で、Paper 本体をコピーしない。v4 → v5 は projects metadata を workspace_nodes へ移し、project_papers を `COALESCE(folder_id, project_id)` の node_id で workspace_papers へ移行する。Paper Package は変更しない。

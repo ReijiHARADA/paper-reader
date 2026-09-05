@@ -3,7 +3,7 @@ export type AnnotationStatus = "active" | "orphaned";
 export type Annotation = {
   id: string;
   paperId: string;
-  projectId: string | null;
+  workspaceNodeId: string | null;
   blockId: string;
   startOffset: number;
   endOffset: number;

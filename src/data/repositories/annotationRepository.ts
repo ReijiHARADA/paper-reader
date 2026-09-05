@@ -5,7 +5,7 @@ function rowToAnnotation(row: Record<string, unknown>): Annotation {
   return {
     id: String(row.id),
     paperId: String(row.paper_id),
-    projectId: row.project_id == null ? null : String(row.project_id),
+    workspaceNodeId: row.workspace_node_id == null ? null : String(row.workspace_node_id),
     blockId: String(row.block_id),
     startOffset: Number(row.start_offset),
     endOffset: Number(row.end_offset),
@@ -23,12 +23,12 @@ function rowToAnnotation(row: Record<string, unknown>): Annotation {
 export function saveAnnotationRow(db: SqliteClient, annotation: Annotation): void {
   db.exec(
     `INSERT INTO annotations (
-      id, paper_id, project_id, block_id, start_offset, end_offset, selected_text,
+      id, paper_id, workspace_node_id, block_id, start_offset, end_offset, selected_text,
       prefix_context, suffix_context, translation_text_hash, note, status, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       paper_id=excluded.paper_id,
-      project_id=excluded.project_id,
+      workspace_node_id=excluded.workspace_node_id,
       block_id=excluded.block_id,
       start_offset=excluded.start_offset,
       end_offset=excluded.end_offset,
@@ -42,7 +42,7 @@ export function saveAnnotationRow(db: SqliteClient, annotation: Annotation): voi
     [
       annotation.id,
       annotation.paperId,
-      annotation.projectId,
+      annotation.workspaceNodeId,
       annotation.blockId,
       annotation.startOffset,
       annotation.endOffset,

@@ -1,11 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Annotation } from "../../types/annotation";
 import type { Paper, PaperBlock, Section } from "../../types/paper";
-import type { Project, ProjectPaper } from "../../types/project";
 import type { GlossaryEntry } from "../../services/llm/types";
 import type { TranslationCacheEntry } from "../../services/translation/types";
 import type { BenchmarkEntry } from "../types/benchmark";
 
+type LegacyProject = { id: string; name: string; description?: string; researchQuestion?: string; keywords?: string[]; createdAt: string; updatedAt: string };
+type LegacyProjectPaper = { projectId: string; paperId: string; folderId?: string | null; order?: number; note?: string; relevance?: number; status?: "unread" | "reading" | "read"; decision?: "adopt" | "hold" | "exclude"; tags?: string[]; quotes?: string[]; createdAt: string; updatedAt: string };
+type LegacyAnnotation = Omit<Annotation, "workspaceNodeId"> & { projectId: string | null };
 interface LegacyDB extends DBSchema {
   papers: { key: string; value: Paper; indexes: { "by-hash": string; "by-updated": string } };
   sections: { key: string; value: Section; indexes: { "by-paper": string } };
@@ -26,15 +28,15 @@ interface LegacyDB extends DBSchema {
     value: BenchmarkEntry;
     indexes: { "by-paper": string; "by-model": string; "by-timestamp": string };
   };
-  projects: { key: string; value: Project; indexes: { "by-updated": string } };
+  projects: { key: string; value: LegacyProject; indexes: { "by-updated": string } };
   projectPapers: {
     key: [string, string];
-    value: ProjectPaper;
+    value: LegacyProjectPaper;
     indexes: { "by-project": string; "by-paper": string };
   };
   annotations: {
     key: string;
-    value: Annotation;
+    value: LegacyAnnotation;
     indexes: { "by-paper": string; "by-block": string; "by-project": string };
   };
 }
@@ -55,9 +57,9 @@ export async function readLegacyLibrary(db: IDBPDatabase<LegacyDB>): Promise<{
   papers: Paper[];
   sections: Section[];
   blocks: PaperBlock[];
-  projects: Project[];
-  projectPapers: ProjectPaper[];
-  annotations: Annotation[];
+  projects: LegacyProject[];
+  projectPapers: LegacyProjectPaper[];
+  annotations: LegacyAnnotation[];
   glossaries: Array<{ paperId: string; entries: GlossaryEntry[]; createdAt: string; updatedAt: string }>;
   translationCache: TranslationCacheEntry[];
   settings: unknown[];

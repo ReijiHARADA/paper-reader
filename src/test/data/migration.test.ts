@@ -5,7 +5,8 @@ import { resetStorageForTests, getStorage } from "../../data/runtime";
 import { migrateIndexedDbV4IfNeeded } from "../../data/migration/migrate";
 import { loadPaperPackage } from "../../data/package/persist";
 import { upsertPaperIndex } from "../../data/repositories/paperRepository";
-import { getAnnotation, getPaper, getProject, getProjectPaper, savePaper } from "../../services/database";
+import { getAnnotation, getPaper, getWorkspacePaperLink, savePaper } from "../../services/database";
+import { getWorkspace } from "../../services/projectService";
 import type { Paper, PaperBlock, Section } from "../../types/paper";
 
 const now = "2026-09-05T00:00:00.000Z";
@@ -142,9 +143,9 @@ describe("IndexedDB v4 migration", () => {
     expect(pkg.translatedMarkdown).toContain("こんにちは");
     expect(pkg.structure.blocks["legacy-b1"]).toBeTruthy();
 
-    const project = await getProject("legacy-proj");
-    expect(project?.name).toBe("Old Project");
-    expect(await getProjectPaper("legacy-proj", "legacy-paper")).toBeTruthy();
+    const workspace = await getWorkspace("legacy-proj");
+    expect(workspace?.name).toBe("Old Project");
+    expect(await getWorkspacePaperLink("legacy-proj", "legacy-paper")).toBeTruthy();
     expect((await getAnnotation("legacy-a1"))?.note).toBe("memo");
 
     const second = await migrateIndexedDbV4IfNeeded(fs, db);

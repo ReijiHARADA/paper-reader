@@ -5,8 +5,7 @@ import { saveAnnotationRow } from "../repositories/annotationRepository";
 import { indexPaperText, upsertPaperIndex } from "../repositories/paperRepository";
 import {
   createWorkspaceNode,
-  saveProjectPaperRow,
-  upsertProjectMeta,
+  addPaperToWorkspace,
 } from "../repositories/workspaceRepository";
 import {
   saveBenchmarkRow,
@@ -87,27 +86,31 @@ export async function migrateIndexedDbV4IfNeeded(
         if (!existing) {
           createWorkspaceNode(db, {
             id: project.id,
-            kind: "project",
             name: project.name,
             parentId: null,
+            description: project.description,
+            researchQuestion: project.researchQuestion,
+            keywords: project.keywords,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
           });
         }
-        upsertProjectMeta(db, project);
       }
 
       for (const link of snapshot.projectPapers) {
         const already = db.get(
-          "SELECT paper_id FROM project_papers WHERE project_id = ? AND paper_id = ?",
-          [link.projectId, link.paperId]
+          "SELECT paper_id FROM workspace_papers WHERE node_id = ? AND paper_id = ?",
+          [link.folderId ?? link.projectId, link.paperId]
         );
-        if (!already) saveProjectPaperRow(db, link);
+        if (!already) addPaperToWorkspace(db, { nodeId: link.folderId ?? link.projectId, paperId: link.paperId, note: link.note, relevance: link.relevance, status: link.status, decision: link.decision, tags: link.tags, quotes: link.quotes });
       }
 
       for (const annotation of snapshot.annotations) {
         if (!db.get("SELECT id FROM annotations WHERE id = ?", [annotation.id])) {
-          saveAnnotationRow(db, annotation);
+          saveAnnotationRow(db, {
+            ...annotation,
+            workspaceNodeId: annotation.projectId,
+          });
         }
       }
 

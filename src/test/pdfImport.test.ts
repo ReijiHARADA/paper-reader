@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   firstPdfPath,
-  importProjectIdFromLocation,
+  importWorkspaceNodeIdFromLocation,
   isPdfFilename,
 } from "../services/pdfImport";
 
@@ -20,8 +20,8 @@ describe("pdfImport helpers", () => {
   });
 
   it("uses the open project for import membership", () => {
-    expect(importProjectIdFromLocation("/project/abc", "")).toBe("abc");
-    expect(importProjectIdFromLocation("/reader/p1", "?project=xyz")).toBe("xyz");
-    expect(importProjectIdFromLocation("/", "")).toBeUndefined();
+    expect(importWorkspaceNodeIdFromLocation("/project/abc", "")).toBe("abc");
+    expect(importWorkspaceNodeIdFromLocation("/reader/p1", "?workspace=xyz")).toBe("xyz");
+    expect(importWorkspaceNodeIdFromLocation("/", "")).toBeUndefined();
   });
 });

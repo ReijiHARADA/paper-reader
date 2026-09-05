@@ -12,16 +12,18 @@ export const INBOX_DROP_ATTR = "data-inbox-drop";
 
 export type PaperDropHandler = (
   targetId: string,
-  paperId: string
+  paperId: string,
+  sourceNodeId: string | null
 ) => void | Promise<void>;
 
 type PaperDragState = {
   draggingPaperId: string | null;
+  sourceNodeId: string | null;
   dragLabel: string;
   pointerX: number;
   pointerY: number;
   dropTargetId: string | null;
-  beginDrag: (paperId: string, label: string, x: number, y: number) => void;
+  beginDrag: (paperId: string, label: string, x: number, y: number, sourceNodeId?: string) => void;
   movePointer: (x: number, y: number, dropTargetId: string | null) => void;
   endDrag: () => void;
   showToast: (toast: PaperDropToast) => void;
@@ -43,22 +45,25 @@ export function paperDropTargetAtPoint(x: number, y: number): string | null {
 
 export async function completePaperDrop(
   targetId: string,
-  paperId: string
+  paperId: string,
+  sourceNodeId: string | null
 ): Promise<void> {
-  await paperDropHandler?.(targetId, paperId);
+  await paperDropHandler?.(targetId, paperId, sourceNodeId);
 }
 
 export const usePaperDragStore = create<PaperDragState>((set) => ({
   draggingPaperId: null,
+  sourceNodeId: null,
   dragLabel: "",
   pointerX: 0,
   pointerY: 0,
   dropTargetId: null,
 
-  beginDrag: (paperId, label, x, y) => {
+  beginDrag: (paperId, label, x, y, sourceNodeId) => {
     document.body.classList.add("paper-dragging");
     set({
       draggingPaperId: paperId,
+      sourceNodeId: sourceNodeId ?? null,
       dragLabel: label,
       pointerX: x,
       pointerY: y,
@@ -73,6 +78,7 @@ export const usePaperDragStore = create<PaperDragState>((set) => ({
     document.body.classList.remove("paper-dragging");
     set({
       draggingPaperId: null,
+      sourceNodeId: null,
       dragLabel: "",
       dropTargetId: null,
     });

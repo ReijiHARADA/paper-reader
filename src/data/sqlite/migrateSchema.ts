@@ -219,10 +219,71 @@ function migrateV3ToV4(db: Database): void {
   if (!columns.includes("sort_order")) db.run("ALTER TABLE project_papers ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
 }
 
+function migrateV4ToV5(db: Database): void {
+  db.run("PRAGMA foreign_keys = OFF");
+  // Very old databases did not yet have a projects metadata table.
+  db.run("CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, description TEXT, research_question TEXT, keywords_json TEXT)");
+  db.run(`
+    CREATE TABLE workspace_nodes_v5 (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL,
+      description TEXT,
+      research_question TEXT,
+      keywords_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.run(`
+    INSERT INTO workspace_nodes_v5
+      (id, parent_id, name, sort_order, description, research_question, keywords_json, created_at, updated_at)
+    SELECT n.id, n.parent_id, n.name, n.sort_order,
+      p.description, p.research_question, p.keywords_json, n.created_at, n.updated_at
+    FROM workspace_nodes n LEFT JOIN projects p ON p.id = n.id
+  `);
+  db.run("DROP TABLE workspace_nodes");
+  db.run("ALTER TABLE workspace_nodes_v5 RENAME TO workspace_nodes");
+  db.run("CREATE INDEX workspace_nodes_parent ON workspace_nodes(parent_id, sort_order)");
+  // The current-schema bootstrap may have created this empty table before
+  // migrations run; v4 had no user data in it.
+  db.run("DROP TABLE IF EXISTS workspace_papers");
+  db.run(`
+    CREATE TABLE workspace_papers (
+      node_id TEXT NOT NULL,
+      paper_id TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      note TEXT, relevance REAL, status TEXT, decision TEXT, tags_json TEXT, quotes_json TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      PRIMARY KEY (node_id, paper_id),
+      FOREIGN KEY (node_id) REFERENCES workspace_nodes(id) ON DELETE CASCADE,
+      FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    INSERT OR REPLACE INTO workspace_papers
+      (node_id, paper_id, sort_order, note, relevance, status, decision, tags_json, quotes_json, created_at, updated_at)
+    SELECT COALESCE(folder_id, project_id), paper_id, sort_order, note, relevance, status, decision,
+      tags_json, quotes_json, created_at, updated_at
+    FROM project_papers
+  `);
+  db.run("DROP TABLE project_papers");
+  db.run("DROP TABLE projects");
+  db.run("CREATE INDEX workspace_papers_by_paper ON workspace_papers(paper_id)");
+  const annotationColumns = tableInfo(db, "annotations").map((column) => column.name);
+  if (annotationColumns.includes("project_id") && !annotationColumns.includes("workspace_node_id")) {
+    db.run("ALTER TABLE annotations ADD COLUMN workspace_node_id TEXT");
+    db.run("UPDATE annotations SET workspace_node_id = project_id");
+  }
+  db.run("PRAGMA foreign_keys = ON");
+}
+
 const MIGRATIONS: SchemaMigration[] = [
   { from: 1, to: 2, run: migrateV1ToV2 },
   { from: 2, to: 3, run: migrateV2ToV3 },
   { from: 3, to: 4, run: migrateV3ToV4 },
+  { from: 4, to: 5, run: migrateV4ToV5 },
 ];
 
 export function applySqliteSchemaMigrations(db: Database): number {

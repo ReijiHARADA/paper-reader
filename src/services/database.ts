@@ -1,5 +1,5 @@
 import type { Paper, Section, PaperBlock } from "../types/paper";
-import type { Project, ProjectPaper } from "../types/project";
+import type { WorkspacePaper } from "../types/project";
 import type { Annotation } from "../types/annotation";
 import type { GlossaryEntry } from "./llm/types";
 import type { TranslationCacheEntry } from "./translation/types";
@@ -29,18 +29,12 @@ import {
   updateDocumentBlock,
 } from "../data/repositories/documentRepository";
 import {
-  deleteProjectPaperRow,
-  deleteWorkspaceNode,
-  getProjectFromNodes,
-  getProjectPaperRow,
-  listAllProjectPapers,
-  listProjectPapersByPaper,
-  listProjectPapersByProject,
-  listProjectsFromNodes,
-  saveProjectPaperRow,
-  upsertProjectMeta,
-  createWorkspaceNode,
-  renameWorkspaceNode,
+  deleteWorkspacePaper,
+  getWorkspacePaper,
+  listAllWorkspacePapers,
+  listWorkspacePapersByNode,
+  listWorkspacePapersByPaper,
+  saveWorkspacePaper as saveWorkspacePaperRow,
 } from "../data/repositories/workspaceRepository";
 import {
   deleteAnnotationRow,
@@ -287,70 +281,32 @@ export async function getAllBenchmarks(): Promise<BenchmarkEntry[]> {
   return listAllBenchmarks(db);
 }
 
-export async function saveProject(project: Project): Promise<void> {
+export async function saveWorkspacePaper(link: WorkspacePaper): Promise<void> {
   const { db } = await ready();
-  const existing = getProjectFromNodes(db, project.id);
-  if (!existing) {
-    createWorkspaceNode(db, {
-      id: project.id,
-      kind: "project",
-      name: project.name,
-      parentId: null,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-    });
-  } else if (existing.name !== project.name) {
-    renameWorkspaceNode(db, project.id, project.name);
-  }
-  upsertProjectMeta(db, project);
+  saveWorkspacePaperRow(db, link);
 }
-
-export async function getProject(id: string): Promise<Project | undefined> {
-  const { db } = await ready();
-  return getProjectFromNodes(db, id);
-}
-
-export async function getAllProjects(): Promise<Project[]> {
-  const { db } = await ready();
-  return listProjectsFromNodes(db);
-}
-
-export async function deleteProject(id: string): Promise<void> {
-  const { db } = await ready();
-  deleteWorkspaceNode(db, id);
-}
-
-export async function saveProjectPaper(link: ProjectPaper): Promise<void> {
-  const { db } = await ready();
-  saveProjectPaperRow(db, link);
-}
-
-export async function getProjectPaper(
-  projectId: string,
+export async function getWorkspacePaperLink(
+  nodeId: string,
   paperId: string
-): Promise<ProjectPaper | undefined> {
+): Promise<WorkspacePaper | undefined> {
   const { db } = await ready();
-  return getProjectPaperRow(db, projectId, paperId);
+  return getWorkspacePaper(db, nodeId, paperId);
 }
-
-export async function getProjectPapersByProject(projectId: string): Promise<ProjectPaper[]> {
+export async function getWorkspacePapersByNode(nodeId: string): Promise<WorkspacePaper[]> {
   const { db } = await ready();
-  return listProjectPapersByProject(db, projectId);
+  return listWorkspacePapersByNode(db, nodeId);
 }
-
-export async function getProjectPapersByPaper(paperId: string): Promise<ProjectPaper[]> {
+export async function getWorkspacePapersByPaper(paperId: string): Promise<WorkspacePaper[]> {
   const { db } = await ready();
-  return listProjectPapersByPaper(db, paperId);
+  return listWorkspacePapersByPaper(db, paperId);
 }
-
-export async function getAllProjectPapers(): Promise<ProjectPaper[]> {
+export async function getAllWorkspacePapers(): Promise<WorkspacePaper[]> {
   const { db } = await ready();
-  return listAllProjectPapers(db);
+  return listAllWorkspacePapers(db);
 }
-
-export async function deleteProjectPaper(projectId: string, paperId: string): Promise<void> {
+export async function deleteWorkspacePaperLink(nodeId: string, paperId: string): Promise<void> {
   const { db } = await ready();
-  deleteProjectPaperRow(db, projectId, paperId);
+  deleteWorkspacePaper(db, nodeId, paperId);
 }
 
 export async function saveAnnotation(annotation: Annotation): Promise<void> {

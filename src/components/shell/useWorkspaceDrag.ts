@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { WorkspaceNode } from "../../types/project";
 import { assertMoveAllowed } from "../../data/workspace/tree";
 import { listWorkspace, moveWorkspaceItem } from "../../services/projectService";
-import { getAllProjectPapers } from "../../services/database";
+import { getAllWorkspacePapers } from "../../services/database";
 import { useProjectStore } from "../../stores/projectStore";
 import { showToast } from "../../stores/toastStore";
 
@@ -71,7 +71,7 @@ export function useWorkspaceDrag(nodes: WorkspaceNode[], onMoved: (id: string | 
         void (async () => {
           try {
             await moveWorkspaceItem(id, target.parentId, target.order);
-            const [updatedNodes, memberships] = await Promise.all([listWorkspace(), getAllProjectPapers()]);
+            const [updatedNodes, memberships] = await Promise.all([listWorkspace(), getAllWorkspacePapers()]);
             useProjectStore.getState().setWorkspaceNodes(updatedNodes);
             useProjectStore.getState().setMemberships(memberships);
             onMoved(target.parentId);

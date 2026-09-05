@@ -50,7 +50,7 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 詳細は README。ここは残作業の前提だけ書く。
 
 - Tauri 2 の macOS `.app`。MADLAD サイドカーを同梱起動。ライブラリはサーバー待ちせずすぐ出す
-- ライブラリ（すべての論文 / Inbox / お気に入り / 最近読んだ論文 / プロジェクト）。論文カードは共通レイアウト。一覧の横幅は Project と同じく画面幅いっぱいに出す。All Papers / Inbox / Project の追加はタイトル右の「論文を追加」。PDF 追加は Library に即戻り、一時カードから実論文カードへ重複なく切り替え、カードは準備中 / 読めます / 日本語化中 / 要確認。All Papers に「続きを読む」。カード `…` でお気に入り・Project 追加・削除。Project から外すと undo toast。検索は Library（⌘K）と Reader（⌘F）を分離。Project はメニューまたはドラッグで所属（多対多）し、作成直後も追加先へ即時反映。サイドバーの Project / Folder 三点メニューは名称変更・論文ファイル追加・削除に統一。名称は行内入力で Enter / blur 保存、Escape 取消。削除はメニュー内確認で実行し、native confirm に依存しない。Project 外 Folder の論文追加は無効で理由を表示し、Project 内 Folder からの追加はその Folder に配置する。メニューはサイドバーから離れると閉じ、名称編集中はサイドバーを展開保持する。Project / Folder のメニューを開いた行は後続行より前面に表示する。Project / Folder / Paper を1本のツリーで展開・折りたたみできる。ポインター DnD によるノード移動・混在 sibling 並び替え・ルート復帰・Paper の Project 内 Folder 配置に対応。Project nesting は直接・間接ともデータ層で禁止し、UI で禁止先とエラーを表示する。New Project / New Folder は同時に開かない
+- ライブラリ（すべての論文 / Inbox / お気に入り / 最近読んだ論文 / ワークスペース）。WorkspaceNode は child と Paper を直接持つ単一ツリーで、任意の深さで追加・移動・並び替えできる。Paper は WorkspacePaper の多対多所属で、Inbox は所属なし。ノードの三点メニューは「サブフォルダーを追加・名称を変更・論文ファイルを追加・削除」に統一し、名前は行内編集する。削除は subtree の所属だけを外して論文本体を残す。DnD は cycle のみ拒否する。
 - 設定は左サイドバー最下部から、ライブラリと同じ画面遷移で開く。目次は一般 / 翻訳 / 読書 / ストレージ / 診断。サンプル論文は一般、表示設定はリーダーと共通、翻訳キャッシュ削除はストレージ
 - 日本語 1 カラム、原文インライン展開、アウトライン（隠せる）、⌘F はこの論文内検索、⌘K はライブラリ検索、表示設定、読書位置復元。論文を開くと lastOpenedAt を書く。リーダーは目次 | 本文 | メモ／用語集。低信頼箇所は左マージンの警告と「要確認 N箇所」。参考文献の DOI / URL はブラウザで開く。設定の読書に本文プレビューがある
 - 訳文選択で「メモを追加」を出すところまでは出した。保存・ハイライトまでの一連は 3.0 のとおり未安定
@@ -70,9 +70,8 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - ハイフン連結の英文と参考文献 URL をブロック数式にしない
 - CCS / Index Terms などの分類カタログ行は訳さず原文のまま出す（「翻訳待ち」に残さない）
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準
-- プロジェクト画面の「論文を追加」で PDF をその Project に入れる。削除はサイドバーのProject三点メニューへ一本化
-- Finder から PDF をアプリ画面へドロップしてインポートできる（Tauri のファイルドロップ。Project 画面ならその Project に所属する）。受け取り表示と toast を出し、Import 専用画面には留まらない
-- 論文本文の正本は Paper Package（Markdown + structure + translation.json + assets）。SQLite は index / Annotation / Folder・Project / cache。旧 IndexedDB v4 は起動時に移行して残す。`source.pdf` は初回 atomic persist で Package に入れる。SQLite は schema migration（v4: 既存制約に加え ProjectPaper.folder_id / sort_order。既存所属は直下へ移行）。終了時に checkpoint と `library.sqlite` を flush する。詳細は [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
+- ワークスペース画面の「論文を追加」と Finder からの PDF ドロップは表示中の WorkspaceNode へ直接追加する。受け取り表示と toast を出し、Import 専用画面には留まらない
+- 論文本文の正本は Paper Package（Markdown + structure + translation.json + assets）。SQLite は index / Annotation / WorkspaceNode / WorkspacePaper / cache。schema v5 は v4 の Project・Folder・ProjectPaper を単一の node / relation へ安全に移行する。詳細は [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
 - リーダーから訳文 Markdown / 検証用パッケージを書き出す導線はある（きれいな Markdown / 検証用 comment、翻訳失敗 ON/OFF、source.pdf + translated.md + assets）。`.md` の隣に `assets/` を書く（browser は zip）。ダイアログはソースで縦スクロール可能（`.app` 未確認）
 - 翻訳中は Paper Package の full rewrite をしない。`source.pdf` / `assets` / `layout.json.gz` は段落ごとには書かない。Reader の 1.5s 全文 poll も止めた
 - 抽出時に page / bbox / line / span を `structure.json` と `layout.json.gz` へ残す（translated-layout.pdf 本体は未実装）
@@ -86,7 +85,7 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 リリース `.app` で残っているもの。実装の有無ではなく、今の画面が壊れている／足りない記録。
 
 - **設定 → 読書のプレビュー**: ソースでは本文プレビューを入れた。現行リリース `.app` では未確認
-- **New Project / New Folder と PDF ドロップ即時表示**: ソースでは同時オープン防止とドロップ受け取り表示を入れた。現行リリース `.app` では未確認
+- **ワークスペース作成と PDF ドロップ即時表示**: 現行リリース `.app` で未確認
 - **元 PDF を開くアイコンが動かない**: リーダー右上の ExternalLink（「元PDFを開く」）を押しても開かない。ページ指定（3.6）以前に、複製済み `source.pdf` を別表示で開けること自体を直す
 - **Markdown 書き出しダイアログ**: ソースでは縦スクロール可能なダイアログにした。現行リリース `.app` では未確認
 - **書き出した .md の画像**: ソースでは `.md` の隣に `assets/` を書く（browser は zip）。現行リリース `.app` では未確認
@@ -149,7 +148,7 @@ Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACA
 
 保存結果は現在段落だけとし、原文との 1 対 1 を崩さない。
 
-### 3.4 ライブラリと Project
+### 3.4 ライブラリとワークスペース
 
 動いている所属操作以外:
 
@@ -157,7 +156,7 @@ Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACA
 - **サイドバー検索**: 入力欄があるが論文一覧を絞り込まない。タイトル・著者・訳文／原文の絞り込みが必要
 - **読書進捗**: カードは最終閲覧日だけ。セクションまたはブロック進捗を出す
 - **重複 PDF**: ハッシュ一致で打ち切るが、既存論文を開く導線が弱い。通知して既存を開く
-- **Project メタデータ**: `researchQuestion` / `keywords` / 所属の status・decision・tags は型だけ。UI は名前と説明の作成に留める。必要になるまで UI を増やさない
+- **Workspace metadata**: `description` / `researchQuestion` / `keywords` と所属の status・decision・tags は WorkspaceNode / WorkspacePaper に統合済み。UI は名前と説明の作成に留める。必要になるまで UI を増やさない
 - **メモ追加**: 選択メニュー自体はある。現行 `.app` での保存・ハイライト一連は 3.0 のとおり未安定
 - **論文カードの一時停止**: 処理中の一時停止は未実装。キャンセルより再開できる停止の方がよい
 

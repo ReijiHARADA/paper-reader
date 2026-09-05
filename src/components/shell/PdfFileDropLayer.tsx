@@ -4,7 +4,7 @@ import { Upload } from "lucide-react";
 import {
   fileFromDroppedPath,
   firstPdfPath,
-  importProjectIdFromLocation,
+  importWorkspaceNodeIdFromLocation,
   tryStartPdfImport,
 } from "../../services/pdfImport";
 import { showToast } from "../../stores/toastStore";
@@ -26,10 +26,10 @@ export function PdfFileDropLayer() {
   const importDroppedFile = useCallback(async (file: File) => {
     const loc = locationRef.current;
     if (loc.pathname.startsWith("/import")) return;
-    const projectId = importProjectIdFromLocation(loc.pathname, loc.search);
+    const workspaceNodeId = importWorkspaceNodeIdFromLocation(loc.pathname, loc.search);
     setAcceptedName(file.name);
     window.setTimeout(() => setAcceptedName(null), 1600);
-    await tryStartPdfImport(file, { projectId });
+    await tryStartPdfImport(file, { workspaceNodeId });
   }, []);
 
   useEffect(() => {

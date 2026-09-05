@@ -5,7 +5,7 @@ export type ImportJob = {
   id: string;
   fileName: string;
   fileKey: string;
-  projectId?: string;
+  workspaceNodeId?: string;
   paperId?: string;
   stage: ImportStage;
   stageProgress: number;
@@ -41,15 +41,15 @@ export const useImportJobStore = create<ImportJobState>((set) => ({
 
 export function visibleImportJobs(
   jobs: ImportJob[],
-  options?: { projectId?: string; inboxOnly?: boolean }
+  options?: { workspaceNodeId?: string; inboxOnly?: boolean }
 ): ImportJob[] {
   return jobs.filter((job) => {
     // The normal PaperCard owns all states after a paper has materialized,
     // including failures. Keeping the transient card would show one import as
     // two separate papers.
     if (job.paperId) return false;
-    if (options?.projectId) return job.projectId === options.projectId;
-    if (options?.inboxOnly) return !job.projectId;
+    if (options?.workspaceNodeId) return job.workspaceNodeId === options.workspaceNodeId;
+    if (options?.inboxOnly) return !job.workspaceNodeId;
     return true;
   });
 }

@@ -1,24 +1,24 @@
 let pendingFile: File | null = null;
-let pendingProjectId: string | null = null;
+let pendingWorkspaceNodeId: string | null = null;
 
-export function setPendingImportFile(file: File, options?: { projectId?: string }) {
+export function setPendingImportFile(file: File, options?: { workspaceNodeId?: string }) {
   pendingFile = file;
-  pendingProjectId = options?.projectId ?? null;
+  pendingWorkspaceNodeId = options?.workspaceNodeId ?? null;
 }
 
 export function takePendingImport(): {
   file: File;
-  projectId: string | null;
+  workspaceNodeId: string | null;
 } | null {
   if (!pendingFile) {
-    pendingProjectId = null;
+    pendingWorkspaceNodeId = null;
     return null;
   }
   const file = pendingFile;
-  const projectId = pendingProjectId;
+  const workspaceNodeId = pendingWorkspaceNodeId;
   pendingFile = null;
-  pendingProjectId = null;
-  return { file, projectId };
+  pendingWorkspaceNodeId = null;
+  return { file, workspaceNodeId };
 }
 
 export function takePendingImportFile(): File | null {

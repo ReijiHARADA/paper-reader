@@ -62,7 +62,7 @@ describe("annotationService", () => {
     const startOffset = translated.indexOf(selectedText);
     const created = await createAnnotation({
       paperId: "paper-crud",
-      projectId: "project-a",
+      workspaceNodeId: "workspace-a",
       blockId: "block-1",
       translated,
       startOffset,
@@ -73,7 +73,7 @@ describe("annotationService", () => {
 
     expect(created.selectedText).toBe(selectedText);
     expect(translated.slice(created.startOffset, created.endOffset)).toBe(selectedText);
-    expect(created.projectId).toBe("project-a");
+    expect(created.workspaceNodeId).toBe("workspace-a");
     expect(created.translationTextHash).toBe(await computeTextHash(translated));
 
     const listed = await listAnnotationsForPaper("paper-crud", [
@@ -102,7 +102,7 @@ describe("annotationService", () => {
     const startOffset = original.indexOf(selectedText);
     await createAnnotation({
       paperId: "paper-reanchor",
-      projectId: null,
+      workspaceNodeId: null,
       blockId: "block-2",
       translated: original,
       startOffset,
@@ -140,7 +140,7 @@ describe("annotationService", () => {
     const startOffset = translated.indexOf(selectedText);
     const created = await createAnnotation({
       paperId: "paper-hl",
-      projectId: null,
+      workspaceNodeId: null,
       blockId: "block-3",
       translated,
       startOffset,

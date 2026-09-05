@@ -106,7 +106,7 @@ export function ReaderScreen() {
   const { paperId } = useParams<{ paperId: string }>();
   const [searchParams] = useSearchParams();
   const papers = useLibraryCache((s) => s.papers);
-  const projects = useProjectStore((state) => state.projects);
+  const workspaceNodes = useProjectStore((state) => state.workspaceNodes);
   const memberships = useProjectStore((state) => state.memberships);
   const displaySettings = useAppStore((s) => s.displaySettings);
   const updatePaper = useLibraryCache((s) => s.updatePaper);
@@ -171,17 +171,17 @@ export function ReaderScreen() {
     !isLoading
   );
 
-  const activeProject = useMemo(() => {
-    const qid = searchParams.get("project");
-    if (qid) return projects.find((p) => p.id === qid) ?? null;
+  const activeWorkspace = useMemo(() => {
+    const qid = searchParams.get("workspace");
+    if (qid) return workspaceNodes.find((node) => node.id === qid) ?? null;
     if (!paperId) return null;
     const links = memberships.filter((m) => m.paperId === paperId);
-    if (links.length === 1) return projects.find((p) => p.id === links[0].projectId) ?? null;
+    if (links.length === 1) return workspaceNodes.find((node) => node.id === links[0].nodeId) ?? null;
     return null;
-  }, [searchParams, projects, memberships, paperId]);
+  }, [searchParams, workspaceNodes, memberships, paperId]);
 
-  const annotationProjectId = searchParams.get("project")
-    ? activeProject?.id ?? null
+  const annotationWorkspaceNodeId = searchParams.get("workspace")
+    ? activeWorkspace?.id ?? null
     : null;
 
   useEffect(() => {
@@ -612,7 +612,7 @@ export function ReaderScreen() {
     if (!block?.translated) return;
     const created = await createAnnotation({
       paperId,
-      projectId: annotationProjectId,
+      workspaceNodeId: annotationWorkspaceNodeId,
       blockId: draft.selection.blockId,
       translated: block.translated,
       startOffset: draft.selection.startOffset,
@@ -624,7 +624,7 @@ export function ReaderScreen() {
     setEditing(null);
     setActiveAnnotationIds([created.id]);
     await reloadAnnotations();
-  }, [paperId, draft, storeBlocks, annotationProjectId, reloadAnnotations]);
+  }, [paperId, draft, storeBlocks, annotationWorkspaceNodeId, reloadAnnotations]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!editing) return;
@@ -723,16 +723,16 @@ export function ReaderScreen() {
             <ArrowLeft size={20} />
           </button>
           <div className={styles.titleArea}>
-            {activeProject && (
+            {activeWorkspace && (
               <Link
-                to={`/project/${activeProject.id}`}
+                to={`/project/${activeWorkspace.id}`}
                 className={styles.breadcrumb}
-                title={activeProject.name}
+                title={activeWorkspace.name}
               >
-                {activeProject.name}
+                {activeWorkspace.name}
               </Link>
             )}
-            {activeProject && <span className={styles.breadcrumbSep}>/</span>}
+            {activeWorkspace && <span className={styles.breadcrumbSep}>/</span>}
             <h1 className={styles.title}>
               {displayPaperTitle(paper)}
             </h1>

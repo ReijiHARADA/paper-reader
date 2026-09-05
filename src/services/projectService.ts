@@ -1,238 +1,36 @@
-import { v4 as uuidv4 } from "uuid";
 import type { Paper } from "../types/paper";
-import type {
-  Project,
-  ProjectCorpus,
-  ProjectPaper,
-  ProjectPaperDecision,
-  ProjectPaperStatus,
-} from "../types/project";
 import type { WorkspaceNode } from "../types/project";
-import {
-  deleteProject as deleteProjectRecord,
-  deleteProjectPaper,
-  getAllPapers,
-  getAllProjectPapers,
-  getAllProjects,
-  getPaper,
-  getProject,
-  getProjectPaper,
-  getProjectPapersByPaper,
-  getProjectPapersByProject,
-  saveProject,
-  saveProjectPaper,
-} from "./database";
+import type { WorkspacePaper } from "../types/project";
 import { getStorage } from "../data/runtime";
 import {
-  createWorkspaceNode,
-  deleteWorkspaceNode,
-  listWorkspaceNodes,
-  moveWorkspaceNode,
-  placeProjectPaper,
-  renameWorkspaceNode,
-  reorderWorkspaceSiblings,
+  addPaperToWorkspace as addPaperRow, createWorkspaceNode as createNodeRow, deleteWorkspaceNode,
+  deleteWorkspacePaper, getWorkspaceNode, listAllWorkspacePapers, listWorkspaceNodes,
+  movePaperInWorkspace as movePaperRow, moveWorkspaceNode, renameWorkspaceNode,
+  reorderWorkspaceSiblings, updateWorkspaceNode,
 } from "../data/repositories/workspaceRepository";
+import { getAllPapers, getPaper } from "./database";
+import { collectDescendantIds } from "../data/workspace/tree";
 
-export type CreateProjectInput = {
-  name: string;
-  description?: string;
-  researchQuestion?: string;
-  keywords?: string[];
-  parentId?: string | null;
-};
+export type CreateWorkspaceNodeInput = Pick<WorkspaceNode, "name" | "parentId" | "description" | "researchQuestion" | "keywords">;
+export async function createWorkspaceNode(input: CreateWorkspaceNodeInput): Promise<WorkspaceNode> { const { db } = await getStorage(); return createNodeRow(db, input); }
+export async function updateWorkspaceNodeItem(id: string, updates: Partial<Pick<WorkspaceNode, "name" | "description" | "researchQuestion" | "keywords">>): Promise<WorkspaceNode> { const { db } = await getStorage(); return updateWorkspaceNode(db, id, updates); }
+export async function renameWorkspaceItem(id: string, name: string): Promise<WorkspaceNode> { const { db } = await getStorage(); return renameWorkspaceNode(db, id, name); }
+export async function moveWorkspaceItem(id: string, parentId: string | null, order?: number): Promise<WorkspaceNode> { const { db } = await getStorage(); return moveWorkspaceNode(db, id, parentId, order); }
+export async function reorderWorkspaceItems(parentId: string | null, orderedIds: string[]): Promise<void> { const { db } = await getStorage(); reorderWorkspaceSiblings(db, parentId, orderedIds); }
+export async function removeWorkspaceItem(id: string): Promise<string[]> { const { db } = await getStorage(); return deleteWorkspaceNode(db, id); }
+export async function listWorkspace(): Promise<WorkspaceNode[]> { const { db } = await getStorage(); return listWorkspaceNodes(db); }
+export async function getWorkspace(id: string): Promise<WorkspaceNode | undefined> { const { db } = await getStorage(); return getWorkspaceNode(db, id); }
 
-export type AddPaperToProjectInput = {
-  projectId: string;
-  paperId: string;
-  note?: string;
-  relevance?: number;
-  status?: ProjectPaperStatus;
-  decision?: ProjectPaperDecision;
-  tags?: string[];
-  quotes?: string[];
-};
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-export async function createProject(input: CreateProjectInput): Promise<Project> {
-  const name = input.name.trim();
-  if (!name) {
-    throw new Error("Project name is required");
-  }
-  const stamp = nowIso();
-  const project: Project = {
-    id: uuidv4(),
-    name,
-    description: input.description?.trim() || undefined,
-    researchQuestion: input.researchQuestion?.trim() || undefined,
-    keywords: input.keywords?.filter(Boolean),
-    createdAt: stamp,
-    updatedAt: stamp,
-  };
-  const { db } = await getStorage();
-  createWorkspaceNode(db, {
-    id: project.id,
-    kind: "project",
-    name,
-    parentId: input.parentId ?? null,
-    createdAt: stamp,
-    updatedAt: stamp,
-  });
-  await saveProject(project);
-  return project;
-}
-
-export async function createFolder(name: string, parentId?: string | null): Promise<WorkspaceNode> {
-  const { db } = await getStorage();
-  return createWorkspaceNode(db, { kind: "folder", name, parentId: parentId ?? null });
-}
-
-export async function renameWorkspaceItem(id: string, name: string): Promise<WorkspaceNode> {
-  const { db } = await getStorage();
-  return renameWorkspaceNode(db, id, name);
-}
-
-export async function moveWorkspaceItem(id: string, parentId: string | null, order?: number): Promise<WorkspaceNode> {
-  const { db } = await getStorage();
-  return moveWorkspaceNode(db, id, parentId, order);
-}
-
-export async function reorderWorkspaceItems(parentId: string | null, orderedIds: string[]): Promise<void> {
-  const { db } = await getStorage();
-  reorderWorkspaceSiblings(db, parentId, orderedIds);
-}
-
-export async function removeWorkspaceItem(id: string): Promise<string[]> {
-  const { db } = await getStorage();
-  return deleteWorkspaceNode(db, id);
-}
-
-export async function listWorkspace(): Promise<WorkspaceNode[]> {
-  const { db } = await getStorage();
-  return listWorkspaceNodes(db);
-}
-
-export async function updateProject(
-  projectId: string,
-  updates: Partial<Omit<Project, "id" | "createdAt">>
-): Promise<Project> {
-  const existing = await getProject(projectId);
-  if (!existing) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
-  const project: Project = {
-    ...existing,
-    ...updates,
-    name: (updates.name ?? existing.name).trim(),
-    updatedAt: nowIso(),
-  };
-  await saveProject(project);
-  return project;
-}
-
-export async function removeProject(projectId: string): Promise<void> {
-  await deleteProjectRecord(projectId);
-}
-
-export async function listProjects(): Promise<Project[]> {
-  return getAllProjects();
-}
-
-export class DuplicateProjectPaperError extends Error {
-  readonly projectId: string;
-  readonly paperId: string;
-
-  constructor(projectId: string, paperId: string) {
-    super("このプロジェクトにはすでに入っています");
-    this.name = "DuplicateProjectPaperError";
-    this.projectId = projectId;
-    this.paperId = paperId;
-  }
-}
-
-export async function addPaperToProject(
-  input: AddPaperToProjectInput
-): Promise<ProjectPaper> {
-  const existing = await getProjectPaper(input.projectId, input.paperId);
-  if (existing) {
-    throw new DuplicateProjectPaperError(input.projectId, input.paperId);
-  }
-  const stamp = nowIso();
-  const link: ProjectPaper = {
-    projectId: input.projectId,
-    paperId: input.paperId,
-    note: input.note,
-    relevance: input.relevance,
-    status: input.status ?? "unread",
-    decision: input.decision,
-    tags: input.tags,
-    quotes: input.quotes,
-    createdAt: stamp,
-    updatedAt: stamp,
-  };
-  await saveProjectPaper(link);
-  return link;
-}
-
-export async function removePaperFromProject(
-  projectId: string,
-  paperId: string
-): Promise<void> {
-  await deleteProjectPaper(projectId, paperId);
-}
-
-export async function removePaperFromAllProjects(paperId: string): Promise<number> {
-  const links = await getProjectPapersByPaper(paperId);
-  for (const link of links) {
-    await deleteProjectPaper(link.projectId, paperId);
-  }
-  return links.length;
-}
-
-export async function listProjectPapers(projectId: string): Promise<ProjectPaper[]> {
-  return getProjectPapersByProject(projectId);
-}
-
-export async function listPaperProjects(paperId: string): Promise<Project[]> {
-  const links = await getProjectPapersByPaper(paperId);
-  const projects = await Promise.all(links.map((link) => getProject(link.projectId)));
-  return projects.filter((project): project is Project => Boolean(project));
-}
-
-export async function listPapersForProject(projectId: string): Promise<Paper[]> {
-  const links = await getProjectPapersByProject(projectId);
-  const papers = await Promise.all(links.map((link) => getPaper(link.paperId)));
+export async function addPaperToWorkspace(nodeId: string, paperId: string): Promise<WorkspacePaper> { const { db } = await getStorage(); return addPaperRow(db, { nodeId, paperId, status: "unread" }); }
+export async function movePaperInWorkspace(paperId: string, sourceNodeId: string, targetNodeId: string): Promise<WorkspacePaper> { const { db } = await getStorage(); return movePaperRow(db, paperId, sourceNodeId, targetNodeId); }
+export async function removePaperFromWorkspace(nodeId: string, paperId: string): Promise<void> { const { db } = await getStorage(); deleteWorkspacePaper(db, nodeId, paperId); }
+export async function removePaperFromAllWorkspaces(paperId: string): Promise<number> { const { db } = await getStorage(); const links = listAllWorkspacePapers(db).filter((link) => link.paperId === paperId); links.forEach((link) => deleteWorkspacePaper(db, link.nodeId, paperId)); return links.length; }
+export async function listWorkspacePapers(): Promise<WorkspacePaper[]> { const { db } = await getStorage(); return listAllWorkspacePapers(db); }
+export async function listPapersForWorkspace(nodeId: string): Promise<Paper[]> {
+  const { db } = await getStorage(); const ids = new Set([nodeId, ...collectDescendantIds(listWorkspaceNodes(db), nodeId)]);
+  const links = listAllWorkspacePapers(db).filter((link) => ids.has(link.nodeId));
+  const papers = await Promise.all([...new Set(links.map((link) => link.paperId))].map(getPaper));
   return papers.filter((paper): paper is Paper => Boolean(paper));
 }
-
-export async function listInboxPapers(): Promise<Paper[]> {
-  const [papers, links] = await Promise.all([getAllPapers(), getAllProjectPapers()]);
-  const assigned = new Set(links.map((link) => link.paperId));
-  return papers.filter((paper) => !assigned.has(paper.id));
-}
-
-/** Fetch one project's papers for later search / QA / summary features. */
-export async function getProjectCorpus(projectId: string): Promise<ProjectCorpus> {
-  const project = await getProject(projectId);
-  if (!project) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
-  const memberships = await getProjectPapersByProject(projectId);
-  const papers = await Promise.all(memberships.map((link) => getPaper(link.paperId)));
-  return {
-    project,
-    memberships,
-    papers: papers.filter((paper): paper is Paper => Boolean(paper)),
-  };
-}
-
-export function isPaperInInbox(paperId: string, memberships: ProjectPaper[]): boolean {
-  return !memberships.some((link) => link.paperId === paperId);
-}
-
-export async function placePaperInWorkspace(paperId: string, targetId: string): Promise<ProjectPaper> {
-  const { db } = await getStorage();
-  return placeProjectPaper(db, paperId, targetId);
-}
+export async function listInboxPapers(): Promise<Paper[]> { const [papers, links] = await Promise.all([getAllPapers(), listWorkspacePapers()]); const assigned = new Set(links.map((link) => link.paperId)); return papers.filter((paper) => !assigned.has(paper.id)); }
+export const isPaperInInbox = (paperId: string, memberships: WorkspacePaper[]) => !memberships.some((link) => link.paperId === paperId);

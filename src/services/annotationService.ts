@@ -11,7 +11,7 @@ import { captureContext, reanchorAnnotation } from "./annotationAnchor";
 
 export type CreateAnnotationInput = {
   paperId: string;
-  projectId: string | null;
+  workspaceNodeId: string | null;
   blockId: string;
   translated: string;
   startOffset: number;
@@ -32,7 +32,7 @@ export async function createAnnotation(
   const annotation: Annotation = {
     id: uuidv4(),
     paperId: input.paperId,
-    projectId: input.projectId,
+    workspaceNodeId: input.workspaceNodeId,
     blockId: input.blockId,
     startOffset: input.startOffset,
     endOffset: input.endOffset,

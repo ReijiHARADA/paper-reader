@@ -12,13 +12,13 @@ export function firstPdfPath(paths: string[]): string | null {
   return paths.find((path) => isPdfFilename(path)) ?? null;
 }
 
-export function importProjectIdFromLocation(
+export function importWorkspaceNodeIdFromLocation(
   pathname: string,
   search: string
 ): string | undefined {
   const match = pathname.match(/^\/project\/([^/]+)/);
   if (match?.[1]) return match[1];
-  const fromQuery = new URLSearchParams(search).get("project");
+  const fromQuery = new URLSearchParams(search).get("workspace") ?? new URLSearchParams(search).get("project");
   return fromQuery || undefined;
 }
 
@@ -38,7 +38,7 @@ export async function fileFromDroppedPath(path: string): Promise<File> {
 
 export async function tryStartPdfImport(
   file: File,
-  options?: { projectId?: string; folderId?: string }
+  options?: { workspaceNodeId?: string }
 ): Promise<boolean> {
   return startBackgroundImport(file, options);
 }

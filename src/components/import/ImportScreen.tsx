@@ -60,21 +60,21 @@ export function ImportScreen() {
     const pending = takePendingImport();
     if (pending) {
       void startBackgroundImport(pending.file, {
-        projectId: pending.projectId ?? undefined,
+        workspaceNodeId: pending.workspaceNodeId ?? undefined,
       });
-      navigate(pending.projectId ? `/project/${pending.projectId}` : "/", { replace: true });
+      navigate(pending.workspaceNodeId ? `/project/${pending.workspaceNodeId}` : "/", { replace: true });
     }
   }, [navigate]);
 
   const handleBack = () => {
-    navigate(job?.projectId ? `/project/${job.projectId}` : "/");
+    navigate(job?.workspaceNodeId ? `/project/${job.workspaceNodeId}` : "/");
   };
 
   const handleOpenReader = () => {
     if (job?.paperId) {
       navigate(
-        job.projectId
-          ? `/reader/${job.paperId}?project=${job.projectId}`
+        job.workspaceNodeId
+          ? `/reader/${job.paperId}?workspace=${job.workspaceNodeId}`
           : `/reader/${job.paperId}`
       );
     }
@@ -90,7 +90,7 @@ export function ImportScreen() {
       <header className={styles.header}>
         <button className={styles.backButton} onClick={handleBack}>
           <ArrowLeft size={20} />
-          <span>{job?.projectId ? "プロジェクトに戻る" : "ライブラリに戻る"}</span>
+          <span>{job?.workspaceNodeId ? "ワークスペースに戻る" : "ライブラリに戻る"}</span>
         </button>
       </header>
 
@@ -151,7 +151,7 @@ export function ImportScreen() {
             )}
 
             <button className={styles.secondaryButton} onClick={handleBack}>
-              {job?.projectId ? "プロジェクトに戻る" : "ライブラリに戻る"}
+              {job?.workspaceNodeId ? "ワークスペースに戻る" : "ライブラリに戻る"}
             </button>
           </div>
         </div>
