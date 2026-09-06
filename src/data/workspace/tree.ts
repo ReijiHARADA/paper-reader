@@ -18,6 +18,15 @@ export function buildWorkspaceTree(nodes: WorkspaceNode[]): WorkspaceTreeNode[] 
   return walk(null);
 }
 
+export function listChildWorkspaceNodes(
+  nodes: WorkspaceNode[],
+  parentId: string | null
+): WorkspaceNode[] {
+  return nodes
+    .filter((node) => node.parentId === parentId)
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+}
+
 export function collectDescendantIds(nodes: WorkspaceNode[], id: string): string[] {
   const seen = new Set<string>([id]);
   const stack = [id];

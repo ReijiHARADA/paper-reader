@@ -9,6 +9,7 @@ import { showToast } from "../../stores/toastStore";
 import { useLibraryCache } from "../../stores/libraryCache";
 import { useDraggablePaper } from "../library/useDraggablePaper";
 import { useWorkspaceDrag } from "./useWorkspaceDrag";
+import { hoverExpandId, WORKSPACE_HOVER_EXPAND_MS } from "./workspaceHoverExpand";
 import { renameWorkspaceItem } from "../../services/projectService";
 import styles from "./AppSidebar.module.css";
 
@@ -16,6 +17,19 @@ export function WorkspaceTree({ nodes, activeNodeId, dropTargetId, draggingPaper
   const tree = useMemo(() => buildWorkspaceTree(nodes), [nodes]); const memberships = useProjectStore((state) => state.memberships); const papers = useLibraryCache((state) => state.papers);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({}); const [openMenuId, setOpenMenuId] = useState<string | null>(null); const [editingId, setEditingId] = useState<string | null>(null); const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null); const [deleting, setDeleting] = useState(false); const treeRef = useRef<HTMLElement>(null);
   const drag = useWorkspaceDrag(nodes, (id) => { if (id) setCollapsed((current) => ({ ...current, [id]: false })); });
+  const hoverId = draggingPaperId
+    ? dropTargetId
+    : drag.drop?.edge === "inside"
+      ? drag.drop.id
+      : null;
+  const expandId = hoverExpandId(hoverId, collapsed);
+  useEffect(() => {
+    if (!expandId) return;
+    const timer = window.setTimeout(() => {
+      setCollapsed((current) => ({ ...current, [expandId]: false }));
+    }, WORKSPACE_HOVER_EXPAND_MS);
+    return () => window.clearTimeout(timer);
+  }, [expandId]);
   useEffect(() => { if (!openMenuId) return; const sidebar = treeRef.current?.closest("aside"); const close = () => setOpenMenuId(null); sidebar?.addEventListener("pointerleave", close); window.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); }); return () => sidebar?.removeEventListener("pointerleave", close); }, [openMenuId]);
   const renderNode = (node: ReturnType<typeof buildWorkspaceTree>[number], depth: number) => {
     const isOpen = !collapsed[node.id]; const menuOpen = openMenuId === node.id; const target = drag.drop?.id === node.id ? drag.drop : null;

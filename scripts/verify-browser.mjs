@@ -45,8 +45,8 @@ try {
 
   await check("project action menu", async () => {
     await page.locator("aside").first().hover();
-    await page.getByRole("button", { name: "新規プロジェクト" }).click();
-    await page.getByLabel("研究テーマ").fill(verifyProjectName);
+    await page.getByRole("button", { name: "新規フォルダ" }).click();
+    await page.getByLabel("フォルダ名").fill(verifyProjectName);
     await page.getByRole("button", { name: "作成", exact: true }).click();
     await page.locator("aside").first().hover();
     if (await page.locator("header").getByTitle("プロジェクトを削除").count()) {
@@ -78,6 +78,31 @@ try {
   });
   await shot("project-action-menu");
 
+  const parentFolderName = `Browser Verify Parent ${Date.now()}`;
+  const childFolderName = `${parentFolderName} Child`;
+  await check("workspace child folders in main view", async () => {
+    await page.locator("aside").first().hover();
+    await page.getByRole("button", { name: "新規フォルダ" }).click();
+    await page.getByLabel("フォルダ名").fill(parentFolderName);
+    await page.getByRole("button", { name: "作成", exact: true }).click();
+    await page.locator("aside").first().hover();
+    await page.getByRole("link", { name: parentFolderName, exact: true }).click();
+    await page.getByRole("heading", { name: parentFolderName, exact: true }).waitFor();
+
+    await page.getByRole("button", {
+      name: `「${parentFolderName}」のメニュー`,
+    }).click();
+    await page.getByRole("menuitem", { name: "サブフォルダーを追加" }).click();
+    await page.getByLabel("フォルダ名").fill(childFolderName);
+    await page.getByRole("button", { name: "作成", exact: true }).click();
+
+    await page.getByRole("heading", { name: parentFolderName, exact: true }).waitFor();
+    const folderCard = page.locator("article").filter({ hasText: childFolderName });
+    await folderCard.getByRole("heading", { name: childFolderName, exact: true }).waitFor();
+    await folderCard.getByText("フォルダ").waitFor();
+  });
+  await shot("workspace-child-folders");
+
   await page.getByRole("link", { name: "設定" }).click();
   await check("settings reading preview", async () => {
     await page.getByRole("button", { name: "読書" }).click();
@@ -107,6 +132,17 @@ try {
       await page.locator("aside").first().waitFor();
     });
     await shot("reader");
+
+    await page.getByRole("link", { name: "すべての論文" }).click();
+    await page.waitForTimeout(400);
+    await check("favorite mark on paper card", async () => {
+      const card = page.locator("article").filter({ hasText: "Attention" }).first();
+      await card.getByRole("button", { name: "論文の操作" }).click();
+      await page.getByRole("menuitem", { name: "お気に入り" }).click();
+      await card.getByLabel("お気に入り").waitFor();
+    });
+    await shot("library-favorite");
+    await sampleCard.click();
 
     await check("markdown export dialog", async () => {
       await page.getByRole("button", { name: "書き出す" }).click();

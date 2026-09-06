@@ -5,6 +5,7 @@ import {
   Clock,
   FileText,
   Loader2,
+  Star,
 } from "lucide-react";
 import type { Paper } from "../../types/paper";
 import { useLibraryCache } from "../../stores/libraryCache";
@@ -71,7 +72,14 @@ export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardP
         <FileText size={24} strokeWidth={1.5} />
       </div>
       <div className={styles.info}>
-        <h3 className={styles.title}>{displayPaperTitle(paper)}</h3>
+        <div className={styles.titleRow}>
+          <h3 className={styles.title}>{displayPaperTitle(paper)}</h3>
+          {paper.favorite && (
+            <span className={styles.favoriteMark} title="お気に入り" aria-label="お気に入り">
+              <Star size={16} fill="currentColor" aria-hidden="true" />
+            </span>
+          )}
+        </div>
         {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
           paper.titleOriginal &&
           !isGarbageTitle(paper.titleOriginal) && (

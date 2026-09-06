@@ -53,8 +53,8 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 
 詳細は README。ここは残作業の前提だけ書く。
 
-- Tauri 2 の macOS `.app`。MADLAD サイドカーを同梱起動。ライブラリはサーバー待ちせずすぐ出す
-- ライブラリ（すべての論文 / Inbox / お気に入り / 最近読んだ論文 / ワークスペース）。WorkspaceNode は child と Paper を直接持つ単一ツリーで、任意の深さで追加・移動・並び替えできる。Paper は WorkspacePaper の多対多所属で、Inbox は所属なし。ノードの三点メニューは「サブフォルダーを追加・名称を変更・論文ファイルを追加・削除」に統一し、名前は行内編集する。削除は subtree の所属だけを外して論文本体を残す。DnD は cycle のみ拒否する。
+- Tauri 2 の macOS `.app`。MADLAD サイドカーを同梱起動。ライブラリはサーバー待ちせずすぐ出す。閉じる操作は保存 flush のあと `window.destroy` を ACL 許可して完了する
+- ライブラリ（すべての論文 / Inbox / お気に入り / 最近読んだ論文 / ワークスペース）。論文カードはお気に入り中に星を出す。WorkspaceNode は child と Paper を直接持つ単一ツリーで、任意の深さで追加・移動・並び替えできる。ノードを開くと右側に直下の子フォルダと subtree の論文を並べる。閉じたフォルダへ論文をドラッグするとホバー中に展開する。Paper は WorkspacePaper の多対多所属で、Inbox は所属なし。ノードの三点メニューは「サブフォルダーを追加・名称を変更・論文ファイルを追加・削除」に統一し、名前は行内編集する。削除は subtree の所属だけを外して論文本体を残す。DnD は cycle のみ拒否する。
 - 設定は左サイドバー最下部から開く。目次は読書 / 翻訳 / データ / 詳細設定。読書設定はリーダーと共有し、スライダーと本文プレビューで確認できる。翻訳キャッシュ削除はデータ、接続確認とサンプル論文追加は詳細設定へ置く
 - 日本語 1 カラム、原文インライン展開、アウトライン（隠せる）、⌘F はこの論文内検索、⌘K はライブラリ検索、表示設定、読書位置復元。論文を開くと lastOpenedAt を書く。リーダーは目次 | 本文 | メモ／用語集。右上の操作アイコンはホバーまたはキーボードフォーカスで機能名を表示する。低信頼箇所は左マージンの警告と「要確認 N箇所」。参考文献の DOI / URL はブラウザで開く。設定の読書に本文プレビューがある
 - 訳文選択で「メモを追加」を出すところまでは出した。保存・ハイライトまでの一連は 3.0 のとおり未安定
@@ -76,7 +76,7 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準
 - ワークスペース画面の「論文を追加」と Finder からの PDF ドロップは表示中の WorkspaceNode へ直接追加する。受け取り表示と toast を出し、Import 専用画面には留まらない
 - 論文本文の正本は Paper Package（Markdown + structure + translation.json + assets）。SQLite は index / Annotation / WorkspaceNode / WorkspacePaper / cache。schema v5 は v4 の Project・Folder・ProjectPaper を単一の node / relation へ安全に移行する。詳細は [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
-- リーダーから訳文 Markdown / 検証用パッケージ / Notion インポート ZIP を書き出せる。Notion ZIP は Markdown と画像を ZIP 直下に置き、画像リンクを平坦化するため、Notion の ZIP インポートで空の `assets` ページを作らず図表画像を同時に追加できる。Reader の図表キャプションは番号を一度だけ表示する。`.md` の隣に `assets/` を書く（browser は zip）。ダイアログは portal で Reader の重なり順・overflow から分離し、狭いウィンドウでは本文だけを縦スクロールする
+- リーダーから訳文 Markdown / 検証用パッケージ / Notion インポート ZIP を書き出せる。Notion ZIP は front matter を除き、Markdown と画像を ZIP 直下に置き、画像リンクを平坦化する。キャプションは画像直後の本文として残すため、Notion の ZIP インポートで空の `assets` ページを作らず図表画像とキャプションを同時に追加できる。Paper Package 再読込時は `assets/` を data URL に戻し、図キャプションも metadata / caption ノードから復元する。Reader の図表キャプションは番号を一度だけ表示する。`.md` の隣に `assets/` を書く（browser は zip）。ダイアログは portal で Reader の重なり順・overflow から分離し、狭いウィンドウでは本文だけを縦スクロールする
 - 翻訳中は Paper Package の full rewrite をしない。`source.pdf` / `assets` / `layout.json.gz` は段落ごとには書かない。Reader の 1.5s 全文 poll も止めた
 - 抽出時に page / bbox / line / span を `structure.json` と `layout.json.gz` へ残す（translated-layout.pdf 本体は未実装）
 

@@ -122,6 +122,13 @@ describe("Paper Package", () => {
     expect(projected.blocks.find((b) => b.id === "b-002")?.original).toContain("Recent advances");
     expect(projected.blocks.find((b) => b.id === "b-002")?.translated).toContain("ウェアラブル");
     expect(projected.paper.titleTranslated).toBe("研究");
+    const figure = projected.blocks.find((b) => b.id === "b-fig");
+    expect(figure?.original).toBe("Figure 1. Overview.");
+    expect(figure?.translated).toBe("図1. 概要。");
+    expect(String(figure?.metadata.captionOriginal)).toBe("Figure 1. Overview.");
+    expect(String(figure?.metadata.captionTranslated)).toBe("図1. 概要。");
+    expect(String(figure?.metadata.imageUrl).startsWith("data:image/")).toBe(true);
+    expect(decodeDataUrl(String(figure?.metadata.imageUrl))).not.toBeNull();
   });
 
   it("rejects duplicate block IDs", () => {

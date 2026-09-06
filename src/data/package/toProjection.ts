@@ -45,6 +45,64 @@ function figureSrc(markdown: string, paperId: string): Map<string, string> {
   return map;
 }
 
+function mimeFromAssetPath(path: string): string {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".gif")) return "image/gif";
+  return "image/png";
+}
+
+function bytesToDataUrl(bytes: Uint8Array, mimeType: string): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+}
+
+function normalizeAssetPath(path: string): string {
+  return path.replace(/^\.\//, "");
+}
+
+function assetDataUrls(pkg: PaperPackage): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const asset of pkg.assets) {
+    const path = normalizeAssetPath(asset.path);
+    const dataUrl = bytesToDataUrl(asset.bytes, mimeFromAssetPath(path));
+    map.set(path, dataUrl);
+    if (!path.startsWith("assets/")) map.set(`assets/${path}`, dataUrl);
+  }
+  return map;
+}
+
+function metaString(metadata: Record<string, unknown> | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function resolveImageUrl(
+  imageSrc: string | undefined,
+  metadata: Record<string, unknown> | undefined,
+  assets: Map<string, string>
+): string | undefined {
+  const candidates = [
+    imageSrc,
+    metaString(metadata, "imageUrl"),
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    const normalized = normalizeAssetPath(candidate);
+    const fromAssets = assets.get(normalized);
+    if (fromAssets) return fromAssets;
+  }
+  for (const candidate of candidates) {
+    if (candidate.startsWith("data:")) return candidate;
+  }
+  return imageSrc || metaString(metadata, "imageUrl") || undefined;
+}
+
 export function packageToProjection(
   pkg: PaperPackage,
   index: Paper
@@ -52,6 +110,7 @@ export function packageToProjection(
   const original = textById(pkg.originalMarkdown, pkg.paper.paperId);
   const translated = textById(pkg.translatedMarkdown, pkg.paper.paperId);
   const srcs = figureSrc(pkg.originalMarkdown, pkg.paper.paperId);
+  const assets = assetDataUrls(pkg);
   const structureBlocks = pkg.structure.blocks;
   const order = Object.keys(structureBlocks);
 
@@ -68,19 +127,32 @@ export function packageToProjection(
 
   const blocks: PaperBlock[] = order.map((id, indexInPaper) => {
     const meta: StructureBlock = structureBlocks[id];
-    const imageSrc = srcs.get(id);
+    const type = blockType(meta.type);
+    const isFigureLike = type === "figure" || type === "table";
+    const captionOriginal =
+      metaString(meta.metadata, "captionOriginal") ?? original.get(`${id}-caption`) ?? null;
+    const captionTranslated =
+      metaString(meta.metadata, "captionTranslated") ?? translated.get(`${id}-caption`) ?? null;
+    const imageUrl = resolveImageUrl(srcs.get(id), meta.metadata, assets);
     const metadata: Record<string, unknown> = {
       ...(meta.metadata ?? {}),
-      ...(imageSrc ? { imageUrl: imageSrc } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
+      ...(captionOriginal ? { captionOriginal } : {}),
+      ...(captionTranslated ? { captionTranslated } : {}),
     };
-    const originalText = original.get(id) ?? (typeof metadata.captionOriginal === "string" ? metadata.captionOriginal : null);
-    const translatedText =
-      translated.get(id) ?? (typeof metadata.captionTranslated === "string" ? metadata.captionTranslated : null);
+    // Figure/table Markdown stores the label in image alt; caption text lives on
+    // the following caption node / metadata. Prefer those over the alt label.
+    const originalText = isFigureLike
+      ? captionOriginal
+      : (original.get(id) ?? captionOriginal);
+    const translatedText = isFigureLike
+      ? captionTranslated
+      : (translated.get(id) ?? captionTranslated);
     return {
       id,
       paperId: pkg.paper.paperId,
       sectionId: meta.sectionId ?? null,
-      type: blockType(meta.type),
+      type,
       order: indexInPaper,
       pageStart: meta.pageStart,
       pageEnd: meta.pageEnd,

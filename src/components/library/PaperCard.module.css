@@ -45,14 +45,30 @@
   min-width: 0;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin: 0 0 var(--spacing-xs);
+  min-width: 0;
+}
+
 .title {
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
-  margin: 0 0 var(--spacing-xs);
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.favoriteMark {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--color-accent);
 }
 
 .originalTitle {

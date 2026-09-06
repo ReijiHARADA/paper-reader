@@ -43,10 +43,24 @@ function fileNameForNotionAsset(path: string, index: number, used: Set<string>):
   return candidate;
 }
 
+function resolveNotionAssetSource(
+  source: string,
+  replacements: Map<string, string>
+): string | undefined {
+  const normalized = source.replace(/^\.\//, "");
+  return (
+    replacements.get(normalized) ||
+    replacements.get(assetDestPath(normalized)) ||
+    replacements.get(normalized.split("/").pop() || "")
+  );
+}
+
 /**
  * Notion imports directories inside a ZIP as pages. Keep every image next to
  * the Markdown file and rewrite its relative link so no empty `assets` page
- * is created. Empty image alt text avoids Notion rendering a second caption.
+ * is created. Empty image alt text avoids Notion rendering a second caption;
+ * caption body stays as a following plain paragraph. YAML front matter is
+ * stripped because Notion treats `---` as thematic breaks and can drop body.
  */
 export function createNotionImportZip(result: MarkdownExportResult): Uint8Array {
   const names = new Set<string>();
@@ -56,13 +70,21 @@ export function createNotionImportZip(result: MarkdownExportResult): Uint8Array 
   };
   for (const [index, asset] of result.assets.entries()) {
     const name = fileNameForNotionAsset(asset.path, index, names);
-    replacements.set(assetDestPath(asset.path), name);
-    files[name] = asset.bytes;
+    const dest = assetDestPath(asset.path);
+    replacements.set(dest, name);
+    replacements.set(asset.path, name);
+    replacements.set(name, name);
+    // Copy bytes so zip packaging cannot mutate package asset buffers.
+    files[name] = asset.bytes.slice();
   }
-  const markdown = result.markdown.replace(/!\[[^\]]*\]\(([^\s)]+)\)/g, (image, source: string) => {
-    const destination = replacements.get(source);
-    return destination ? `![](${destination})` : image;
-  });
+  const markdown = result.markdown
+    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n*/, "")
+    .replace(/!\[[^\]]*\]\(([^\s)]+)\)/g, (image, source: string) => {
+      const destination = resolveNotionAssetSource(source, replacements);
+      return destination ? `![](${destination})` : image;
+    })
+    // Caption nodes serialize as whole-line emphasis; Notion shows plain text more reliably.
+    .replace(/^\*(.+)\*$/gm, "$1");
   files[`${result.fileName || "paper"}.md`] = strToU8(markdown);
   return zipSync(files);
 }

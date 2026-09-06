@@ -67,7 +67,11 @@ function App() {
           try {
             await flushPersistence();
           } finally {
-            await current.destroy();
+            try {
+              await current.destroy();
+            } catch {
+              await current.close();
+            }
           }
         });
       });

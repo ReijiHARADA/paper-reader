@@ -5,7 +5,8 @@ import { createNotionImportZip } from "../../data/export/saveExport";
 import { createMemoryFileSystem } from "../../data/fs/memoryFs";
 import { unzipSync } from "fflate";
 import { projectionToPackage } from "../../data/package/fromProjection";
-import { persistPaperPackage } from "../../data/package/persist";
+import { loadPaperPackage, persistPaperPackage } from "../../data/package/persist";
+import { packageToProjection } from "../../data/package/toProjection";
 import type { DocumentNode } from "../../data/types/document";
 import type { StructureFile } from "../../data/types/structure";
 import type { Paper, PaperBlock, Section } from "../../types/paper";
@@ -195,16 +196,110 @@ describe("markdown export failed policy", () => {
   it("packages Markdown and image assets at the Notion ZIP root", () => {
     const zip = createNotionImportZip({
       fileName: "notion-paper",
-      markdown: "# 論文\n\n![Figure](assets/figure-001.png)\n",
+      markdown: `---
+paperId: "p1"
+language: "ja"
+schemaVersion: 1
+---
+
+# 論文
+
+![Figure](assets/figure-001.png)
+
+*図1. 概要。*
+`,
       assets: [{ path: "assets/figure-001.png", bytes: new Uint8Array([137, 80, 78, 71]) }],
     });
     const files = unzipSync(zip);
     const markdown = new TextDecoder().decode(files["notion-paper.md"]);
     expect(markdown).toContain("![](figure-001.png)");
+    expect(markdown).toContain("図1. 概要。");
+    expect(markdown).not.toContain("*図1. 概要。*");
     expect(markdown).not.toContain("assets/");
+    expect(markdown).not.toContain("paperId:");
+    expect(markdown).not.toMatch(/^---/);
     expect(files["figure-001.png"]).toEqual(
       new Uint8Array([137, 80, 78, 71])
     );
     expect(Object.keys(files)).not.toContain("assets");
+  });
+
+  it("keeps figure captions after exporting a package to Notion ZIP", async () => {
+    const fs = createMemoryFileSystem();
+    const now = "2026-09-05T00:00:00.000Z";
+    const png =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const paper: Paper = {
+      id: "notion-fig",
+      sourceFilePath: "a.pdf",
+      sourceFileHash: "hash-notion-fig",
+      titleOriginal: "Export Figures",
+      titleTranslated: "図の書き出し",
+      authors: [],
+      publication: null,
+      year: 2026,
+      pageCount: 1,
+      processingStatus: "ready",
+      lastReadBlockId: null,
+      lastReadOffset: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const sections: Section[] = [
+      {
+        id: "s-1",
+        paperId: paper.id,
+        parentSectionId: null,
+        order: 0,
+        level: 1,
+        originalTitle: "Body",
+        translatedTitle: "本文",
+        normalizedKind: "body",
+      },
+    ];
+    const blocks: PaperBlock[] = [
+      {
+        id: "b-fig",
+        paperId: paper.id,
+        sectionId: "s-1",
+        type: "figure",
+        order: 0,
+        pageStart: 1,
+        pageEnd: 1,
+        boundingBoxes: [],
+        original: "Figure 1. Overview.",
+        translated: "図1. 概要。",
+        extractionConfidence: 1,
+        translationStatus: "completed",
+        parentBlockId: null,
+        metadata: {
+          imageUrl: png,
+          captionOriginal: "Figure 1. Overview.",
+          captionTranslated: "図1. 概要。",
+          figureNumber: "Figure 1",
+        },
+      },
+    ];
+    await persistPaperPackage(
+      fs,
+      projectionToPackage({ paper, sections, blocks })
+    );
+
+    const afterLoad = packageToProjection(await loadPaperPackage(fs, paper.id), paper);
+    const figure = afterLoad.blocks.find((block) => block.id === "b-fig");
+    expect(String(figure?.metadata.imageUrl).startsWith("data:image/")).toBe(true);
+    expect(figure?.translated).toBe("図1. 概要。");
+
+    const exported = await exportPaperMarkdown(fs, paper.id, {
+      language: "ja",
+      variant: "clean",
+    });
+    const files = unzipSync(createNotionImportZip(exported));
+    const markdownName = Object.keys(files).find((name) => name.endsWith(".md"));
+    expect(markdownName).toBeTruthy();
+    const markdown = new TextDecoder().decode(files[markdownName!]);
+    expect(markdown).toContain("![](figure-001.png)");
+    expect(markdown).toContain("図1. 概要。");
+    expect(files["figure-001.png"]?.byteLength).toBeGreaterThan(0);
   });
 });
