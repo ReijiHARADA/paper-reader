@@ -73,8 +73,11 @@ export function resolveImportConfig(config: ImportConfig): Required<ImportConfig
   if (!merged.ollamaServerUrl?.trim()) {
     merged.ollamaServerUrl = DEFAULT_IMPORT_CONFIG.ollamaServerUrl;
   }
-  if (merged.translationConcurrency <= 3) {
-    merged.translationConcurrency = 8;
+  // Older installs may contain an arbitrary value.  Preserve the three
+  // values exposed by the settings UI: stable (2), standard (4), fast (8).
+  // In particular, 2 must not silently turn into 8 at import time.
+  if (![2, 4, 8].includes(merged.translationConcurrency)) {
+    merged.translationConcurrency = DEFAULT_IMPORT_CONFIG.translationConcurrency;
   }
   return merged;
 }

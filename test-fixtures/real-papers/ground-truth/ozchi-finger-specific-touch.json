@@ -1,0 +1,40 @@
+{
+  "id": "ozchi-finger-specific-touch",
+  "title": "Exploring Finger Specific Touch Screen Interaction for Mobile Phone User Interfaces",
+  "headings": [
+    "INTRODUCTION",
+    "RELATED WORK",
+    "Finger based touch screen input in mobile UIs",
+    "Extending the input vocabulary",
+    "Positioning of Our Research",
+    "RESEARCH STRUCTURE",
+    "STUDY I – FINGER INPUT PERFORMANCE ON MOBILE PHONE TOUCH SCREENS",
+    "Hypothesis",
+    "Test Method",
+    "Results",
+    "STUDY II – WIZARD OF OZ PROTOTYPE",
+    "Phonebook Application Design",
+    "User Study",
+    "STUDY III – FUNCTIONAL PROTOTYPE",
+    "Proof of concept implementation",
+    "DISCUSSION",
+    "Performance and User Perceptions",
+    "Design Considerations",
+    "Future Potential of the Concept",
+    "Limitations and Future Work",
+    "CONCLUSIONS",
+    "REFERENCES"
+  ],
+  "headingHierarchy": [
+    { "from": "Phonebook Application Design", "to": "STUDY II – WIZARD OF OZ PROTOTYPE" },
+    { "from": "User Study", "to": "STUDY II – WIZARD OF OZ PROTOTYPE" },
+    { "from": "Results", "to": "STUDY II – WIZARD OF OZ PROTOTYPE" },
+    { "from": "Proof of concept implementation", "to": "STUDY III – FUNCTIONAL PROTOTYPE" },
+    { "from": "User Study", "to": "STUDY III – FUNCTIONAL PROTOTYPE" },
+    { "from": "Results", "to": "STUDY III – FUNCTIONAL PROTOTYPE" }
+  ],
+  "tableCaptions": ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5"],
+  "tableRegions": ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5"],
+  "equationNegativeText": ["n = 20", "χ²(4) = 55.967", "F(4,33) = 2.913", "t(36)=-2.84"],
+  "notes": "Golden real-paper regression. The PDF is in test-data/real-papers and remains ignored by Git."
+}

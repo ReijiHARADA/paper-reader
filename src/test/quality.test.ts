@@ -5,7 +5,10 @@ import {
   shouldTranslateParagraph,
   shouldTranslateHeading,
   looksLikeSubjectClassification,
+  evaluateJaTranslation,
+  extractScientificInvariants,
 } from "../services/translation/quality";
+import { resolveImportConfig } from "../services/import/helpers";
 import { analyzeStructure } from "../services/structureService";
 import {
   isRetryableTranslationFailure,
@@ -33,6 +36,27 @@ describe("isPlausibleJaTranslation", () => {
 
   it("rejects an English echo of the source", () => {
     expect(isPlausibleJaTranslation(source, source)).toBe(false);
+  });
+
+  it("rejects fluent Japanese that drops scientific facts", () => {
+    const source = "For n = 20, F(4,33) = 2.913 and p < 0.001 [12] were observed at 9.6 mm.";
+    const output = "20人の参加者では有意な差が観察されました。";
+    const quality = evaluateJaTranslation(output, source);
+    expect(quality.invariantScore).toBeLessThan(0.5);
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("accepts academic Japanese while preserving scientific invariants", () => {
+    const source = "For n = 20, F(4,33) = 2.913 and p < 0.001 [12] were observed at 9.6 mm.";
+    const output = "n = 20では、9.6 mmにおいてF(4,33) = 2.913、p < 0.001という結果が観察された[12]。";
+    expect(extractScientificInvariants(source).map((item) => item.value)).toContain("F(4,33) = 2.913");
+    expect(isPlausibleJaTranslation(output, source)).toBe(true);
+  });
+});
+
+describe("import translation concurrency", () => {
+  it.each([2, 4, 8])("keeps configured queue concurrency %i", (translationConcurrency) => {
+    expect(resolveImportConfig({ translationConcurrency }).translationConcurrency).toBe(translationConcurrency);
   });
 });
 

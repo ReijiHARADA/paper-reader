@@ -256,6 +256,26 @@
       "checks": {
         "forbidCaptionInParagraph": true
       }
+    },
+    {
+      "id": "ozchi-finger-specific-touch",
+      "title": "Exploring Finger Specific Touch Screen Interaction for Mobile Phone User Interfaces",
+      "doi": null,
+      "publisher": "OzCHI",
+      "venue": "OzCHI 2014",
+      "formatFamily": "ozchi-conference",
+      "templateVersion": null,
+      "kinds": ["two-column", "tables", "equations", "statistical-prose"],
+      "filename": "ozchi-finger-specific-touch.pdf",
+      "downloadUrl": null,
+      "seedPaths": ["user-provided local PDF; cached outside Git"],
+      "checks": {
+        "expectMultiColumnOnPages": [2, 5],
+        "headingContains": ["INTRODUCTION", "RELATED WORK", "STUDY II", "STUDY III", "DISCUSSION", "CONCLUSIONS", "REFERENCES"],
+        "tableCaptionContains": ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5"],
+        "forbidEquationContains": ["n = 20", "p < 0.001", "F(4,33)", "t(36)"],
+        "referencesHeading": true
+      }
     }
   ]
 }

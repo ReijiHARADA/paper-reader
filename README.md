@@ -18,7 +18,7 @@
 
 - **macOS アプリ**: Tauri 2 で `.app` / `.dmg` をビルドできる。配布版は翻訳サーバーを同梱して自動起動する。バツで閉じるときは保存を flush してからウィンドウを破棄する（`core:window:allow-destroy`）
 - **論文ライブラリ**: すべての論文 / Inbox / お気に入り / 最近読んだ論文 / ワークスペース。論文カードは共通レイアウトで、お気に入り中はタイトル横に星を出す。カードの `…` からワークスペース追加・お気に入り・ライブラリ削除ができる。ライブラリ削除では論文データ・所属・アプリ管理下の PDF を削除し、OS 上の原本は残す。PDF 追加後は Library に戻り、カードで進行を見せる。
-- **設定**: 左サイドバー最下部から開く。読書 / 翻訳 / データ / 詳細設定の4カテゴリで、読書設定が先頭。文字サイズ・行間・本文幅はスライダーと本文プレビューで調整でき、変更は自動保存される。翻訳速度は安定 / 標準 / 高速から選び、キャッシュ削除では論文・翻訳・元PDF・メモは残る。接続確認と開発者向け項目は詳細設定に集約する
+- **設定**: 左サイドバー最下部から開く。読書 / 翻訳 / データ / 詳細設定の4カテゴリで、読書設定が先頭。文字サイズ・行間・本文幅はスライダーと本文プレビューで調整でき、変更は自動保存される。翻訳速度は安定 / 標準 / 高速（実行キューはそれぞれ 2 / 4 / 8）から選び、キャッシュ削除では論文・翻訳・元PDF・メモは残る。接続確認と開発者向け項目は詳細設定に集約する
 - **ワークスペース**: WorkspaceNode は1種類だけで、すべてのノードが子ノード・論文・metadata を持てる。ノード名を開くと右側に直下の子フォルダと subtree の論文を並べる。サイドバーは Chevron で展開し、論文を閉じたフォルダへドラッグするとホバー中に入れ子が開く。どのノードも自由に入れ子・並び替えでき、cycle のみ拒否する。Paper 本体は1つだけで、WorkspacePaper の many-to-many relation により任意のノードへ直接配置する。Inbox はどの WorkspaceNode にも配置されていない論文。削除は subtree の relation を消すだけで Paper 本体を消さない。
 - **日本語リーダー**: 目次 | 本文 | メモ一覧／用語集の 3 ペイン。目次はヘッダーから隠せる。右上の各アイコンはホバーまたはキーボードフォーカスで機能名を表示する。1 カラム本文、段落ごとの原文展開、検索（⌘F。矢印または Enter で次のヒット、Shift+Enter / ↑ で前へ）、表示設定（文字サイズ・行間・本文幅・ライト／ダーク／システム）、読書位置の保存と復元。論文タイトルは 1 ページ目で本文より大きい行から取る。著者・所属は見出しにせず、リーダー本文にも出さない。日本語の節番号（`1 はじめに`、`2.1` など）と `参考文献` を目次にする。英語副題やローマ字著者行は目次に出さない。UI 原則は [UI_INTERACTION_PRINCIPLES.md](./UI_INTERACTION_PRINCIPLES.md)
 - **途中から読む**: PDF 追加後は Library のカードが「準備中」→「読めます / 日本語化中」になる。構造解析が終わった時点でリーダーを開ける。論文を開くと `lastOpenedAt` を記録する。翻訳はタイトル → 見出し → Abstract → 本文の順。いま読んでいる付近を優先して訳す。未完了や翻訳サーバー停止で失敗した段落は、次に論文を開いたときに再開する
@@ -111,7 +111,7 @@ npm test
 npm run lint
 ```
 
-学術 PDF の抽出は CanonicalDocument が Source of Truth です。Import は `extractAcademicPdf` → projection → Paper/Section/PaperBlock です。catalog の `publisher` / `formatFamily` は評価用 Ground Truth であり、本番の format 判定には使いません。助成番号（`016.128.303` のように先頭が 0 または 3 桁以上の点区切り）は節番号見出しにせず、直前の `grant number` 行と同一段落にまとめます。訳文に残った原文の固有名詞・番号は、ラテン文字比率の判定から除外します。詳細は [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)。
+学術 PDF の抽出は CanonicalDocument が Source of Truth です。Import は `extractAcademicPdf` → projection → Paper/Section/PaperBlock です。Generic layer は font/spacing/indent/capitalization を含む複数 role evidence を出し、Resolver が heading・paragraph・equation・table を精度優先で決めます。統計量を含む本文は equation にせず、native text の整列から確信できた table region は通常段落として翻訳しません。catalog の `publisher` / `formatFamily` は評価用 Ground Truth であり、本番の format 判定には使いません。MADLAD 前後では citation・DOI・URL・統計量・p値・標本数・測定値を保護／照合し、欠落した翻訳は原文へフォールバックします。詳細は [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)。
 
 レイアウト・キャプション・表・数式・脚注の抽出はインポート時に決まるため、既存の論文へ適用するには再インポートが必要です。
 

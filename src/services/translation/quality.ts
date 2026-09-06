@@ -11,6 +11,61 @@ const DATE_STAMP = /\d{4}-\d{2}-\d{2}/;
 /** ACM CCS 1998-style classifier: H.5.2, H.5.m, I.2.10 */
 const CCS_CODE = /[A-K]\.\d+(?:\.\d+)*(?:\.[a-z])?/i;
 
+export type ScientificInvariant = { kind: "citation" | "doi" | "url" | "statistic" | "measurement" | "number" | "acronym"; value: string };
+
+export type TranslationQuality = {
+  score: number;
+  reasons: string[];
+  languageScore: number;
+  invariantScore: number;
+  repetitionScore: number;
+  lengthScore: number;
+};
+
+const SCIENTIFIC_PATTERNS: Array<[ScientificInvariant["kind"], RegExp]> = [
+  ["url", /https?:\/\/[^\s)\]}>,]+/gi],
+  ["doi", /\b10\.\d{4,9}\/[\w.()/:;-]+/gi],
+  ["citation", /\[\d+(?:\s*[-–—]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–—]\s*\d+)?)*\]/g],
+  ["statistic", /(?:[χΧxX²]|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+/g],
+  ["measurement", /\b\d+(?:\.\d+)?\s*(?:mm|cm|m|km|ms|s|hz|khz|mhz|ghz|kg|mg|%|°c)\b/gi],
+  ["acronym", /\b[A-Z][A-Z0-9]{1,9}\b/g],
+  ["number", /\b\d+(?:\.\d+)?\b/g],
+];
+
+export function extractScientificInvariants(source: string): ScientificInvariant[] {
+  const found: ScientificInvariant[] = [];
+  const covered: Array<[number, number]> = [];
+  for (const [kind, pattern] of SCIENTIFIC_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      // Do not also record each component number inside a protected statistic.
+      if (kind === "number" && covered.some(([left, right]) => start >= left && end <= right)) continue;
+      found.push({ kind, value: match[0] });
+      if (kind !== "number") covered.push([start, end]);
+    }
+  }
+  return [...new Map(found.map((item) => [`${item.kind}:${normalizeInvariant(item.value)}`, item])).values()];
+}
+
+function normalizeInvariant(value: string): string {
+  return value.toLowerCase().replace(/[\s\u00a0]/g, "").replace(/[−–—]/g, "-");
+}
+
+function invariantQuality(source: string, output: string): { score: number; reasons: string[] } {
+  const invariants = extractScientificInvariants(source);
+  if (invariants.length === 0) return { score: 1, reasons: [] };
+  const normalized = normalizeInvariant(output);
+  const missing = invariants.filter((invariant) => !normalized.includes(normalizeInvariant(invariant.value)));
+  if (missing.length === 0) return { score: 1, reasons: [] };
+  const critical = missing.filter((item) => ["citation", "doi", "url", "statistic", "measurement"].includes(item.kind));
+  return {
+    score: Math.max(0, 1 - missing.length / invariants.length - critical.length * 0.18),
+    reasons: [`scientific invariants missing: ${missing.slice(0, 4).map((item) => item.value).join(", ")}`],
+  };
+}
+
 export function looksLikeFrontMatterLabel(text: string): boolean {
   return /^(?:(?:\d+[.)]\s*)?(?:author\s+keywords?|keywords?|ccs\s+concepts?|acm\s+classification\s+keywords?|index\s+terms?|categories?(?:\s+and\s+subject\s+descriptors?)?))\s*$/i.test(
     text.trim()
@@ -86,27 +141,50 @@ export function isGarbageTitle(text: string): boolean {
   return false;
 }
 
-export function isPlausibleJaTranslation(output: string, source: string): boolean {
+export function evaluateJaTranslation(output: string, source: string): TranslationQuality {
   const out = output.trim();
-  if (!out) return false;
-  if (isDegenerateTranslation(out)) return false;
-  if (DATE_STAMP.test(out) && !DATE_STAMP.test(source)) return false;
-  if (out === source.trim()) return false;
+  const reasons: string[] = [];
+  if (!out) return { score: 0, reasons: ["empty output"], languageScore: 0, invariantScore: 0, repetitionScore: 0, lengthScore: 0 };
+  if (isDegenerateTranslation(out)) reasons.push("degenerate output");
+  if (DATE_STAMP.test(out) && !DATE_STAMP.test(source)) reasons.push("unexpected date");
+  if (out === source.trim()) reasons.push("source echo");
 
   const hasKana = KANA.test(out);
   const hasKanji = KANJI.test(out);
-  if (!hasKana && !hasKanji) return false;
-  if (source.trim().length >= 40 && hasKanji && !hasKana) return false;
+  if (!hasKana && !hasKanji) reasons.push("no Japanese script");
+  if (source.trim().length >= 40 && hasKanji && !hasKana) reasons.push("Japanese prose lacks kana");
 
-  if (latinRatioBeyondSource(out, source) > 0.45) return false;
+  if (latinRatioBeyondSource(out, source) > 0.45) reasons.push("excessive new Latin text");
 
   if (
     /^\d+[.)]\s+\S/.test(source.trim()) &&
     /^\d+\s*(つの|つ。|日目|番目|個の)/.test(out)
   ) {
-    return false;
+    reasons.push("numbered source was mistranslated as a list item");
   }
-  return true;
+  const invariant = invariantQuality(source, out);
+  reasons.push(...invariant.reasons);
+  const languageScore = reasons.some((reason) => /Japanese|Latin|source echo|date|empty/.test(reason)) ? 0.15 : 1;
+  const repetitionScore = isDegenerateTranslation(out) ? 0 : 1;
+  const lengthRatio = out.length / Math.max(source.trim().length, 1);
+  const lengthScore = lengthRatio < 0.12 || lengthRatio > 4 ? 0.3 : 1;
+  if (lengthScore < 1) reasons.push("implausible length ratio");
+  return {
+    score: Math.max(0, Math.min(1, languageScore * 0.35 + invariant.score * 0.4 + repetitionScore * 0.15 + lengthScore * 0.1)),
+    reasons,
+    languageScore,
+    invariantScore: invariant.score,
+    repetitionScore,
+    lengthScore,
+  };
+}
+
+export function isPlausibleJaTranslation(output: string, source: string): boolean {
+  const quality = evaluateJaTranslation(output, source);
+  // A preserved grant name or researcher name may legitimately remain Latin.
+  // The weighted invariant score is authoritative; hard failures score below
+  // this threshold, while safe academic translations are not over-rejected.
+  return quality.score >= 0.8;
 }
 
 /**

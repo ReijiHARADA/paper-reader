@@ -1,4 +1,4 @@
-"""Protect numeric citation brackets around MADLAD generate / restore after.
+"""Protect scientific invariants around MADLAD generate / restore after.
 
 Placeholders are ASCII tokens chosen so greedy MADLAD decoding tends to copy
 them rather than translate or drop them. Measured against the fixed
@@ -16,6 +16,21 @@ CITATION_RE = re.compile(
     r"\d+(?:\s*[-–—]\s*\d+)?"
     r"(?:\s*,\s*\d+(?:\s*[-–—]\s*\d+)?)*"
     r"\]"
+)
+
+# Ordered from most structured to least structured.  These tokens carry facts
+# rather than prose; translating them is both unnecessary and a frequent
+# source of fluent-looking scientific errors.
+SCIENTIFIC_TOKEN_RE = re.compile(
+    r"(?:"
+    r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+"  # DOI
+    r"|https?://[^\s)>\]}]+"  # URL
+    r"|(?:[χΧxX²]|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?"  # test statistic
+    r"|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+"  # p-value
+    r"|\bn\s*=\s*\d+"  # sample size
+    r"|\b\d+(?:\.\d+)?\s*(?:mm|cm|km|ms|Hz|kHz|MHz|GHz|kg|mg|%)\b"  # measurement
+    r")",
+    re.IGNORECASE,
 )
 
 # Empirically, MADLAD-400 3B greedy decode often copies ZZCIT1ZZ / ZZCIT2ZZ
@@ -38,8 +53,20 @@ def _placeholder_pattern(index: int, nonce: int) -> re.Pattern[str]:
 
 
 def protect_citations(text: str) -> tuple[str, list[str], int]:
-    """Replace citation brackets with placeholders. Returns text, originals, nonce."""
-    matches = list(CITATION_RE.finditer(text))
+    """Replace citations and scientific facts with placeholders.
+
+    The API name remains for compatibility with the engine and existing tests.
+    """
+    matches = list(CITATION_RE.finditer(text)) + list(SCIENTIFIC_TOKEN_RE.finditer(text))
+    matches.sort(key=lambda match: (match.start(), -(match.end() - match.start())))
+    non_overlapping: list[re.Match[str]] = []
+    end = -1
+    for match in matches:
+        if match.start() < end:
+            continue
+        non_overlapping.append(match)
+        end = match.end()
+    matches = non_overlapping
     if not matches:
         return text, [], 0
 

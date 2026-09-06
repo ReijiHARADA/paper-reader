@@ -18,17 +18,51 @@ import {
   readsBeforeRelations,
 } from "./relationResolver";
 
+function resolvedRole(candidate: RoleCandidate): { role: CanonicalNode["role"]; confidence: number } {
+  const scores = candidate.roleScores;
+  const paragraph = scores.paragraph ?? 0.3;
+  const ranked = Object.entries(scores)
+    .filter((entry): entry is [CanonicalNode["role"], number] => typeof entry[1] === "number")
+    .sort((a, b) => b[1] - a[1]);
+  const [role, score] = ranked[0] ?? [candidate.role, candidate.confidence];
+  // Precision first: weak semantic evidence falls back to paragraph instead
+  // of turning normal prose into an equation, heading, or table.
+  if (role === "equation" && score < Math.max(0.72, paragraph + 0.18)) {
+    return { role: "paragraph", confidence: paragraph };
+  }
+  if (role === "table" && score < Math.max(0.78, paragraph + 0.2)) {
+    return { role: "paragraph", confidence: paragraph };
+  }
+  if (role === "heading" && score < Math.max(0.68, paragraph + 0.08)) {
+    return { role: "paragraph", confidence: paragraph };
+  }
+  return { role, confidence: score };
+}
+
 function nodeFromCandidate(candidate: RoleCandidate): CanonicalNode {
   const box = candidate.boundingBoxes[0] ?? candidate.layoutBlock.bbox;
+  const resolved = resolvedRole(candidate);
   return {
     id: candidate.id,
-    role: candidate.role,
+    role: resolved.role,
     text: candidate.text,
     pageStart: candidate.pageStart,
     pageEnd: candidate.pageEnd,
     boundingBoxes: candidate.boundingBoxes,
-    confidence: candidate.confidence,
-    evidence: candidate.evidence,
+    confidence: resolved.confidence,
+    evidence: [
+      ...candidate.evidence,
+      {
+        source: "generic-heuristic",
+        label: "role-scores",
+        confidence: resolved.confidence,
+        page: candidate.pageStart,
+        bbox: candidate.layoutBlock.bbox,
+        reason: Object.entries(candidate.roleScores)
+          .map(([role, score]) => `${role}=${Number(score).toFixed(2)}`)
+          .join(", "),
+      },
+    ],
     sourceAnchor: {
       page: candidate.pageStart,
       boundingBoxes: candidate.boundingBoxes,
@@ -40,6 +74,7 @@ function nodeFromCandidate(candidate: RoleCandidate): CanonicalNode {
       ),
     },
     column: candidate.column,
+    style: candidate.style,
   };
 }
 
@@ -126,7 +161,7 @@ export function resolveCanonicalDocument(input: {
 
   const relations = [
     ...readsBeforeRelations(fallbackOrder),
-    ...childOfRelations(headingNodes, input.baseFontSize),
+    ...childOfRelations(headingNodes),
     ...captionOfRelations(nodes),
     ...affiliatedWithRelations(nodes),
   ];

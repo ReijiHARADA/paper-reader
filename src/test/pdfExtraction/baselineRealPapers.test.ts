@@ -86,6 +86,12 @@ describe("baseline benchmark on cached real papers", () => {
       if (report.formatApplied === "ieee" && paper.formatFamily) {
         expect(paper.formatFamily.startsWith("ieee")).toBe(true);
       }
+      if (paper.id === "ozchi-finger-specific-touch") {
+        expect(report.headingRecall).toBeGreaterThanOrEqual(0.9);
+        expect(report.headingHierarchyAccuracy).toBeGreaterThanOrEqual(0.75);
+        expect(report.tableCaptionRecall).toBe(1);
+        expect(report.tableRegionRecall).toBeGreaterThanOrEqual(0.8);
+      }
     }, 60_000);
   }
 });

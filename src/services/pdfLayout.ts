@@ -65,6 +65,10 @@ export type LayoutBlock = {
   bbox: BoundingBox;
 };
 
+function lineUsesBoldFace(line: LayoutLine): boolean {
+  return line.items.some((item) => /(?:bold|black|heavy|semi[- ]?bold|demi)/i.test(item.fontName));
+}
+
 const HEADER_Y = 48;
 const FOOTER_MARGIN = 38;
 const MIN_COLUMN_ITEMS = 8;
@@ -495,11 +499,35 @@ export function isEquationLine(text: string): boolean {
   ).length;
   if (functionWords >= 3) return false;
 
+  // Statistical results are ordinary prose surprisingly often.  Geometry is
+  // considered later by the evidence generator, but a sentence that contains
+  // a statistic must never be made atomic as a displayed equation here.
+  const proseWords = tokens.filter((word) => /[A-Za-z]{3,}/.test(word)).length;
+  const statisticalResult = /(?:\b[ntz]\s*=|[χΧxX²]\s*\(|\b[FPt]\s*\(|\bp\s*[<=>])/.test(t);
+  if (statisticalResult && (proseWords >= 3 || /[,.;:]/.test(t))) return false;
+
   if (hasEqNumber && math >= 1) return true;
   if (math < 2) return false;
   const letters = (t.match(/[A-Za-z]/g) || []).length;
   if (letters > 48 && math < 3) return false;
   return tokens.length <= 24;
+}
+
+function styleStartsSubheading(
+  previous: LayoutLine,
+  next: LayoutLine,
+  baseFont: number
+): boolean {
+  const text = layoutPlain(next.text);
+  if (!text || text.length > 100 || text.split(/\s+/).length > 15) return false;
+  if (/[.!?。．]$/.test(text) || looksLikeUrl(text) || looksLikeEmail(text)) return false;
+  if (isFigureCaption(text) || isTableCaption(text) || isEquationLine(text)) return false;
+  const titleCase = /^[A-Z][A-Za-z]*(?:[\s:–—-]+[A-Z][A-Za-z]*)*/.test(text);
+  const uppercase = text.replace(/[^A-Za-z]/g, "").replace(/[^A-Z]/g, "").length >= 4 &&
+    text.replace(/[^A-Z]/g, "").length / Math.max(1, text.replace(/[^A-Za-z]/g, "").length) > 0.7;
+  const boldTransition = lineUsesBoldFace(next) && !lineUsesBoldFace(previous);
+  const fontTransition = next.fontSize >= previous.fontSize + Math.max(0.35, baseFont * 0.04);
+  return (titleCase || uppercase) && (boldTransition || fontTransition);
 }
 
 function captionShouldContinue(currentText: string, next: LayoutLine, baseFont: number): boolean {
@@ -656,6 +684,17 @@ function isHeadingLine(line: LayoutLine, baseFont: number): boolean {
   const letters = text.replace(/[^A-Za-z]/g, "");
   const upper = text.replace(/[^A-Z]/g, "");
   if (letters.length >= 6 && upper.length / letters.length > 0.72) return true;
+  // Many conference templates use body-size bold title case for subsection
+  // labels.  Keep this as a generic, low-level observation; the resolver
+  // later compares it with paragraph evidence and document style clusters.
+  if (
+    lineUsesBoldFace(line) &&
+    /^[A-Z][A-Za-z]*(?:[\s:–—-]+(?:[A-Z][A-Za-z]*|[IVX]+|of|and|the|in|on|for|to))*$/.test(text) &&
+    text.split(/\s+/).length <= 14 &&
+    !/[.!?。．]$/.test(text)
+  ) {
+    return true;
+  }
   if (line.fontSize > baseFont * 1.28 && text.length < 80 && text.split(/\s+/).length <= 12) {
     if (!/[A-Za-z]{3,}/.test(text)) return false;
     if (/[.!?。．]$/.test(text) && text.split(/\s+/).length > 6) return false;
@@ -1029,9 +1068,6 @@ function groupLinesIntoBlocks(
     if (currentRole === null) {
       current = [line];
       currentRole = forcedRole;
-      if (atomic) {
-        flush();
-      }
       continue;
     }
 
@@ -1048,6 +1084,7 @@ function groupLinesIntoBlocks(
       currentRole !== "figure_caption" &&
       currentRole !== "table_caption" &&
       currentRole !== "footnote" &&
+      !styleStartsSubheading(current[current.length - 1], line, baseFont) &&
       canMerge(current[current.length - 1], line, baseFont);
 
     const grantContinue =
@@ -1078,7 +1115,16 @@ function groupLinesIntoBlocks(
       line.page === current[0].page &&
       line.y - current[current.length - 1].y < baseFont * 2.2;
 
-    if (mergeable || captionContinue || grantContinue || titleContinue || footnoteContinue) {
+    const headingContinue =
+      currentRole === "heading" &&
+      forcedRole === "heading" &&
+      line.page === current[0].page &&
+      line.column === current[0].column &&
+      line.y - current[current.length - 1].y < baseFont * 2.2 &&
+      Math.abs(line.fontSize - current[current.length - 1].fontSize) < 0.8 &&
+      /^[A-Z0-9][A-Z0-9\s–—-]+$/.test(layoutPlain(line.text));
+
+    if (mergeable || captionContinue || grantContinue || titleContinue || footnoteContinue || headingContinue) {
       current.push(line);
       continue;
     }
@@ -1086,9 +1132,6 @@ function groupLinesIntoBlocks(
     flush();
     current = [line];
     currentRole = forcedRole;
-    if (atomic) {
-      flush();
-    }
   }
   flush();
   return mergeColumnContinuations(blocks.filter((b) => b.text.length > 0));

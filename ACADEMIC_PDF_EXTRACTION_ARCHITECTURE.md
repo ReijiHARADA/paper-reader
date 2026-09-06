@@ -48,7 +48,17 @@ Import calls only `extractAcademicPdf`. It does not contain column, title, autho
 - `format`: detection scores and applied id
 - `diagnostics`: layout, reading order, text integrity, semantic, format, relation (legacy column/unicode/paragraph aliases kept)
 
-Roles are decided only in the Resolver.
+`RoleCandidate` retains the generic leading role for compatibility, but also
+contains competing `roleScores` and a native-text `StyleSignature` (font
+family/size, weight, indent, spacing, capitalization). The Resolver chooses
+the Canonical role with precision-first thresholds: weak heading, table, and
+equation evidence falls back to paragraph.
+
+Heading hierarchy uses numbering when present, then style and document
+sequence. This preserves body-size subsection styles without turning every
+short sentence into a heading. Equation evidence combines symbolic density,
+geometry, and prose/statistical-result negatives instead of treating `=` or
+`p <` as sufficient evidence.
 
 ## Evidence
 
@@ -90,7 +100,7 @@ GROBID and Docling are not production dependencies.
 
 - `READS_BEFORE` is a path over readable nodes. Projection topological-sorts; on a cycle it falls back to generic order.
 - `CHILD_OF` uses numbering prefixes, then a level stack. Projection writes `Section.parentSectionId`.
-- `CAPTION_OF` links caption nodes to figure/table region nodes. Projection still emits one figure/table `PaperBlock` (caption text + metadata), matching the reader.
+- `CAPTION_OF` links caption nodes to figure/table region nodes. A table region is high confidence only when nearby native text has aligned, short/numeric cell evidence; a caption-only proposal remains a low-confidence image fallback. Projection does not send resolved table cells to paragraph translation.
 - `AFFILIATED_WITH` uses superscript/symbol markers, then 1-to-many or positional fallback. `Paper.authors` remains a flat projection.
 
 ## Directory
@@ -109,3 +119,11 @@ src/services/pdfExtraction/
 ```
 
 `pdfLayout.ts` is kept as the generic algorithm kernel so column order is not rewritten during the move. `structureService.analyzeStructure` is a compatibility wrapper around `extractFromPages`.
+
+## Translation safety
+
+Before MADLAD, the server protects citations, DOI/URLs, statistical notation,
+p-values, sample-size notation, and measurements with restoreable placeholders.
+After translation, the client scores language integrity, repetition, length,
+and source scientific invariants. Outputs that lose a critical invariant are
+rejected so the reader retains the original text rather than a fluent error.

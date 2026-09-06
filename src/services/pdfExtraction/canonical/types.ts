@@ -38,6 +38,15 @@ export type CanonicalNode = {
   evidence: ExtractionEvidence[];
   sourceAnchor: SourceAnchor;
   column?: string;
+  /** Resolver-visible style evidence retained from native PDF text. */
+  style?: {
+    fontSizeRatio: number;
+    boldScore: number;
+    indent: number;
+    spacingBefore: number;
+    spacingAfter: number;
+    uppercaseRatio: number;
+  };
 };
 
 export type CanonicalRelationKind =

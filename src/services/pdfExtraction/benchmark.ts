@@ -24,6 +24,7 @@ export type PartialGroundTruth = {
   tokensInOrder?: [string, string];
   figureCaptions?: string[];
   tableCaptions?: string[];
+  tableRegions?: string[];
   authorAffiliation?: Array<{ from: string; to: string }>;
   headingHierarchy?: Array<{ from: string; to: string }>;
   figureCaptionRelations?: Array<{ from: string; to: string }>;
@@ -47,6 +48,7 @@ export type BaselinePaperReport = {
     readingOrderPair?: number;
     figureCaptionRecall?: number;
     tableCaptionRecall?: number;
+    tableRegionRecall?: number;
     figureCaptionRelation?: number;
     authorAffiliationF1?: number;
     fusedTitle: string;
@@ -86,7 +88,6 @@ export function evaluateBaselinePaper(input: {
   const affiliations = input.blocks
     .filter((b) => b.role === "affiliation")
     .map((b) => b.text);
-  const headings = input.blocks.filter((b) => b.role === "heading").map((b) => b.text);
   const figures = input.blocks
     .filter((b) => b.role === "figure_caption")
     .map((b) => b.text);
@@ -102,11 +103,26 @@ export function evaluateBaselinePaper(input: {
     fileHash: input.id,
     metadata: { title: input.catalogTitle, pageCount: input.pages.length },
   });
+  const headings = extracted.canonical.nodes
+    .filter((node) => node.role === "heading")
+    .map((node) => node.text ?? "");
   const canonicalTitle =
     extracted.canonical.nodes.find((n) => n.role === "title")?.text ?? null;
   const captionRels = extracted.canonical.relations.filter((r) => r.kind === "CAPTION_OF");
   const affRels = extracted.canonical.relations.filter((r) => r.kind === "AFFILIATED_WITH");
   const childRels = extracted.canonical.relations.filter((r) => r.kind === "CHILD_OF");
+  const regionCaptionIds = new Set(
+    extracted.canonical.relations
+      .filter((r) => r.kind === "CAPTION_OF")
+      .filter((r) => {
+        const region = extracted.canonical.nodes.find((node) => node.id === r.to);
+        return region?.role === "table" && region.confidence >= 0.75;
+      })
+      .map((r) => r.from)
+  );
+  const structuredTableCaptions = extracted.canonical.nodes
+    .filter((node) => regionCaptionIds.has(node.id))
+    .map((node) => node.text ?? "");
 
   return {
     id: input.id,
@@ -151,6 +167,9 @@ export function evaluateBaselinePaper(input: {
       : undefined,
     tableCaptionRecall: gold?.tableCaptions
       ? substringRecall(tables, gold.tableCaptions)
+      : undefined,
+    tableRegionRecall: gold?.tableRegions
+      ? substringRecall(structuredTableCaptions, gold.tableRegions)
       : undefined,
     figureCaptionRelation:
       gold?.figureCaptionRelations && gold.figureCaptionRelations.length > 0

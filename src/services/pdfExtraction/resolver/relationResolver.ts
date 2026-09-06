@@ -2,15 +2,21 @@ import { displayHeadingText } from "../../pdfLayout";
 import type { CanonicalNode, CanonicalRelation } from "../canonical/types";
 import type { RoleCandidate } from "../generic/candidates";
 
-function headingLevel(text: string, fontSize: number, baseFont: number): number {
+function headingLevel(node: CanonicalNode): number {
+  const text = node.text ?? "";
   const match = displayHeadingText(text).match(/^(\d+)(\.(\d+))?(\.(\d+))?/);
   if (match) {
     if (match[5]) return 3;
     if (match[3]) return 2;
     return 1;
   }
-  if (fontSize > baseFont * 1.3) return 1;
-  if (fontSize > baseFont * 1.15) return 2;
+  const style = node.style;
+  if (!style) return 1;
+  if (style.fontSizeRatio > 1.22 || style.uppercaseRatio > 0.72) return 1;
+  // A heading that is not the uppercase display style is normally a
+  // subsection in conference templates, even when it intentionally uses the
+  // same small heading face as body text.
+  if (/[a-z]/.test(text) || style.fontSizeRatio > 1.08 || style.boldScore >= 0.35) return 2;
   return 1;
 }
 
@@ -27,17 +33,13 @@ function prefixOf(child: number[], parent: number[]): boolean {
   return parent.every((n, i) => n === child[i]);
 }
 
-export function childOfRelations(
-  headingNodes: CanonicalNode[],
-  baseFont: number
-): CanonicalRelation[] {
+export function childOfRelations(headingNodes: CanonicalNode[]): CanonicalRelation[] {
   const relations: CanonicalRelation[] = [];
   const numbered: { node: CanonicalNode; parts: number[] }[] = [];
   const stack: { id: string; level: number }[] = [];
 
   for (const node of headingNodes) {
-    const font = 12;
-    const level = headingLevel(node.text ?? "", font, baseFont);
+    const level = headingLevel(node);
     const parts = numberingParts(node.text ?? "");
     if (parts) {
       const parent = [...numbered]
@@ -239,8 +241,26 @@ export function figureNodesForCaptions(candidates: RoleCandidate[]): CanonicalNo
     .map((caption, i) => {
       const role = caption.layoutBlock.role === "table_caption" ? "table" : "figure";
       const box = caption.boundingBoxes[0];
-      const figureBox = box
+      const regionMembers = role === "table" && box
+        ? candidates.filter((candidate) => {
+            const candidateBox = candidate.boundingBoxes[0];
+            if (!candidateBox || candidate.pageStart !== caption.pageStart) return false;
+            const aboveCaption = candidateBox.y < box.y && box.y - (candidateBox.y + candidateBox.height) < 280;
+            return aboveCaption && (candidate.roleScores.table ?? 0) >= 0.78;
+          })
+        : [];
+      const memberBoxes = regionMembers.flatMap((member) => member.boundingBoxes);
+      const regionBox = memberBoxes.length > 0
         ? {
+            page: box!.page,
+            x: Math.min(...memberBoxes.map((member) => member.x)),
+            y: Math.min(...memberBoxes.map((member) => member.y)),
+            width: Math.max(...memberBoxes.map((member) => member.x + member.width)) - Math.min(...memberBoxes.map((member) => member.x)),
+            height: Math.max(...memberBoxes.map((member) => member.y + member.height)) - Math.min(...memberBoxes.map((member) => member.y)),
+          }
+        : null;
+      const figureBox = box
+        ? regionBox ?? {
             ...box,
             y: Math.max(0, box.y - Math.min(180, Math.max(36, box.height * 8))),
             height: Math.min(180, Math.max(36, box.height * 8)),
@@ -253,14 +273,18 @@ export function figureNodesForCaptions(candidates: RoleCandidate[]): CanonicalNo
         pageStart: caption.pageStart,
         pageEnd: caption.pageEnd,
         boundingBoxes: [figureBox],
-        confidence: 0.7,
+        confidence: regionBox ? 0.86 : role === "table" ? 0.48 : 0.7,
         evidence: [
           {
             source: "generic-heuristic" as const,
             label: role,
-            confidence: 0.7,
+            confidence: regionBox ? 0.86 : role === "table" ? 0.48 : 0.7,
             page: caption.pageStart,
-            reason: "region above caption (pdffigures2-style adjacent proposal)",
+            reason: regionBox
+              ? `aligned native-text table region (${regionMembers.length} member blocks)`
+              : role === "table"
+                ? "caption-only table fallback; no structured region was inferred"
+                : "region above caption (pdffigures2-style adjacent proposal)",
           },
         ],
         sourceAnchor: {
