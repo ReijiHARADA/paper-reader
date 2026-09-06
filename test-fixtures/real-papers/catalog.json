@@ -3,26 +3,94 @@
   "pdfDir": "test-data/real-papers",
   "note": "publisher / venue / formatFamily / templateVersion are benchmark Ground Truth only. Production format detection must not read this file.",
   "coverageTargets": [
-    { "id": "acm-acmart", "status": "present", "notes": "TEI/CHI/UIST/ISWC/IMWUT papers in this corpus" },
-    { "id": "ieee-conference", "status": "present", "notes": "ISWC 1998 Design for Wearability" },
-    { "id": "springer-journal", "status": "present", "notes": "AI & Society / SpringerOpen" },
-    { "id": "arxiv", "status": "present", "notes": "Step-to-Charge preprint" },
-    { "id": "springer-lncs", "status": "missing", "notes": "add when a failure PDF exists" },
-    { "id": "elsevier", "status": "missing" },
-    { "id": "nature", "status": "missing" },
-    { "id": "mdpi", "status": "missing" },
-    { "id": "jstage", "status": "missing", "notes": "Japanese conference fixture covers heading/caption; add a J-STAGE PDF later" },
-    { "id": "single-column", "status": "present" },
-    { "id": "two-column", "status": "present" },
-    { "id": "mixed-column", "status": "partial" },
-    { "id": "japanese", "status": "partial", "notes": "synthetic japanese-conference fixture; real J-STAGE PDF not in this corpus" },
-    { "id": "figure-heavy", "status": "present" },
-    { "id": "table-heavy", "status": "partial" },
-    { "id": "math-heavy", "status": "partial" },
-    { "id": "complex-affiliations", "status": "partial" },
-    { "id": "scanned", "status": "missing" },
-    { "id": "old-pdf", "status": "present", "notes": "ISWC 1998" },
-    { "id": "thesis-report", "status": "missing" }
+    {
+      "id": "acm-acmart",
+      "status": "present",
+      "notes": "TEI/CHI/UIST/ISWC/IMWUT papers in this corpus"
+    },
+    {
+      "id": "ieee-conference",
+      "status": "present",
+      "notes": "ISWC 1998 Design for Wearability"
+    },
+    {
+      "id": "springer-journal",
+      "status": "present",
+      "notes": "AI & Society / SpringerOpen"
+    },
+    {
+      "id": "arxiv",
+      "status": "present",
+      "notes": "Step-to-Charge preprint"
+    },
+    {
+      "id": "springer-lncs",
+      "status": "missing",
+      "notes": "add when a failure PDF exists"
+    },
+    {
+      "id": "elsevier",
+      "status": "missing"
+    },
+    {
+      "id": "nature",
+      "status": "missing"
+    },
+    {
+      "id": "mdpi",
+      "status": "missing"
+    },
+    {
+      "id": "jstage",
+      "status": "missing",
+      "notes": "Japanese conference fixture covers heading/caption; add a J-STAGE PDF later"
+    },
+    {
+      "id": "single-column",
+      "status": "present"
+    },
+    {
+      "id": "two-column",
+      "status": "present"
+    },
+    {
+      "id": "mixed-column",
+      "status": "partial"
+    },
+    {
+      "id": "japanese",
+      "status": "partial",
+      "notes": "synthetic japanese-conference fixture; real J-STAGE PDF not in this corpus"
+    },
+    {
+      "id": "figure-heavy",
+      "status": "present"
+    },
+    {
+      "id": "table-heavy",
+      "status": "partial"
+    },
+    {
+      "id": "math-heavy",
+      "status": "partial"
+    },
+    {
+      "id": "complex-affiliations",
+      "status": "partial"
+    },
+    {
+      "id": "scanned",
+      "status": "missing"
+    },
+    {
+      "id": "old-pdf",
+      "status": "present",
+      "notes": "ISWC 1998"
+    },
+    {
+      "id": "thesis-report",
+      "status": "missing"
+    }
   ],
   "papers": [
     {
@@ -33,18 +101,29 @@
       "venue": "TEI 2016",
       "formatFamily": "acm-acmart",
       "templateVersion": "sigconf-unknown",
-      "kinds": ["two-column", "figures", "citations"],
+      "kinds": [
+        "two-column",
+        "figures",
+        "citations"
+      ],
       "filename": "interactive-jewellery.pdf",
       "downloadUrl": null,
-      "seedPaths": ["~/Desktop/2839462.2839504.pdf"],
+      "seedPaths": [
+        "~/Desktop/2839462.2839504.pdf"
+      ],
       "checks": {
-        "expectMultiColumnOnPages": [1, 3],
+        "expectMultiColumnOnPages": [
+          1,
+          3
+        ],
         "tokensInOrder": [
           "second half of the 20",
           "In terms of renewing interaction"
         ],
         "tokensInOrderPage": 3,
-        "headingContains": ["INTERACTIVE JEWELLERY: RELATED WORK"],
+        "headingContains": [
+          "INTERACTIVE JEWELLERY: RELATED WORK"
+        ],
         "titleContains": "Interactive Jewellery",
         "forbidHeadingContains": [
           "tue.nl",
@@ -58,9 +137,14 @@
           "tednoten.com",
           "artefactgroup.com"
         ],
-        "captionContains": ["Figure 2"],
+        "captionContains": [
+          "Figure 2"
+        ],
         "forbidSameParagraph": [
-          ["second half of the 20", "kinetic jewellery"]
+          [
+            "second half of the 20",
+            "kinetic jewellery"
+          ]
         ],
         "referencesHeading": true
       }
@@ -73,13 +157,19 @@
       "venue": "AI & Society",
       "formatFamily": "springer-journal",
       "templateVersion": null,
-      "kinds": ["one-column", "citations"],
+      "kinds": [
+        "one-column",
+        "citations"
+      ],
       "filename": "significant-other.pdf",
       "downloadUrl": "https://shura.shu.ac.uk/43/1/fulltext.pdf",
       "seedPaths": [],
       "checks": {
         "titleContains": "significant other",
-        "headingContains": ["Abstract", "Introduction"],
+        "headingContains": [
+          "Abstract",
+          "Introduction"
+        ],
         "referencesHeading": true
       }
     },
@@ -91,13 +181,21 @@
       "venue": "UIST 2024",
       "formatFamily": "acm-acmart",
       "templateVersion": "sigconf-unknown",
-      "kinds": ["two-column", "figures", "equations"],
+      "kinds": [
+        "two-column",
+        "figures",
+        "equations"
+      ],
       "filename": "power-over-skin.pdf",
       "downloadUrl": "https://daehwakim.com/paper/PowerOverSkin_paper.pdf",
       "seedPaths": [],
       "checks": {
-        "expectMultiColumnOnPages": [1],
-        "captionContains": ["Figure 1"],
+        "expectMultiColumnOnPages": [
+          1
+        ],
+        "captionContains": [
+          "Figure 1"
+        ],
         "forbidCaptionInParagraph": true,
         "referencesHeading": true
       }
@@ -110,13 +208,21 @@
       "venue": "IMWUT",
       "formatFamily": "acm-acmart",
       "templateVersion": "acmsmall-unknown",
-      "kinds": ["one-column", "figures", "tables"],
+      "kinds": [
+        "one-column",
+        "figures",
+        "tables"
+      ],
       "filename": "thermal-earring.pdf",
       "downloadUrl": "https://ubicomplab.cs.washington.edu/pdfs/Thermal_Earring.pdf",
       "seedPaths": [],
       "checks": {
-        "captionContains": ["Fig. 1"],
-        "tableCaptionContains": ["Table 1"],
+        "captionContains": [
+          "Fig. 1"
+        ],
+        "tableCaptionContains": [
+          "Table 1"
+        ],
         "forbidCaptionInParagraph": true,
         "referencesHeading": true
       }
@@ -129,7 +235,9 @@
       "venue": "CHI 2025",
       "formatFamily": "acm-acmart",
       "templateVersion": "sigconf-unknown",
-      "kinds": ["figures"],
+      "kinds": [
+        "figures"
+      ],
       "filename": "ppg-earring.pdf",
       "downloadUrl": "https://ubicomplab.cs.washington.edu/pdfs/ppg_earring.pdf",
       "seedPaths": [],
@@ -145,7 +253,10 @@
       "venue": "ISWC 1998",
       "formatFamily": "ieee-conference",
       "templateVersion": "ieeeconf-1998",
-      "kinds": ["two-column", "figures"],
+      "kinds": [
+        "two-column",
+        "figures"
+      ],
       "filename": "design-for-wearability.pdf",
       "downloadUrl": "https://www.andrew.cmu.edu/course/15-821/assets/READINGS/PAPERS/gemperle1998.pdf",
       "seedPaths": [],
@@ -162,12 +273,18 @@
       "venue": "ISWC 2013",
       "formatFamily": "acm-acmart",
       "templateVersion": "sigconf-unknown",
-      "kinds": ["two-column", "figures", "tables"],
+      "kinds": [
+        "two-column",
+        "figures",
+        "tables"
+      ],
       "filename": "dont-mind-me.pdf",
       "downloadUrl": "https://ecl.cc.gatech.edu/sites/default/files/publications/p89-profita.pdf",
       "seedPaths": [],
       "checks": {
-        "expectMultiColumnOnPages": [1],
+        "expectMultiColumnOnPages": [
+          1
+        ],
         "forbidCaptionInParagraph": true,
         "referencesHeading": true
       }
@@ -180,7 +297,9 @@
       "venue": null,
       "formatFamily": "unknown",
       "templateVersion": null,
-      "kinds": ["figures"],
+      "kinds": [
+        "figures"
+      ],
       "filename": "speechin.pdf",
       "downloadUrl": "https://czhang.org/assets/pdf/Speechin.pdf",
       "seedPaths": [],
@@ -197,7 +316,11 @@
       "venue": "arXiv",
       "formatFamily": "arxiv",
       "templateVersion": null,
-      "kinds": ["one-column", "equations", "citations"],
+      "kinds": [
+        "one-column",
+        "equations",
+        "citations"
+      ],
       "filename": "step-to-charge.pdf",
       "downloadUrl": "https://arxiv.org/pdf/2408.01927",
       "seedPaths": [],
@@ -214,13 +337,18 @@
       "venue": "Fashion and Textiles",
       "formatFamily": "springer-open",
       "templateVersion": null,
-      "kinds": ["one-column", "tables"],
+      "kinds": [
+        "one-column",
+        "tables"
+      ],
       "filename": "wear-scale.pdf",
       "downloadUrl": "https://fashionandtextiles.springeropen.com/counter/pdf/10.1186/s40691-019-0203-3.pdf",
       "seedPaths": [],
       "checks": {
         "titleContains": "Wearable Acceptability",
-        "tableCaptionContains": ["Table"],
+        "tableCaptionContains": [
+          "Table"
+        ],
         "referencesHeading": true
       }
     },
@@ -232,14 +360,19 @@
       "venue": "Nordes 2015",
       "formatFamily": "nordes",
       "templateVersion": null,
-      "kinds": ["one-column", "figures"],
+      "kinds": [
+        "one-column",
+        "figures"
+      ],
       "filename": "precious-materials.pdf",
-      "downloadUrl": "https://dl.designresearchsociety.org/cgi/viewcontent.cgi?article=1076&context=nordes",
+      "downloadUrl": null,
       "seedPaths": [],
       "checks": {
         "titleContains": "Precious materials",
         "forbidCaptionInParagraph": true
-      }
+      },
+      "sourceStatus": "blocked-wrong-document",
+      "sourceStatusNote": "The former DRS download URL returned BodyBug – Design of KinAesthetic Interaction, not this catalogued paper. It is excluded until a verified OA PDF is found."
     },
     {
       "id": "fashion-hybrid-cmf",
@@ -249,12 +382,151 @@
       "venue": null,
       "formatFamily": "kci",
       "templateVersion": null,
-      "kinds": ["one-column", "figures"],
+      "kinds": [
+        "one-column",
+        "figures"
+      ],
       "filename": "fashion-hybrid-cmf.pdf",
       "downloadUrl": null,
-      "seedPaths": ["~/Downloads/KCI_FI002045948.pdf"],
+      "seedPaths": [
+        "~/Downloads/KCI_FI002045948.pdf"
+      ],
       "checks": {
         "forbidCaptionInParagraph": true
+      }
+    },
+    {
+      "id": "hci-empirical-methods",
+      "title": "Empirical Research Methods for Human-Computer Interaction",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "CHI 2024 course material",
+      "formatFamily": "unknown",
+      "templateVersion": null,
+      "disciplines": [
+        "HCI",
+        "human factors",
+        "research methods"
+      ],
+      "kinds": [
+        "one-column",
+        "statistical-prose",
+        "lists",
+        "citations"
+      ],
+      "filename": "hci-empirical-methods.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2404.13319",
+      "seedPaths": [],
+      "checks": {}
+    },
+    {
+      "id": "cognitive-psychology-gpt3",
+      "title": "Using cognitive psychology to understand GPT-3",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "arXiv",
+      "formatFamily": "arxiv",
+      "templateVersion": null,
+      "disciplines": [
+        "cognitive psychology",
+        "decision making",
+        "cognitive science"
+      ],
+      "kinds": [
+        "one-column",
+        "figures",
+        "tables",
+        "statistical-prose",
+        "equations"
+      ],
+      "filename": "cognitive-psychology-gpt3.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2206.14576",
+      "seedPaths": [],
+      "checks": {
+        "referencesHeading": true,
+        "mostlySingleColumn": true
+      }
+    },
+    {
+      "id": "marketing-consumer-response",
+      "title": "Social Dynamics of Consumer Response: A Unified Framework Integrating Statistical Physics and Marketing Dynamics",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "arXiv",
+      "formatFamily": "arxiv",
+      "templateVersion": null,
+      "disciplines": [
+        "marketing",
+        "consumer behavior",
+        "quantitative marketing"
+      ],
+      "kinds": [
+        "one-column",
+        "equations",
+        "figures",
+        "tables",
+        "citations"
+      ],
+      "filename": "marketing-consumer-response.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2404.02175",
+      "seedPaths": [],
+      "checks": {
+        "referencesHeading": true,
+        "mostlySingleColumn": true
+      }
+    },
+    {
+      "id": "ergonomics-human-factors-ihci",
+      "title": "User Centered Design (VI): Human Factors Approaches for Intelligent Human-Computer Interaction",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "arXiv",
+      "formatFamily": "arxiv",
+      "templateVersion": null,
+      "disciplines": [
+        "ergonomics",
+        "human factors",
+        "intelligent HCI"
+      ],
+      "kinds": [
+        "one-column",
+        "figures",
+        "tables",
+        "citations"
+      ],
+      "filename": "ergonomics-human-factors-ihci.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2111.04880",
+      "seedPaths": [],
+      "checks": {
+        "mostlySingleColumn": true
+      }
+    },
+    {
+      "id": "linguistics-language-model-physics",
+      "title": "Physics of Language Models: Part 1, Context-Free Grammar",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "arXiv",
+      "formatFamily": "arxiv",
+      "templateVersion": null,
+      "disciplines": [
+        "linguistics",
+        "computational linguistics",
+        "syntax"
+      ],
+      "kinds": [
+        "one-column",
+        "equations",
+        "tables",
+        "figures",
+        "citations"
+      ],
+      "filename": "linguistics-language-model-physics.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2305.13673",
+      "seedPaths": [],
+      "checks": {
+        "referencesHeading": true,
+        "mostlySingleColumn": true
       }
     },
     {
@@ -265,15 +537,44 @@
       "venue": "OzCHI 2014",
       "formatFamily": "ozchi-conference",
       "templateVersion": null,
-      "kinds": ["two-column", "tables", "equations", "statistical-prose"],
+      "kinds": [
+        "two-column",
+        "tables",
+        "equations",
+        "statistical-prose"
+      ],
       "filename": "ozchi-finger-specific-touch.pdf",
       "downloadUrl": null,
-      "seedPaths": ["user-provided local PDF; cached outside Git"],
+      "seedPaths": [
+        "user-provided local PDF; cached outside Git"
+      ],
       "checks": {
-        "expectMultiColumnOnPages": [2, 5],
-        "headingContains": ["INTRODUCTION", "RELATED WORK", "STUDY II", "STUDY III", "DISCUSSION", "CONCLUSIONS", "REFERENCES"],
-        "tableCaptionContains": ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5"],
-        "forbidEquationContains": ["n = 20", "p < 0.001", "F(4,33)", "t(36)"],
+        "expectMultiColumnOnPages": [
+          2,
+          5
+        ],
+        "headingContains": [
+          "INTRODUCTION",
+          "RELATED WORK",
+          "STUDY II",
+          "STUDY III",
+          "DISCUSSION",
+          "CONCLUSIONS",
+          "REFERENCES"
+        ],
+        "tableCaptionContains": [
+          "Table 1",
+          "Table 2",
+          "Table 3",
+          "Table 4",
+          "Table 5"
+        ],
+        "forbidEquationContains": [
+          "n = 20",
+          "p < 0.001",
+          "F(4,33)",
+          "t(36)"
+        ],
         "referencesHeading": true
       }
     }

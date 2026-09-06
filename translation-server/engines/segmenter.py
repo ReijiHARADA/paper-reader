@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from .citation_protect import protected_span_mask
 
-SEGMENTER_VERSION = "semantic-v1"
+SEGMENTER_VERSION = "semantic-v3"
 _ABBREVIATIONS = {"e.g.", "i.e.", "et al.", "fig.", "no.", "cf.", "dr.", "mr.", "ms.", "vs."}
 _CONTINUATION_START = re.compile(r"^(?:and|or|but|to|of|for|in|on|where|which|that|one|exception)\b", re.I)
 
@@ -74,6 +74,27 @@ def _merge_fragments(parts: list[str]) -> list[str]:
     return merged
 
 
+def _split_list_items(text: str) -> list[str]:
+    """Keep visually flattened PDF lists from becoming one model input.
+
+    Native PDF extraction can reconstruct bullets as a single paragraph. Keep
+    any lead-in sentence as its own unit, then preserve each bullet as a unit;
+    omitting that lead-in would silently change the source before translation.
+    """
+    bullet_positions: list[int] = []
+    for match in re.finditer(r"(?:^|\s)[•‣▪∙]\s+", text):
+        # A match after whitespace starts at that whitespace; retain the bullet
+        # itself so the joining stage can restore list structure.
+        position = match.start()
+        if position < len(text) and text[position].isspace():
+            position += 1
+        bullet_positions.append(position)
+    if len(bullet_positions) < 2:
+        return [text]
+    boundaries = [0, *[position for position in bullet_positions if position > 0], len(text)]
+    return [text[left:right].strip() for left, right in zip(boundaries, boundaries[1:]) if text[left:right].strip()]
+
+
 def segment_for_translation(source: str) -> list[TranslationUnit]:
     """Protect first, split only at top-level sentence punctuation, then restore.
 
@@ -87,11 +108,16 @@ def segment_for_translation(source: str) -> list[TranslationUnit]:
     # slice the original text while citation/scientific punctuation cannot make
     # a boundary. Each resulting unit is then placeholder-protected immediately
     # before MADLAD generate and restored afterwards.
-    protected = protected_span_mask(compact)
-    starts = [0, *_boundary_positions(protected)]
-    parts = [compact[left:right].strip() for left, right in zip(starts, [*starts[1:], len(compact)])]
+    parts: list[str] = []
+    for list_part in _split_list_items(compact):
+        protected_part = protected_span_mask(list_part)
+        starts = [0, *_boundary_positions(protected_part)]
+        parts.extend(
+            list_part[left:right].strip()
+            for left, right in zip(starts, [*starts[1:], len(list_part)])
+        )
     parts = _merge_fragments(parts)
-    return [TranslationUnit(part, protected) for part in parts] or [TranslationUnit(compact, protected)]
+    return [TranslationUnit(part, protected_span_mask(part)) for part in parts] or [TranslationUnit(compact, protected_span_mask(compact))]
 
 
 def split_for_translation(source: str) -> list[str]:

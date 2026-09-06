@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from engines.madlad_mps import MADLADEngine
 from engines.segmenter import split_for_translation, validate_round_trip
 
 
@@ -41,6 +42,22 @@ class SegmenterTests(unittest.TestCase):
     def test_continuations_merge_before_send(self) -> None:
         source = "Examination of targets indicated errors. One exception to this is the low miss rate."
         self.assert_round_trip(source)
+
+    def test_flattened_bullet_list_keeps_lead_in_and_each_item_as_a_unit(self) -> None:
+        source = "The course covers: • Formulating testable research questions • How to design an experiment to answer research questions • Parts of an experiment and ethics approval"
+        units = split_for_translation(source)
+        self.assertEqual(len(units), 4)
+        self.assertEqual(units[0], "The course covers:")
+        self.assertTrue(all(unit.startswith("•") for unit in units[1:]))
+        self.assertTrue(validate_round_trip(source, units))
+
+    def test_list_join_restores_markers(self) -> None:
+        chunks = ["The course covers:", "• First item", "• Second item"]
+        pieces = ["コースでは以下を扱う", "第一項目", "第二項目"]
+        self.assertEqual(
+            MADLADEngine._join_translated_chunks(chunks, pieces, "ja"),
+            "コースでは以下を扱う\n• 第一項目\n• 第二項目",
+        )
 
 
 if __name__ == "__main__":

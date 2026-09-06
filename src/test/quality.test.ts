@@ -52,6 +52,18 @@ describe("isPlausibleJaTranslation", () => {
     expect(extractScientificInvariants(source).map((item) => item.value)).toContain("F(4,33) = 2.913");
     expect(isPlausibleJaTranslation(output, source)).toBe(true);
   });
+
+  it("rejects fluent phrase-loop output without relying on a vocabulary blacklist", () => {
+    const source = "Wearable devices can support personal and social practices when their design starts from existing rituals.";
+    const output = "ウェブアプリケーションの役割を明らかにするため、ウェブアプリケーションの役割を明らかにするため、ウェブアプリケーションの役割を明らかにするための研究を行った。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects repeated short Japanese propositions", () => {
+    const source = "The course ends with group participation in a real experiment.";
+    const output = "実験の結果、参加者は課題を完了した。実験の結果は、実験の結果と一致し、実験の結果を評価した。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
 });
 
 describe("import translation concurrency", () => {
@@ -111,6 +123,34 @@ describe("subject classification lines", () => {
       (b) => b.type === "heading" && /^Introduction$/i.test(b.original || "")
     );
     expect(introHeading?.translationStatus).toBe("skipped");
+  });
+});
+
+describe("unsafe extracted translation input", () => {
+  it("keeps mixed permission text and incomplete continuations out of MADLAD", () => {
+    expect(
+      shouldTranslateParagraph(
+        "Ppersonal or classroom use is granted without fee provided that copies are made for this work."
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "With the progress of detecting technologies, it is now appropriate to start looking at the possibilities of"
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "The paper examines a complete paragraph with enough ordinary prose to translate safely."
+      )
+    ).toBe(true);
+  });
+
+  it("keeps a paragraph contaminated by a running arXiv header as original", () => {
+    expect(
+      shouldTranslateParagraph(
+        "Consumer response is complex and arXiv:2404.02175v5 13 Mar 2025 provides no prose boundary here."
+      )
+    ).toBe(false);
   });
 });
 

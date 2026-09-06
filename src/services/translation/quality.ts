@@ -8,6 +8,26 @@ const KANJI = /[\u4E00-\u9FFF]/;
 const HANGUL = /[\uAC00-\uD7AF]/;
 const DATE_STAMP = /\d{4}-\d{2}-\d{2}/;
 
+/**
+ * Greedy decoding occasionally repeats a fluent Japanese phrase many times.
+ * Character repetition misses this failure because every character is valid.
+ * Only reject a repeated phrase when it occupies a material part of the
+ * output, so ordinary repeated terminology remains valid.
+ */
+function hasAbnormalPhraseRepetition(text: string): boolean {
+  const compact = text.replace(/[^\p{L}\p{N}]/gu, "");
+  if (compact.length < 36) return false;
+  const counts = new Map<string, number>();
+  // Five Japanese characters are enough to distinguish a repeated proposition
+  // such as 「実験の結果」, while the density threshold avoids rejecting one
+  // recurring technical noun in an otherwise independent translation.
+  for (let index = 0; index <= compact.length - 5; index += 1) {
+    const phrase = compact.slice(index, index + 5);
+    counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
+  }
+  return [...counts.entries()].some(([phrase, count]) => count >= 3 && phrase.length * count / compact.length >= 0.07);
+}
+
 /** ACM CCS 1998-style classifier: H.5.2, H.5.m, I.2.10 */
 const CCS_CODE = /[A-K]\.\d+(?:\.\d+)*(?:\.[a-z])?/i;
 
@@ -126,6 +146,7 @@ export function isDegenerateTranslation(text: string): boolean {
 
   const uniqueRatio = counts.size / compact.length;
   if (compact.length >= 40 && uniqueRatio < 0.08) return true;
+  if (hasAbnormalPhraseRepetition(text)) return true;
 
   return false;
 }
@@ -184,7 +205,7 @@ export function isPlausibleJaTranslation(output: string, source: string): boolea
   // A preserved grant name or researcher name may legitimately remain Latin.
   // The weighted invariant score is authoritative; hard failures score below
   // this threshold, while safe academic translations are not over-rejected.
-  return quality.score >= 0.8;
+  return !isDegenerateTranslation(output) && quality.score >= 0.8;
 }
 
 /**
@@ -303,6 +324,23 @@ export function shouldTranslateParagraph(text: string): boolean {
   if (/@/.test(t)) return false;
   if (/https?:\/\//i.test(t)) return false;
   if (/permission to make digital/i.test(t)) return false;
+  // Broken first-page permission text can lose its initial "Permission" when
+  // columns are interleaved. The remaining wording is still distinctive and
+  // is chrome rather than research prose.
+  if (/personal\s+or\s+classroom\s+use\b.{0,140}\b(?:copies|copyright|fee)\b/i.test(t)) return false;
+  // A running arXiv header inside a sentence is extraction contamination, not
+  // evidence the model should infer around. Preserve the original until the
+  // layout repair can separate the header from the paragraph.
+  if (/\barXiv:\d{4}\.\d{4,5}v?\d*/i.test(t)) return false;
+  // Do not turn an incomplete physical block into a confident Japanese
+  // sentence. Page/column stitching may repair it upstream; otherwise the
+  // reader safely shows the original.
+  if (
+    t.length >= 48 &&
+    !/[.!?。！？]$/.test(t) &&
+    /(?:\b(?:and|or|but|to|of|for|with|where|which|that)\s*|[-,:;])$/i.test(t)
+  ) return false;
+  if (/^(?:of|and|or|but|to|for|with|where|which|that)\b/i.test(t)) return false;
   if (DATE_STAMP.test(t) && t.length < 80) return false;
   const words = t.split(/\s+/).filter((w) => /[A-Za-z]{3,}/.test(w));
   return words.length >= 6;

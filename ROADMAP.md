@@ -74,7 +74,8 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - 学術 PDF 抽出は CanonicalDocument が Source of Truth。Import は `extractAcademicPdf` → Paper projection。Format Profile（generic/acm/ieee）と page class を pipeline に接続済み。GROBID / Docling は任意 enricher で同梱しない
 - Generic candidate は単一 role の確定値ではなく、StyleSignature と heading / paragraph / equation / table の競合 score を出す。Resolver は document 内の style・順序・geometry を合わせて最終 role と heading hierarchy を決める。OzCHI 2014 の実 PDF は Git 管理外 cache の golden regression として heading recall 1.0、hierarchy 1.0、Table 1–5 caption recall 1.0 / table-region recall 0.8 を確認する
 - 翻訳品質は文字種だけでなく scientific invariant（citation、DOI/URL、統計量、p値、標本数、測定値）の保持を採点する。品質不足は誤訳を保存せず原文表示へ戻す。設定の安定 / 標準 / 高速は実キューでも 2 / 4 / 8 を保持する
-- 翻訳前に page-boundary の明確な段落継続を結合し、保護済み citation / scientific token を punctuation-aware segmenter で安全な文単位に分ける。括弧内の author-year citation の semicolon、decimal、略語は分割しない。分割器は production・micro-batch・benchmark で共有し、translation cache は `semantic-v1` を別版として扱う。release app の unit debug は `/tmp/paper-reader-translation-server.log` に記録する
+- 翻訳前に page-boundary の明確な段落継続を結合し、保護済み citation / scientific token を punctuation-aware segmenter で安全な文単位に分ける。括弧内の author-year citation の semicolon、decimal、略語は分割しない。複数bulletは独立unitにし、訳文でも箇条書きとして復元する。途中で切れた文、混入した権利表記／arXivヘッダはMADLADへ渡さず原文を表示し、長いphrase loopも品質不良として原文へ戻す。分割器は production・micro-batch・benchmark で共有し、translation cache は `semantic-v3` を別版として扱う。release app の unit debug は `/tmp/paper-reader-translation-server.log` に記録する
+- HCI・認知心理学・マーケティング・人間工学・言語学を含む実PDFの翻訳監査を追加した。PDFと原文／訳文レポートは `test-data/real-papers/`（Git管理外）、カタログ・評価器・分析手順は `TRANSLATION_CORPUS_AUDIT.md` に残す。残課題はOAの臨床・複雑表PDFを加え、確認済みの失敗を著作物を含まない構造fixtureへ戻すこと
 - ハイフン連結の英文と参考文献 URL をブロック数式にしない
 - CCS / Index Terms などの分類カタログ行は訳さず原文のまま出す（「翻訳待ち」に残さない）
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準

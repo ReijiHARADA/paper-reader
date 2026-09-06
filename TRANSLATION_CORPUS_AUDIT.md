@@ -30,12 +30,33 @@ manual pass found the same failure classes across fields.
 | Fluent phrase loop / unrelated concept | HCI and linguistics | greedy decoding can repeat a valid Japanese phrase while replacing the source concept | detect repeated multi-character spans and fall back to original |
 | Incomplete source fragment | OzCHI, marketing, ergonomics | page/column boundary or header interruption produces a non-sentence block | do not send continuation-shaped text; show original until extraction is repaired |
 | Chrome mixed into body | OzCHI, marketing | permission or running arXiv material became part of a paragraph before role resolution | keep the mixed block untranslated; repair line/block boundary separately |
-| Flattened list | HCI methods, linguistics, cognitive tasks | PDF bullets were combined into one paragraph, so list items compete in a single decode | split multiple bullet items into independent translation units |
+| Flattened list | HCI methods, linguistics, cognitive tasks | PDF bullets were combined into one paragraph, so list items compete in a single decode | split multiple bullet items into independent translation units and restore bullet markers after translation |
 | Numeric/probability loss | cognitive psychology, OzCHI | long lists and result summaries can drop values even if Japanese is fluent | existing invariant score rejects critical loss; list structure reduces the trigger |
 
 The evaluator intentionally includes unsafe examples in its review queue. A
 passing quality score does not mean the source was complete; source-boundary
 checks run in the import policy before a block is submitted to MADLAD.
+
+## First full run (2026-09-07, semantic-v3)
+
+The local corpus had 18 catalog records, of which 16 PDFs were available (the
+Wearable Acceptability URL failed and one publisher URL returned a different
+paper, so that record is explicitly blocked). The audit sent two deliberately
+spread samples per available paper: 32 source blocks in total.
+
+| Production decision | Blocks | Interpretation |
+| --- | ---: | --- |
+| Accepted | 23 | The automatic guard found no structural or invariant failure. These remain a manual semantic-review queue. |
+| Original before model | 9 | Continuation, chrome, or other unsafe source boundary was detected. |
+| Original after quality gate | 9 | The generated output had a phrase loop, numeric/invariant loss, language failure, or another quality failure. Categories overlap because the audit deliberately probes unsafe input. |
+| Score below 0.80 | 6 | Clear automatic preservation failures; the remaining quality fallbacks were caught by the phrase-loop detector, including repeated short Japanese propositions. |
+
+The audit caught concrete failures in every priority area: HCI phrase loops;
+cognitive choice-list number loss; marketing page-spanning contamination;
+ergonomics and wearable-HCI continuation fragments; and OzCHI permission-text
+interleaving. This establishes that the failure is cross-disciplinary rather
+than a PDF-specific exception. It does not prove that the 23 accepted rows are
+semantically perfect; those rows are the next human review set.
 
 ## Next corpus work
 

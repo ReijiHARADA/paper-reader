@@ -417,7 +417,14 @@ class MADLADEngine(TranslationEngine):
                 and piece.endswith("を")
             ):
                 piece = piece[:-1]
-            if i > 0:
+            is_list_item = bool(re.match(r"^[•‣▪∙]\s+", chunk))
+            if is_list_item:
+                # The model may omit the bullet token. It is source structure,
+                # so restore it deterministically instead of relying on decode.
+                if out:
+                    out.append("\n")
+                out.append("• ")
+            elif i > 0:
                 prev = chunks[i - 1].rstrip()
                 prev_piece = out[-1] if out else ""
                 if (
