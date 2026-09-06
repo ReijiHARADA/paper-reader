@@ -552,7 +552,7 @@ export function ReaderScreen() {
         const { exportPaperMarkdown, exportVerificationBundle } = await import(
           "../../data/export/markdownExport"
         );
-        const { saveMarkdownExport, saveVerificationExport } = await import(
+        const { saveMarkdownExport, saveNotionImportExport, saveVerificationExport } = await import(
           "../../data/export/saveExport"
         );
         const { fs } = await getStorage();
@@ -575,6 +575,16 @@ export function ReaderScreen() {
           stripBlockIds: values.variant !== "verification",
           includeFailedTranslations: values.includeFailedTranslations,
         });
+        if (values.mode === "notion") {
+          setExportStatus("Notion インポート用 ZIP を作成しています...");
+          const saved = await saveNotionImportExport(result);
+          if (!saved) {
+            setExportStatus("キャンセルしました");
+            return;
+          }
+          setExportStatus(`Notion 用 ZIP を書き出しました: ${saved.path}`);
+          return;
+        }
         setExportStatus("Markdown を書き出しています...");
         const saved = await saveMarkdownExport(result);
         if (!saved) {
@@ -742,7 +752,8 @@ export function ReaderScreen() {
           <button
             className={`${styles.iconButton} ${showOutline ? styles.active : ""}`}
             onClick={() => setShowOutline((value) => !value)}
-            title={showOutline ? "目次を隠す" : "目次を表示"}
+            aria-label={showOutline ? "目次を隠す" : "目次を表示"}
+            data-tooltip={showOutline ? "目次を隠す" : "目次を表示"}
           >
             <PanelLeft size={20} />
           </button>
@@ -751,34 +762,39 @@ export function ReaderScreen() {
             onClick={() =>
               setRightPanel((current) => toggleReaderRightPanel(current, "glossary"))
             }
-            title="用語集"
+            aria-label="用語集"
+            data-tooltip="用語集"
           >
             <BookMarked size={20} />
           </button>
           <button
             className={`${styles.iconButton} ${rightPanel === "notes" ? styles.active : ""}`}
             onClick={showNotesList}
-            title="メモ一覧"
+            aria-label="メモ一覧"
+            data-tooltip="メモ一覧"
           >
             <StickyNote size={20} />
           </button>
           <button
             className={`${styles.iconButton} ${showSearch ? styles.active : ""}`}
             onClick={() => setShowSearch(!showSearch)}
-            title="検索 (⌘F)"
+            aria-label="検索 (⌘F)"
+            data-tooltip="検索 (⌘F)"
           >
             <Search size={20} />
           </button>
           <button
             className={`${styles.iconButton} ${showSettings ? styles.active : ""}`}
             onClick={() => setShowSettings(!showSettings)}
-            title="表示設定"
+            aria-label="表示設定"
+            data-tooltip="表示設定"
           >
             <Settings2 size={20} />
           </button>
           <button
             className={`${styles.iconButton} ${showExport ? styles.active : ""}`}
-            title="書き出す"
+            aria-label="書き出す"
+            data-tooltip="書き出す"
             onClick={() => {
               setShowExport(true);
               setExportStatus(null);
@@ -789,7 +805,8 @@ export function ReaderScreen() {
           </button>
           <button
             className={styles.iconButton}
-            title={hasSourcePdf ? "元PDFを開く" : "保存された元PDFがありません"}
+            aria-label={hasSourcePdf ? "元PDFを開く" : "保存された元PDFがありません"}
+            data-tooltip={hasSourcePdf ? "元PDFを開く" : "保存された元PDFがありません"}
             disabled={!hasSourcePdf}
             onClick={() => void handleOpenSourcePdf()}
           >

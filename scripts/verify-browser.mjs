@@ -107,6 +107,36 @@ try {
       await page.locator("aside").first().waitFor();
     });
     await shot("reader");
+
+    await check("markdown export dialog", async () => {
+      await page.getByRole("button", { name: "書き出す" }).click();
+      const dialog = page.getByRole("dialog", { name: "書き出す" });
+      await dialog.waitFor({ state: "visible" });
+      const bounds = await dialog.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+          left: rect.left,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        };
+      });
+      if (
+        bounds.top < 0 ||
+        bounds.left < 0 ||
+        bounds.right > bounds.viewportWidth ||
+        bounds.bottom > bounds.viewportHeight
+      ) {
+        throw new Error(`export dialog is outside the viewport: ${JSON.stringify(bounds)}`);
+      }
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "detached" });
+    });
+    await page.getByRole("button", { name: "書き出す" }).click();
+    await shot("reader-export-dialog");
+    await page.keyboard.press("Escape");
   } else {
     console.log("skip reader (sample paper not visible)");
   }

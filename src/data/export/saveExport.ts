@@ -1,9 +1,9 @@
-import { zipSync, strToU8 } from "fflate";
+import { strToU8, zipSync } from "fflate";
 import { isTauriApp } from "../../utils/serverReady";
 import type { MarkdownExportResult, VerificationExportResult } from "./markdownExport";
 
 export type SavedExport = {
-  kind: "markdown" | "verification";
+  kind: "markdown" | "notion" | "verification";
   path: string;
 };
 
@@ -28,6 +28,59 @@ function downloadBlob(fileName: string, bytes: Uint8Array, mime: string): void {
 
 function assetDestPath(assetPath: string): string {
   return assetPath.startsWith("assets/") ? assetPath : `assets/${assetPath}`;
+}
+
+function fileNameForNotionAsset(path: string, index: number, used: Set<string>): string {
+  const base = assetDestPath(path).split("/").pop() || `image-${index + 1}`;
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    const dot = base.lastIndexOf(".");
+    candidate = dot > 0 ? `${base.slice(0, dot)}-${suffix}${base.slice(dot)}` : `${base}-${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+/**
+ * Notion imports directories inside a ZIP as pages. Keep every image next to
+ * the Markdown file and rewrite its relative link so no empty `assets` page
+ * is created. Empty image alt text avoids Notion rendering a second caption.
+ */
+export function createNotionImportZip(result: MarkdownExportResult): Uint8Array {
+  const names = new Set<string>();
+  const replacements = new Map<string, string>();
+  const files: Record<string, Uint8Array> = {
+    [`${result.fileName || "paper"}.md`]: new Uint8Array(),
+  };
+  for (const [index, asset] of result.assets.entries()) {
+    const name = fileNameForNotionAsset(asset.path, index, names);
+    replacements.set(assetDestPath(asset.path), name);
+    files[name] = asset.bytes;
+  }
+  const markdown = result.markdown.replace(/!\[[^\]]*\]\(([^\s)]+)\)/g, (image, source: string) => {
+    const destination = replacements.get(source);
+    return destination ? `![](${destination})` : image;
+  });
+  files[`${result.fileName || "paper"}.md`] = strToU8(markdown);
+  return zipSync(files);
+}
+
+export async function saveNotionImportExport(
+  result: MarkdownExportResult
+): Promise<SavedExport | null> {
+  const fileName = `${result.fileName}-notion.zip`;
+  const archive = createNotionImportZip(result);
+  if (isTauriApp()) {
+    const path = await invoke<string | null>("pick_save_path", { defaultName: fileName });
+    if (!path) return null;
+    const dest = path.endsWith(".zip") ? path : `${path}.zip`;
+    await invoke("write_user_file", { path: dest, data: Array.from(archive) });
+    return { kind: "notion", path: dest };
+  }
+  downloadBlob(fileName, archive, "application/zip");
+  return { kind: "notion", path: fileName };
 }
 
 export async function saveMarkdownExport(result: MarkdownExportResult): Promise<SavedExport | null> {

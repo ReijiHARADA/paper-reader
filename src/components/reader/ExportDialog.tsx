@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import styles from "./ExportDialog.module.css";
 
 export type ExportDialogValues = {
-  mode: "markdown" | "verification";
+  mode: "markdown" | "notion" | "verification";
   variant: "clean" | "verification";
   includeFailedTranslations: boolean;
 };
@@ -99,6 +99,15 @@ export function ExportDialog({
               />
               検証用パッケージ（source.pdf + translated.md + assets）
             </label>
+            <label className={styles.option}>
+              <input
+                type="radio"
+                name="export-mode"
+                checked={mode === "notion"}
+                onChange={() => setMode("notion")}
+              />
+              Notion インポート用 ZIP（Markdown + 画像）
+            </label>
           </fieldset>
 
           {mode === "markdown" && (
@@ -135,7 +144,9 @@ export function ExportDialog({
             翻訳失敗箇所を含める
           </label>
           <p className={styles.hint}>
-            OFF のときは失敗した段落を書き出しません。ON のときは訳を作らず、原文と失敗マークを残します。
+            {mode === "notion"
+              ? "Notion では「設定 → インポート → ZIP」を選び、この ZIP を読み込んでください。画像も一緒に追加されます。"
+              : "OFF のときは失敗した段落を書き出しません。ON のときは訳を作らず、原文と失敗マークを残します。"}
           </p>
 
           {status && <p className={styles.status}>{status}</p>}
@@ -151,7 +162,12 @@ export function ExportDialog({
             onClick={() =>
               onExport({
                 mode,
-                variant: mode === "verification" ? "verification" : variant,
+                variant:
+                  mode === "verification"
+                    ? "verification"
+                    : mode === "notion"
+                      ? "clean"
+                      : variant,
                 includeFailedTranslations,
               })
             }

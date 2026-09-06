@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Maximize2, X, Eye, EyeOff } from "lucide-react";
 import type { PaperBlock, TableMetadata } from "../../types/paper";
 import styles from "./Figure.module.css";
+import { splitCaptionLabel } from "./caption";
 
 type TableProps = {
   block: PaperBlock;
@@ -16,6 +17,7 @@ export function Table({ metadata }: TableProps) {
     metadata.captionTranslated && metadata.captionOriginal;
   const hasImage = Boolean(metadata.imageUrl);
   const caption = metadata.captionTranslated || metadata.captionOriginal;
+  const displayedCaption = splitCaptionLabel(caption || "", metadata.tableNumber || "Table");
 
   return (
     <>
@@ -42,8 +44,10 @@ export function Table({ metadata }: TableProps) {
           )}
         </div>
         <figcaption className={styles.caption}>
-          <span className={styles.figureNumber}>{metadata.tableNumber}</span>
-          <span className={styles.captionText}>{caption}</span>
+          <span className={styles.figureNumber}>{displayedCaption.label}</span>
+          {displayedCaption.text && (
+            <span className={styles.captionText}>{displayedCaption.text}</span>
+          )}
           {hasTranslatedCaption && (
             <button
               className={styles.toggleOriginal}
@@ -73,7 +77,7 @@ export function Table({ metadata }: TableProps) {
             </button>
             <img src={metadata.imageUrl} alt={caption} className={styles.zoomedImage} />
             <p className={styles.zoomedCaption}>
-              <strong>{metadata.tableNumber}:</strong> {caption}
+              <strong>{displayedCaption.label}:</strong> {displayedCaption.text}
             </p>
           </div>
         </div>

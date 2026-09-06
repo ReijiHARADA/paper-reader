@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { applyFailedTranslationPolicy } from "../../data/export/markdownExport";
 import { exportPaperMarkdown, exportVerificationBundle } from "../../data/export/markdownExport";
+import { createNotionImportZip } from "../../data/export/saveExport";
 import { createMemoryFileSystem } from "../../data/fs/memoryFs";
+import { unzipSync } from "fflate";
 import { projectionToPackage } from "../../data/package/fromProjection";
 import { persistPaperPackage } from "../../data/package/persist";
 import type { DocumentNode } from "../../data/types/document";
@@ -188,5 +190,21 @@ describe("markdown export failed policy", () => {
     expect(bundle.sourcePdf).toEqual(new Uint8Array([10, 20]));
     expect(bundle.markdown).toContain("完了した段落。");
     expect(bundle.folderName).toBeTruthy();
+  });
+
+  it("packages Markdown and image assets at the Notion ZIP root", () => {
+    const zip = createNotionImportZip({
+      fileName: "notion-paper",
+      markdown: "# 論文\n\n![Figure](assets/figure-001.png)\n",
+      assets: [{ path: "assets/figure-001.png", bytes: new Uint8Array([137, 80, 78, 71]) }],
+    });
+    const files = unzipSync(zip);
+    const markdown = new TextDecoder().decode(files["notion-paper.md"]);
+    expect(markdown).toContain("![](figure-001.png)");
+    expect(markdown).not.toContain("assets/");
+    expect(files["figure-001.png"]).toEqual(
+      new Uint8Array([137, 80, 78, 71])
+    );
+    expect(Object.keys(files)).not.toContain("assets");
   });
 });

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Maximize2, X, Eye, EyeOff } from "lucide-react";
 import type { PaperBlock, FigureMetadata } from "../../types/paper";
 import styles from "./Figure.module.css";
+import { splitCaptionLabel } from "./caption";
 
 type FigureProps = {
   block: PaperBlock;
@@ -15,6 +16,8 @@ export function Figure({ metadata }: FigureProps) {
   const hasTranslatedCaption =
     metadata.captionTranslated && metadata.captionOriginal;
   const hasImage = Boolean(metadata.imageUrl);
+  const caption = metadata.captionTranslated || metadata.captionOriginal || "";
+  const displayedCaption = splitCaptionLabel(caption, metadata.figureNumber || "Figure");
 
   return (
     <>
@@ -23,7 +26,7 @@ export function Figure({ metadata }: FigureProps) {
           {hasImage ? (
             <img
               src={metadata.imageUrl}
-              alt={metadata.captionTranslated || metadata.captionOriginal}
+              alt={caption}
               className={styles.image}
               loading="lazy"
             />
@@ -41,10 +44,10 @@ export function Figure({ metadata }: FigureProps) {
           )}
         </div>
         <figcaption className={styles.caption}>
-          <span className={styles.figureNumber}>{metadata.figureNumber}</span>
-          <span className={styles.captionText}>
-            {metadata.captionTranslated || metadata.captionOriginal}
-          </span>
+          <span className={styles.figureNumber}>{displayedCaption.label}</span>
+          {displayedCaption.text && (
+            <span className={styles.captionText}>{displayedCaption.text}</span>
+          )}
 
           {hasTranslatedCaption && (
             <button
@@ -76,12 +79,12 @@ export function Figure({ metadata }: FigureProps) {
             </button>
             <img
               src={metadata.imageUrl}
-              alt={metadata.captionTranslated || metadata.captionOriginal}
+              alt={caption}
               className={styles.zoomedImage}
             />
             <p className={styles.zoomedCaption}>
-              <strong>{metadata.figureNumber}:</strong>{" "}
-              {metadata.captionTranslated || metadata.captionOriginal}
+              <strong>{displayedCaption.label}:</strong>{" "}
+              {displayedCaption.text}
             </p>
           </div>
         </div>

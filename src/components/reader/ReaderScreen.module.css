@@ -74,6 +74,7 @@
 }
 
 .iconButton {
+  position: relative;
   padding: var(--spacing-sm);
   border: none;
   background: transparent;
@@ -84,6 +85,35 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.iconButton[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  width: max-content;
+  max-width: min(18rem, calc(100vw - var(--spacing-lg)));
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 3px 10px var(--color-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  visibility: hidden;
+}
+
+.iconButton[data-tooltip]:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 .iconButton:hover {
