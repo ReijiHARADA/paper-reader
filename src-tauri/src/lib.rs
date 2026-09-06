@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 
 /// 翻訳サーバーのプロセスハンドルを保持する共有状態
 pub struct ServerState(pub Arc<Mutex<Option<CommandChild>>>);
@@ -80,12 +80,25 @@ fn spawn_server(app: &tauri::AppHandle, state_arc: &Arc<Mutex<Option<CommandChil
         .current_dir(&server_dir)
         .env("PYTHONPATH", server_dir.to_str().unwrap_or(""))
         .env("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+        .env("MADLAD_SERVER_SILENCE_OUTPUT", "1")
         .env("MADLAD_SERVER_HOST", "127.0.0.1")
         .env("MADLAD_SERVER_PORT", "8765")
         .spawn();
 
     match result {
-        Ok((_rx, child)) => {
+        Ok((mut rx, child)) => {
+            // `Command::spawn` pipes the child output through this receiver.
+            // Dropping it closes stdout/stderr in the Python server, so any
+            // startup or translation log raises BrokenPipeError and turns a
+            // translation request into HTTP 500. Drain it for the full child
+            // lifetime even when the app does not display these logs.
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    if let CommandEvent::Error(error) = event {
+                        log::warn!("Translation server output error: {error}");
+                    }
+                }
+            });
             let mut guard = state_arc.lock().unwrap();
             *guard = Some(child);
             log::info!("Translation server spawned successfully.");

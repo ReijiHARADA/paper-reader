@@ -5,20 +5,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 400;
-  padding: var(--spacing-xl);
+  z-index: 1000;
+  padding: max(var(--spacing-md), env(safe-area-inset-top))
+    max(var(--spacing-md), env(safe-area-inset-right))
+    max(var(--spacing-md), env(safe-area-inset-bottom))
+    max(var(--spacing-md), env(safe-area-inset-left));
+  overflow: auto;
 }
 
 .modal {
   background-color: var(--color-bg);
   border-radius: var(--radius-lg);
-  max-width: 460px;
-  width: 100%;
-  max-height: min(90vh, 640px);
+  width: min(100%, 34rem);
+  max-height: min(44rem, calc(100dvh - (var(--spacing-md) * 2)));
   overflow: hidden;
   box-shadow: 0 8px 32px var(--color-shadow);
   display: flex;
   flex-direction: column;
+  margin: auto;
 }
 
 .header {
@@ -32,9 +36,11 @@
 .title {
   font-size: 1.0625rem;
   font-weight: 600;
+  min-width: 0;
 }
 
 .closeButton {
+  flex: none;
   padding: var(--spacing-xs);
   border: none;
   background: transparent;
@@ -54,9 +60,11 @@
   padding: var(--spacing-lg);
   overflow-y: auto;
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .fieldset {
+  min-width: 0;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -78,6 +86,14 @@
   gap: var(--spacing-sm);
   font-size: 0.875rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.option input {
+  flex: none;
+  margin-top: 0.18rem;
+  accent-color: var(--color-accent);
 }
 
 .hint {
@@ -103,7 +119,10 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-sm);
-  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  flex-wrap: wrap;
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+  background-color: var(--color-bg);
 }
 
 .primary,
@@ -113,11 +132,16 @@
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.875rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .primary {
   background-color: var(--color-accent);
   color: white;
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
 }
 
 .primary:disabled,
@@ -132,4 +156,28 @@
 
 .secondary:hover:not(:disabled) {
   background-color: var(--color-bg-secondary);
+}
+
+@media (max-width: 480px) {
+  .overlay {
+    align-items: flex-end;
+    padding: var(--spacing-sm);
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - (var(--spacing-sm) * 2));
+    border-radius: var(--radius-lg);
+  }
+
+  .header,
+  .body,
+  .actions {
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+  }
+
+  .actions > button {
+    flex: 1 1 8rem;
+  }
 }

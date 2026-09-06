@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import styles from "./ExportDialog.module.css";
 
@@ -28,17 +29,52 @@ export function ExportDialog({
   const [mode, setMode] = useState<ExportDialogValues["mode"]>("markdown");
   const [variant, setVariant] = useState<ExportDialogValues["variant"]>("clean");
   const [includeFailedTranslations, setIncludeFailedTranslations] = useState(false);
+  const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onClose, open]);
 
   if (!open) return null;
 
-  return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="export-dialog-title">
-      <div className={styles.modal}>
+  return createPortal(
+    <div
+      className={styles.overlay}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
+      <section
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className={styles.header}>
-          <h2 id="export-dialog-title" className={styles.title}>
+          <h2 id={titleId} className={styles.title}>
             書き出す
           </h2>
-          <button className={styles.closeButton} onClick={onClose} disabled={busy} title="閉じる">
+          <button
+            ref={closeButtonRef}
+            className={styles.closeButton}
+            onClick={onClose}
+            disabled={busy}
+            title="閉じる"
+            aria-label="閉じる"
+          >
             <X size={18} />
           </button>
         </div>
@@ -123,7 +159,8 @@ export function ExportDialog({
             {busy ? "書き出し中..." : "書き出す"}
           </button>
         </div>
-      </div>
+      </section>
     </div>
+    , document.body
   );
 }

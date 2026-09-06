@@ -17,7 +17,7 @@ import {
   TranslationQueue,
   type TranslationPriorityValue,
 } from "../translation";
-import { isPlausibleJaTranslation, shouldTranslateTitle, titleTranslationComplete } from "../translation/quality";
+import { isPlausibleJaTranslation, localizeNamedFigureCaption, shouldTranslateTitle, titleTranslationComplete } from "../translation/quality";
 import {
   finalizeJapaneseLayoutOnly,
   isJapaneseLayoutOnlyPaper,
@@ -63,7 +63,6 @@ export async function resumeIncompleteTranslation(
     const pendingBlocks = blocks.filter(
       (block) =>
         shouldTranslateBlock(block, refSectionIds) &&
-        block.translationStatus !== "failed" &&
         (!block.translated || !isPlausibleJaTranslation(block.translated, block.original || ""))
     );
     const pendingTitle = Boolean(
@@ -123,7 +122,11 @@ export async function resumeIncompleteTranslation(
         return;
       }
       const translated = applyGlossary(task.result.text, glossaryEntries);
-      if (!isPlausibleJaTranslation(translated, task.text)) {
+      const figureCaption = localizeNamedFigureCaption(task.text);
+      const acceptedTranslation = isPlausibleJaTranslation(translated, task.text)
+        ? translated
+        : figureCaption;
+      if (!acceptedTranslation) {
         const block = blocks.find((item) => item.id === task.blockId);
         if (block) {
           block.translationStatus = "failed";
@@ -148,7 +151,7 @@ export async function resumeIncompleteTranslation(
       } else {
         const block = blocks.find((item) => item.id === task.blockId);
         if (block) {
-          assignBlockTranslation(block, translated);
+          assignBlockTranslation(block, acceptedTranslation);
           await updateBlock(block);
           callbacks.onBlockTranslated?.(block);
         }

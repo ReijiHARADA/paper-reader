@@ -72,7 +72,7 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 - 翻訳失敗バナーは、本文で再試行できる段落だけを数える。画面に出ない見出しブロックの失敗は出さない。論文カードの「一部失敗」も同じ基準
 - ワークスペース画面の「論文を追加」と Finder からの PDF ドロップは表示中の WorkspaceNode へ直接追加する。受け取り表示と toast を出し、Import 専用画面には留まらない
 - 論文本文の正本は Paper Package（Markdown + structure + translation.json + assets）。SQLite は index / Annotation / WorkspaceNode / WorkspacePaper / cache。schema v5 は v4 の Project・Folder・ProjectPaper を単一の node / relation へ安全に移行する。詳細は [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md)
-- リーダーから訳文 Markdown / 検証用パッケージを書き出す導線はある（きれいな Markdown / 検証用 comment、翻訳失敗 ON/OFF、source.pdf + translated.md + assets）。`.md` の隣に `assets/` を書く（browser は zip）。ダイアログはソースで縦スクロール可能（`.app` 未確認）
+- リーダーから訳文 Markdown / 検証用パッケージを書き出す導線はある（きれいな Markdown / 検証用 comment、翻訳失敗 ON/OFF、source.pdf + translated.md + assets）。`.md` の隣に `assets/` を書く（browser は zip）。ダイアログは Reader の overflow / stacking context から分離し、狭いウィンドウでも内容を縦スクロールできる
 - 翻訳中は Paper Package の full rewrite をしない。`source.pdf` / `assets` / `layout.json.gz` は段落ごとには書かない。Reader の 1.5s 全文 poll も止めた
 - 抽出時に page / bbox / line / span を `structure.json` と `layout.json.gz` へ残す（translated-layout.pdf 本体は未実装）
 
@@ -86,7 +86,6 @@ PDF の見た目を複製するのではなく、論文の意味構造を維持�
 
 - **ワークスペース作成と PDF ドロップ即時表示**: 現行リリース `.app` で未確認
 - **元 PDF を開くアイコンが動かない**: リーダー右上の ExternalLink（「元PDFを開く」）を押しても開かない。ページ指定（3.6）以前に、複製済み `source.pdf` を別表示で開けること自体を直す
-- **Markdown 書き出しダイアログ**: ソースでは縦スクロール可能なダイアログにした。現行リリース `.app` では未確認
 - **書き出した .md の画像**: ソースでは `.md` の隣に `assets/` を書く（browser は zip）。現行リリース `.app` では未確認
 - **メモ追加がうまく行っていない**: 訳文選択の「メモを追加」〜 Notes 保存・ハイライトまでの修正が、現行 `.app` では期待どおり動いていない。選択メニュー、下書き、保存、黄色ハイライト、既存メモの再オープンを一連で直す
 - **参考文献の URL**: ソースでは DOI / `https://` をブラウザで開く。現行リリース `.app` では未確認
@@ -159,7 +158,7 @@ Production パイプラインは [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACA
 - **メモ追加**: 選択メニュー自体はある。現行 `.app` での保存・ハイライト一連は 3.0 のとおり未安定
 - **論文カードの一時停止**: 処理中の一時停止は未実装。キャンセルより再開できる停止の方がよい
 
-論文削除はアプリ内データと複製 PDF を消す。OS 上の原本は消さない（現行どおり）。削除時に原本まで消すかは聞かない。原本はコピー元でありアプリの所有物ではない。
+論文削除はアプリ内データ・workspace の所属・複製 PDF を消す。OS 上の原本は消さない（現行どおり）。削除時に原本まで消すかは聞かない。原本はコピー元でありアプリの所有物ではない。翻訳サーバー停止で失敗した段落は、論文を開いたときに再試行する。
 
 ### 3.5 インポート UX
 

@@ -202,7 +202,25 @@ class MicroBatchScheduler:
 
         by_id: dict[int, TranslationResult | None] = {}
         for group in self._language_groups(items):
-            group_results = self._translate_language_group(group)
+            try:
+                group_results = self._translate_language_group(group)
+            except Exception as batch_error:
+                # A malformed or unusually long paragraph can make one packed
+                # generate() fail. Do not fail every concurrent request with
+                # it: keep normal batches fast, then isolate the offending
+                # item with single-request retries.
+                print(
+                    f"[MICROBATCH] packed batch failed; retrying {len(group)} item(s) individually: {batch_error}",
+                    flush=True,
+                )
+                group_results = []
+                for item in group:
+                    try:
+                        group_results.append(self._translate_language_group([item])[0])
+                    except Exception as item_error:
+                        group_results.append(None)
+                        if not item.future.done():
+                            item.future.set_exception(item_error)
             for item, result in zip(group, group_results):
                 by_id[id(item)] = result
         return [by_id[id(item)] for item in items]

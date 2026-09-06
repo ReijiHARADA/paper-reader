@@ -101,7 +101,7 @@ export function getPaperIndexByHash(db: SqliteClient, hash: string): Paper | und
 export function deletePaperIndex(db: SqliteClient, id: string): void {
   db.exec("DELETE FROM papers_fts WHERE paper_id = ?", [id]);
   db.exec("DELETE FROM papers WHERE id = ?", [id]);
-  db.exec("DELETE FROM project_papers WHERE paper_id = ?", [id]);
+  db.exec("DELETE FROM workspace_papers WHERE paper_id = ?", [id]);
   db.exec("DELETE FROM annotations WHERE paper_id = ?", [id]);
   db.exec("DELETE FROM reading_positions WHERE paper_id = ?", [id]);
   db.exec("DELETE FROM glossaries WHERE paper_id = ?", [id]);

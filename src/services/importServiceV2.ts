@@ -38,6 +38,7 @@ import {
   isPlausibleJaTranslation,
   titleTranslationComplete,
   shouldTranslateTitle,
+  localizeNamedFigureCaption,
 } from "./translation/quality";
 import { OllamaProvider, generateGlossary } from "./llm";
 import type { GlossaryEntry } from "./llm/types";
@@ -306,7 +307,11 @@ export async function importPDFV2(
       }
 
       const translated = applyGlossary(task.result.text, glossaryEntries);
-      if (!isPlausibleJaTranslation(translated, task.text)) {
+      const figureCaption = localizeNamedFigureCaption(task.text);
+      const acceptedTranslation = isPlausibleJaTranslation(translated, task.text)
+        ? translated
+        : figureCaption;
+      if (!acceptedTranslation) {
         console.warn(
           `[translation] rejected degenerate output for ${task.blockId}:`,
           translated.slice(0, 80)
@@ -338,7 +343,7 @@ export async function importPDFV2(
       } else {
         const block = blocks.find((b) => b.id === task.blockId);
         if (block) {
-          assignBlockTranslation(block, translated);
+          assignBlockTranslation(block, acceptedTranslation);
           await updateBlock(block);
           callbacks.onBlockTranslated?.(block);
         }
@@ -351,7 +356,7 @@ export async function importPDFV2(
           targetLanguage: "ja",
           model: task.result.model,
           modelVersion: task.result.modelVersion,
-          translatedText: translated,
+          translatedText: acceptedTranslation,
         });
       }
 
@@ -362,7 +367,7 @@ export async function importPDFV2(
         modelVersion: task.result.modelVersion,
         inputChars: task.result.inputChars,
         inputTokens: task.result.inputTokens ?? null,
-        outputChars: task.result.outputChars,
+        outputChars: acceptedTranslation.length,
         translationTimeMs: task.result.translationTimeMs,
         charsPerSec: task.result.charsPerSec,
         tokensPerSec: task.result.tokensPerSec ?? null,

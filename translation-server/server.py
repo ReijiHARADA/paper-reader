@@ -5,6 +5,8 @@ A FastAPI server providing translation services using the MADLAD-400 model.
 Designed for local execution on Apple Silicon Macs.
 """
 import asyncio
+import os
+import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional
@@ -15,6 +17,15 @@ from pydantic import BaseModel, Field
 
 from engines import get_engine
 from engines.micro_batcher import get_scheduler
+
+
+# Tauri's sidecar process does not expose a user-facing console.  Discard the
+# verbose MADLAD progress output in the bundled app so a closed host pipe can
+# never turn an otherwise successful translation into BrokenPipeError / HTTP
+# 500. Development servers retain their normal diagnostic output.
+if os.environ.get("MADLAD_SERVER_SILENCE_OUTPUT") == "1":
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
 # Request/Response models
@@ -222,8 +233,6 @@ async def translate_batch(request: BatchTranslateRequest):
 
 
 if __name__ == "__main__":
-    import os
-
     host = os.environ.get("MADLAD_SERVER_HOST", "127.0.0.1")
     port = int(os.environ.get("MADLAD_SERVER_PORT", os.environ.get("UVICORN_PORT", "8765")))
     uvicorn.run(

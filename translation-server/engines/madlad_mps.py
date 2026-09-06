@@ -649,14 +649,28 @@ class MADLADEngine(TranslationEngine):
                 return True
             if len(source) >= 40 and has_kanji and not has_kana:
                 return True
-            latin = len(re.findall(r"[A-Za-z]", output))
-            if len(output) >= 16 and latin / len(output) > 0.45:
+            if MADLADEngine._latin_ratio_beyond_source(output, source) > 0.45:
                 return True
             if re.search(r"\d{4}-\d{2}-\d{2}", output) and not re.search(
                 r"\d{4}-\d{2}-\d{2}", source
             ):
                 return True
         return False
+
+    @staticmethod
+    def _latin_ratio_beyond_source(output: str, source: str) -> float:
+        """Ignore source proper nouns when checking a Japanese translation."""
+        stripped = output
+        source_tokens = sorted(
+            set(re.findall(r"[A-Za-z]{2,}", source)), key=len, reverse=True
+        )
+        for token in source_tokens:
+            stripped = re.sub(re.escape(token), "", stripped, flags=re.IGNORECASE)
+        stripped = re.sub(r"\d+(?:\.\d+)*", "", stripped)
+        compact = "".join(stripped.split())
+        if len(compact) < 8:
+            return 0.0
+        return len(re.findall(r"[A-Za-z]", compact)) / len(compact)
 
     def get_status(self) -> EngineStatus:
         """Get the current status of the engine."""

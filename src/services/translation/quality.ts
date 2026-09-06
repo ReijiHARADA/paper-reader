@@ -109,6 +109,21 @@ export function isPlausibleJaTranslation(output: string, source: string): boolea
   return true;
 }
 
+/**
+ * Figure captions that only name an artwork and its creator often should keep
+ * those proper nouns verbatim. MADLAD does that correctly, but the result has
+ * no Japanese script and would otherwise be recorded as a failed translation.
+ */
+export function localizeNamedFigureCaption(source: string): string | null {
+  const match = source
+    .trim()
+    .match(/^(?:figure|fig\.?)[\s]+(\d+)\.\s*(.+?)\s+by\s+(.+?)[.]?$/i);
+  if (!match) return null;
+  const [, number, title, creator] = match;
+  if (!title.trim() || !creator.trim()) return null;
+  return `図${number}. ${title.trim()}（${creator.trim()}）`;
+}
+
 function latinRatioBeyondSource(output: string, source: string): number {
   const tokens = source.match(/[A-Za-z]{2,}/g) ?? [];
   let stripped = output;
