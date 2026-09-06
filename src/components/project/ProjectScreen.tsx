@@ -11,6 +11,7 @@ import { derivePaperReadiness } from "../../domain/paperReadiness";
 import { collectDescendantIds, listChildWorkspaceNodes } from "../../data/workspace/tree";
 import { listPapersForWorkspace, removePaperFromWorkspace } from "../../services/projectService";
 import { tryStartPdfImport } from "../../services/pdfImport";
+import { dismissBackgroundImport, retryBackgroundImport } from "../../services/import/startBackgroundImport";
 import { PaperCard } from "../library/PaperCard";
 import { PaperMenu } from "../library/PaperMenu";
 import { ImportJobCard } from "../library/ImportJobCard";
@@ -139,7 +140,7 @@ export function ProjectScreen() {
       ) : (
         <div className={styles.list}>
           {jobs.map((job) => (
-            <ImportJobCard key={job.id} job={job} />
+            <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
           ))}
           {childFolders.map((folder) => (
             <WorkspaceFolderCard

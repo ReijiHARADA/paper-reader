@@ -282,3 +282,10 @@
   background: transparent;
   color: var(--color-text-secondary);
 }
+
+.importActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}

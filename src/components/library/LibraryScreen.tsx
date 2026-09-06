@@ -8,6 +8,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import { filterPapersByLibraryQuery } from "../../domain/librarySearch";
 import { derivePaperReadiness } from "../../domain/paperReadiness";
 import { tryStartPdfImport } from "../../services/pdfImport";
+import { dismissBackgroundImport, retryBackgroundImport } from "../../services/import/startBackgroundImport";
 import { PaperDeleteControls } from "./PaperDeleteControls";
 import { PaperCard } from "./PaperCard";
 import { PaperMenu } from "./PaperMenu";
@@ -106,7 +107,7 @@ export function LibraryScreen() {
             )}
             <div className={styles.paperList}>
               {jobs.map((job) => (
-                <ImportJobCard key={job.id} job={job} />
+                <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
               ))}
               {visiblePapers.map((paper) => (
                 <PaperCard

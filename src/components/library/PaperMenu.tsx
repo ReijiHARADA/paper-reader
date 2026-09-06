@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { FolderPlus, MoreHorizontal, Star, Trash2, UserMinus } from "lucide-react";
+import { FolderPlus, MoreHorizontal, RotateCcw, Star, Trash2, UserMinus } from "lucide-react";
 import type { Paper } from "../../types/paper";
 import { useLibraryCache } from "../../stores/libraryCache";
 import { useProjectStore } from "../../stores/projectStore";
 import { showToast } from "../../stores/toastStore";
 import { setPaperFavorite } from "../../services/database";
+import { retryPaperTranslation } from "../../services/import/startBackgroundImport";
+import { derivePaperReadiness } from "../../domain/paperReadiness";
 import {
   addPaperToWorkspace,
 } from "../../services/projectService";
@@ -27,6 +29,8 @@ export function PaperMenu({
   const [pickingWorkspace, setPickingWorkspace] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const updatePaper = useLibraryCache((state) => state.updatePaper);
+  const blocks = useLibraryCache((state) => state.blocks[paper.id]);
+  const [retrying, setRetrying] = useState(false);
   const workspaceNodes = useProjectStore((state) => state.workspaceNodes);
   const memberships = useProjectStore((state) => state.memberships);
   const upsertMembership = useProjectStore((state) => state.upsertMembership);
@@ -62,6 +66,18 @@ export function PaperMenu({
       kind: "success",
       message: next ? "お気に入りに追加しました" : "お気に入りを外しました",
     });
+  };
+
+  const retryTranslation = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await retryPaperTranslation(paper.id);
+    } finally {
+      setRetrying(false);
+      setOpen(false);
+    }
   };
 
   const addToWorkspace = async (event: React.MouseEvent, nodeId: string) => {
@@ -121,6 +137,12 @@ export function PaperMenu({
             >
               <FolderPlus size={14} />
               ワークスペースに追加…
+            </button>
+          )}
+          {derivePaperReadiness({ processingStatus: paper.processingStatus, blocks }).readiness === "needs_attention" && (
+            <button type="button" role="menuitem" disabled={retrying} onClick={(event) => void retryTranslation(event)}>
+              <RotateCcw size={14} />
+              {retrying ? "再試行中..." : "翻訳を再試行"}
             </button>
           )}
           {variant === "workspace" && onRemoveFromWorkspace && (

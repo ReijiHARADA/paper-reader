@@ -12,8 +12,10 @@ import {
   importPDFV2,
   type ImportConfig,
 } from "../importServiceV2";
+import { resumeIncompleteTranslation } from "./resume";
 
 const startedImportKeys = new Set<string>();
+const importFiles = new Map<string, File>();
 
 const blockBatcher = createBlockUpdateBatcher((id, batch) => {
   useLibraryCache
@@ -107,6 +109,7 @@ async function runImport(jobId: string, file: File, fileKey: string, workspaceNo
     );
 
     if (result) {
+      importFiles.delete(jobId);
       useLibraryCache.getState().addPaper(result.paper);
       useLibraryCache.getState().setSections(result.paper.id, result.sections);
       useLibraryCache.getState().setBlocks(result.paper.id, result.blocks);
@@ -119,6 +122,7 @@ async function runImport(jobId: string, file: File, fileKey: string, workspaceNo
     }
 
     startedImportKeys.delete(fileKey);
+    importFiles.delete(jobId);
     useImportJobStore.getState().removeJob(jobId);
     showToast({ kind: "info", message: "このPDFは既にインポートされています" });
   } catch (error) {
@@ -149,6 +153,7 @@ export async function startBackgroundImport(
   startedImportKeys.add(fileKey);
 
   const jobId = uuidv4();
+  importFiles.set(jobId, file);
   useImportJobStore.getState().upsertJob({
     id: jobId,
     fileName: file.name,
@@ -162,4 +167,57 @@ export async function startBackgroundImport(
   showToast({ kind: "success", message: "PDFを追加しました" });
   void runImport(jobId, file, fileKey, options?.workspaceNodeId);
   return true;
+}
+
+
+/** Retry a transient import failure while the original File is still available. */
+export async function retryBackgroundImport(jobId: string): Promise<boolean> {
+  const job = useImportJobStore.getState().jobs.find((item) => item.id === jobId);
+  const file = importFiles.get(jobId);
+  if (!job || !file) {
+    showToast({ kind: "error", message: "元のPDFを保持できないため、もう一度追加してください" });
+    return false;
+  }
+  if (startedImportKeys.has(job.fileKey)) return false;
+  startedImportKeys.add(job.fileKey);
+  useImportJobStore.getState().patchJob(jobId, {
+    stage: "reading",
+    stageProgress: 0,
+    stageTotal: 1,
+    message: "再試行中...",
+    error: undefined,
+  });
+  void runImport(jobId, file, job.fileKey, job.workspaceNodeId);
+  return true;
+}
+
+/** Dismiss a pre-persistence import failure without touching saved papers. */
+export function dismissBackgroundImport(jobId: string): void {
+  importFiles.delete(jobId);
+  useImportJobStore.getState().removeJob(jobId);
+}
+
+/** Resume a saved paper whose translation was interrupted or failed. */
+export async function retryPaperTranslation(paperId: string): Promise<boolean> {
+  const madlad = await checkMADLADAvailability();
+  if (!madlad.available) {
+    showToast({ kind: "error", message: "翻訳サーバーに接続できません" });
+    return false;
+  }
+  try {
+    await resumeIncompleteTranslation(paperId, {
+      onBlockTranslated: (block) => blockBatcher.push(block),
+      onPaperUpdated: (paper) => useLibraryCache.getState().updatePaper(paper.id, paper),
+      onSectionTranslated: (section) =>
+        useLibraryCache.getState().setSections(section.paperId, (prev) =>
+          upsertSection(prev, section)
+        ),
+    });
+    showToast({ kind: "success", message: "翻訳を再試行しました" });
+    return true;
+  } catch (error) {
+    console.error("Failed to resume translation:", error);
+    showToast({ kind: "error", message: "翻訳の再試行に失敗しました" });
+    return false;
+  }
 }

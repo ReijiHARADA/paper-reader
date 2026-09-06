@@ -1,8 +1,14 @@
-import { AlertCircle, FileText, Loader2 } from "lucide-react";
+import { AlertCircle, FileText, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import type { ImportJob } from "../../stores/importJobStore";
 import styles from "./PaperCard.module.css";
 
-export function ImportJobCard({ job }: { job: ImportJob }) {
+type ImportJobCardProps = {
+  job: ImportJob;
+  onRetry?: (jobId: string) => void;
+  onDismiss?: (jobId: string) => void;
+};
+
+export function ImportJobCard({ job, onRetry, onDismiss }: ImportJobCardProps) {
   const failed = job.stage === "failed";
   const percent =
     job.stageTotal > 0 ? Math.round((job.stageProgress / job.stageTotal) * 100) : 0;
@@ -27,6 +33,28 @@ export function ImportJobCard({ job }: { job: ImportJob }) {
           {failed && <span className={styles.date}>{job.error ?? job.message}</span>}
         </div>
       </div>
+      {failed && (
+        <div className={styles.importActions}>
+          <button
+            type="button"
+            className={styles.actionButton}
+            title="再試行"
+            aria-label="再試行"
+            onClick={() => onRetry?.(job.id)}
+          >
+            <RotateCcw size={16} />
+          </button>
+          <button
+            type="button"
+            className={styles.actionButton}
+            title="この項目を削除"
+            aria-label="この項目を削除"
+            onClick={() => onDismiss?.(job.id)}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      )}
     </article>
   );
 }
