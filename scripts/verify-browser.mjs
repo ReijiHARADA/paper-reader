@@ -144,6 +144,24 @@ try {
     await shot("library-favorite");
     await sampleCard.click();
 
+    await check("inline memo popover stays on reader", async () => {
+      const translation = page.locator("[data-text-role='translation']").first();
+      await translation.waitFor({ timeout: 10_000 });
+      const box = await translation.boundingBox();
+      if (!box) throw new Error("translation box missing");
+      await page.mouse.move(box.x + 24, box.y + 10);
+      await page.mouse.down();
+      await page.mouse.move(box.x + Math.min(box.width - 12, 180), box.y + 10);
+      await page.mouse.up();
+      const dialog = page.getByRole("dialog", { name: "メモを追加" });
+      await dialog.waitFor({ state: "visible", timeout: 5_000 });
+      if (await page.getByLabel("メモ一覧").count()) {
+        throw new Error("Notes inspector opened from a body selection");
+      }
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "detached" });
+    });
+
     await check("markdown export dialog", async () => {
       await page.getByRole("button", { name: "書き出す" }).click();
       const dialog = page.getByRole("dialog", { name: "書き出す" });

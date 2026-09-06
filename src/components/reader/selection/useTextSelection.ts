@@ -27,7 +27,7 @@ export function useTextSelection(
 
     const onMouseDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-selection-menu]")) return;
+      if (target?.closest("[data-selection-menu], [data-memo-popover]")) return;
       setResult(null);
     };
 

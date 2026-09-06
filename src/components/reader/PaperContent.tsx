@@ -54,7 +54,7 @@ type PaperContentProps = {
   onBlockUpdated?: (block: PaperBlock) => void;
   annotations?: Annotation[];
   flashAnnotationIds?: string[];
-  onHighlightClick?: (annotationIds: string[]) => void;
+  onHighlightClick?: (annotationIds: string[], rect: DOMRect) => void;
   onOpenSourcePdf?: (block: PaperBlock) => void;
 };
 
@@ -64,7 +64,7 @@ type PaperBlockViewProps = {
   onBlockUpdated?: (block: PaperBlock) => void;
   annotations: Annotation[];
   flashAnnotationIds?: string[];
-  onHighlightClick?: (annotationIds: string[]) => void;
+  onHighlightClick?: (annotationIds: string[], rect: DOMRect) => void;
   onOpenSourcePdf?: (block: PaperBlock) => void;
   referenceIndex: Map<string, string>;
 };

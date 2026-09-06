@@ -1,0 +1,17 @@
+---
+description: Keep reading context; prefer in-place surfaces over new routes
+alwaysApply: true
+---
+
+# UI interaction
+
+Follow `UI_INTERACTION_PRINCIPLES.md`.
+
+- Do not leave the current reading/library context for a local action.
+- Local actions (memo, citation, term, workspace picker) use a Popover.
+- Larger temporary work (export, figure zoom) uses a Sheet / Overlay.
+- Paper-wide lists use the Inspector. Body actions must not auto-open it.
+- Modals are only for irreversible decisions.
+- New routes are only for real place changes (Library / Reader / Workspace / Settings).
+- Closing a temporary surface must restore scroll, outline, inspector, search, and the open paper.
+- Reuse existing components. Do not rebuild UI that already follows these rules.

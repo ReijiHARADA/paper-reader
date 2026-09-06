@@ -48,9 +48,11 @@ import {
 import { NotesPanel } from "./notes/NotesPanel";
 import { GlossaryPanel } from "./GlossaryPanel";
 import type { GlossaryEntry } from "../../services/llm/types";
-import { SelectionActionMenu } from "./selection/SelectionActionMenu";
+import { MemoPopover } from "./memo/MemoPopover";
+import { memoRange, type MemoSurface } from "./memo/memoSurface";
+import { measureMemoAnchor, rectToAnchor } from "./memo/popoverPosition";
 import { useTextSelection } from "./selection/useTextSelection";
-import type { TranslationSelection } from "./selection/selectionAnchor";
+import { showToast } from "../../stores/toastStore";
 import {
   toggleReaderRightPanel,
   type ReaderRightPanel,
@@ -138,12 +140,7 @@ export function ReaderScreen() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotationIds, setActiveAnnotationIds] = useState<string[]>([]);
   const [flashAnnotationIds, setFlashAnnotationIds] = useState<string[]>([]);
-  const [draft, setDraft] = useState<{
-    selection: TranslationSelection;
-    note: string;
-  } | null>(null);
-  const [editing, setEditing] = useState<Annotation | null>(null);
-  const [undo, setUndo] = useState<Annotation | null>(null);
+  const [memoSurface, setMemoSurface] = useState<MemoSurface | null>(null);
   const [hasSourcePdf, setHasSourcePdf] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
@@ -163,7 +160,7 @@ export function ReaderScreen() {
     })
   );
   const flashTimeoutRef = useRef<number | null>(null);
-  const undoTimeoutRef = useRef<number | null>(null);
+  const memoSurfaceRef = useRef<MemoSurface | null>(null);
 
   const paper = papers.find((p) => p.id === paperId);
   const { result: selectionResult, dismiss: dismissSelection } = useTextSelection(
@@ -187,6 +184,64 @@ export function ReaderScreen() {
   useEffect(() => {
     storeBlocksRef.current = storeBlocks;
   }, [storeBlocks]);
+
+  useEffect(() => {
+    memoSurfaceRef.current = memoSurface;
+  }, [memoSurface]);
+
+  useEffect(() => {
+    if (selectionResult?.kind === "ok") {
+      const next = selectionResult.selection;
+      const fallback = rectToAnchor(selectionResult.rect);
+      setMemoSurface((current) => {
+        if (
+          current?.mode === "compose" &&
+          current.selection.blockId === next.blockId &&
+          current.selection.startOffset === next.startOffset &&
+          current.selection.endOffset === next.endOffset
+        ) {
+          return { ...current, fallback };
+        }
+        return {
+          mode: "compose",
+          selection: next,
+          note: "",
+          error: null,
+          saving: false,
+          fallback,
+        };
+      });
+      return;
+    }
+    if (selectionResult?.kind === "cross-block") {
+      setMemoSurface({
+        mode: "cross-block",
+        fallback: rectToAnchor(selectionResult.rect),
+      });
+    }
+  }, [selectionResult]);
+
+  useEffect(() => {
+    if (!memoSurface) return;
+    const update = () => {
+      const current = memoSurfaceRef.current;
+      if (!current) return;
+      const range = memoRange(current);
+      const next = measureMemoAnchor({
+        ...range,
+        fallback: current.fallback,
+      });
+      if (!next) return;
+      setMemoSurface((surface) => (surface ? { ...surface, fallback: next } : surface));
+    };
+    const root = contentRef.current;
+    root?.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      root?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [memoSurface?.mode]);
 
   const translatableIds = useMemo(() => {
     const refIds = new Set(
@@ -603,86 +658,171 @@ export function ReaderScreen() {
     [paperId]
   );
 
-  const handleAddMemo = useCallback((selection: TranslationSelection) => {
-    setDraft({ selection, note: "" });
-    setEditing(null);
-    setRightPanel("notes");
-    setActiveAnnotationIds([]);
-    dismissSelection();
-    window.getSelection()?.removeAllRanges();
-  }, [dismissSelection]);
-
   const showNotesList = useCallback(() => {
     setRightPanel((current) => toggleReaderRightPanel(current, "notes"));
   }, []);
 
-  const handleSaveDraft = useCallback(async () => {
-    if (!paperId || !draft) return;
-    const block = storeBlocks.find((b) => b.id === draft.selection.blockId);
-    if (!block?.translated) return;
-    const created = await createAnnotation({
-      paperId,
-      workspaceNodeId: annotationWorkspaceNodeId,
-      blockId: draft.selection.blockId,
-      translated: block.translated,
-      startOffset: draft.selection.startOffset,
-      endOffset: draft.selection.endOffset,
-      selectedText: draft.selection.selectedText,
-      note: draft.note,
-    });
-    setDraft(null);
-    setEditing(null);
-    setActiveAnnotationIds([created.id]);
-    await reloadAnnotations();
-  }, [paperId, draft, storeBlocks, annotationWorkspaceNodeId, reloadAnnotations]);
+  const closeMemoSurface = useCallback(() => {
+    setMemoSurface(null);
+    dismissSelection();
+  }, [dismissSelection]);
 
-  const handleSaveEdit = useCallback(async () => {
-    if (!editing) return;
-    const updated = await updateAnnotationNote(editing, editing.note);
-    setEditing(updated);
-    await reloadAnnotations();
-  }, [editing, reloadAnnotations]);
-
-  const handleSelectAnnotation = useCallback((annotation: Annotation) => {
-    setEditing(annotation);
-    setDraft(null);
-    setRightPanel("notes");
-    setActiveAnnotationIds([annotation.id]);
-    const element = document.getElementById(`block-${annotation.blockId}`);
-    element?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setFlashAnnotationIds([annotation.id]);
+  const flashAnnotation = useCallback((id: string) => {
+    setFlashAnnotationIds([id]);
     if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
     flashTimeoutRef.current = window.setTimeout(() => {
       setFlashAnnotationIds([]);
     }, 2500);
   }, []);
 
-  const handleHighlightClick = useCallback((ids: string[]) => {
-    setRightPanel("notes");
+  const handleSaveDraft = useCallback(async () => {
+    if (!paperId || memoSurface?.mode !== "compose") return;
+    const block = storeBlocks.find((b) => b.id === memoSurface.selection.blockId);
+    if (!block?.translated) {
+      setMemoSurface((current) =>
+        current?.mode === "compose"
+          ? { ...current, error: "訳文がまだないため保存できません" }
+          : current
+      );
+      return;
+    }
+    setMemoSurface((current) =>
+      current?.mode === "compose" ? { ...current, saving: true, error: null } : current
+    );
+    try {
+      const created = await createAnnotation({
+        paperId,
+        workspaceNodeId: annotationWorkspaceNodeId,
+        blockId: memoSurface.selection.blockId,
+        translated: block.translated,
+        startOffset: memoSurface.selection.startOffset,
+        endOffset: memoSurface.selection.endOffset,
+        selectedText: memoSurface.selection.selectedText,
+        note: memoSurface.note,
+      });
+      setAnnotations((current) =>
+        current.some((item) => item.id === created.id) ? current : [...current, created]
+      );
+      setActiveAnnotationIds([created.id]);
+      flashAnnotation(created.id);
+      setMemoSurface(null);
+      dismissSelection();
+      window.getSelection()?.removeAllRanges();
+      void reloadAnnotations();
+    } catch (error) {
+      setMemoSurface((current) =>
+        current?.mode === "compose"
+          ? {
+              ...current,
+              saving: false,
+              error: error instanceof Error ? error.message : "保存に失敗しました",
+            }
+          : current
+      );
+    }
+  }, [
+    annotationWorkspaceNodeId,
+    dismissSelection,
+    flashAnnotation,
+    memoSurface,
+    paperId,
+    reloadAnnotations,
+    storeBlocks,
+  ]);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (memoSurface?.mode !== "edit") return;
+    setMemoSurface((current) =>
+      current?.mode === "edit" ? { ...current, saving: true, error: null } : current
+    );
+    try {
+      const updated = await updateAnnotationNote(memoSurface.annotation, memoSurface.note);
+      setAnnotations((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item))
+      );
+      setMemoSurface({
+        mode: "view",
+        annotation: updated,
+        fallback: memoSurface.fallback,
+      });
+      void reloadAnnotations();
+    } catch (error) {
+      setMemoSurface((current) =>
+        current?.mode === "edit"
+          ? {
+              ...current,
+              saving: false,
+              error: error instanceof Error ? error.message : "保存に失敗しました",
+            }
+          : current
+      );
+    }
+  }, [memoSurface, reloadAnnotations]);
+
+  const handleSelectAnnotation = useCallback((annotation: Annotation) => {
+    setActiveAnnotationIds([annotation.id]);
+    const element = document.getElementById(`block-${annotation.blockId}`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    flashAnnotation(annotation.id);
+    window.setTimeout(() => {
+      const measured = measureMemoAnchor({
+        blockId: annotation.blockId,
+        startOffset: annotation.startOffset,
+        endOffset: annotation.endOffset,
+      });
+      const fallback = measured ?? {
+        top: window.innerHeight / 2,
+        left: window.innerWidth / 2,
+        width: 0,
+        height: 0,
+      };
+      setMemoSurface({ mode: "view", annotation, fallback });
+    }, 280);
+  }, [flashAnnotation]);
+
+  const handleHighlightClick = useCallback((ids: string[], rect: DOMRect) => {
+    const annotation = annotations.find((item) => ids.includes(item.id));
     setActiveAnnotationIds(ids);
-    setEditing(null);
-    setDraft(null);
-  }, []);
+    if (!annotation) return;
+    setMemoSurface({
+      mode: "view",
+      annotation,
+      fallback: rectToAnchor(rect),
+    });
+    dismissSelection();
+  }, [annotations, dismissSelection]);
 
   const handleDeleteAnnotation = useCallback(
     async (annotation: Annotation) => {
       await deleteAnnotation(annotation.id);
-      setUndo(annotation);
-      if (editing?.id === annotation.id) setEditing(null);
+      setAnnotations((current) => current.filter((item) => item.id !== annotation.id));
       setActiveAnnotationIds((ids) => ids.filter((id) => id !== annotation.id));
-      await reloadAnnotations();
-      if (undoTimeoutRef.current) window.clearTimeout(undoTimeoutRef.current);
-      undoTimeoutRef.current = window.setTimeout(() => setUndo(null), 5000);
+      setMemoSurface((current) =>
+        current &&
+        (current.mode === "view" || current.mode === "edit") &&
+        current.annotation.id === annotation.id
+          ? null
+          : current
+      );
+      showToast({
+        kind: "info",
+        message: "メモを削除しました",
+        actionLabel: "元に戻す",
+        onAction: () => {
+          void saveAnnotation(annotation).then(() => {
+            setAnnotations((current) =>
+              current.some((item) => item.id === annotation.id)
+                ? current
+                : [...current, annotation]
+            );
+            void reloadAnnotations();
+          });
+        },
+      });
+      void reloadAnnotations();
     },
-    [editing, reloadAnnotations]
+    [reloadAnnotations]
   );
-
-  const handleUndoDelete = useCallback(async () => {
-    if (!undo) return;
-    await saveAnnotation(undo);
-    setUndo(null);
-    await reloadAnnotations();
-  }, [undo, reloadAnnotations]);
 
   if (isLoading) {
     return (
@@ -856,25 +996,9 @@ export function ReaderScreen() {
             {rightPanel === "notes" && (
               <NotesPanel
                 annotations={annotations}
-                draft={
-                  draft
-                    ? { selectedText: draft.selection.selectedText, note: draft.note }
-                    : null
-                }
-                editing={draft ? null : editing}
                 activeIds={activeAnnotationIds}
-                undoLabel={undo ? "メモを削除しました" : null}
-                onDraftNoteChange={(note) =>
-                  setDraft((prev) => (prev ? { ...prev, note } : prev))
-                }
-                onSaveDraft={() => void handleSaveDraft()}
-                onEditNoteChange={(note) =>
-                  setEditing((prev) => (prev ? { ...prev, note } : prev))
-                }
-                onSaveEdit={() => void handleSaveEdit()}
                 onSelect={handleSelectAnnotation}
                 onDelete={(annotation) => void handleDeleteAnnotation(annotation)}
-                onUndoDelete={() => void handleUndoDelete()}
                 onClose={() => setRightPanel("none")}
               />
             )}
@@ -882,15 +1006,59 @@ export function ReaderScreen() {
         )}
       </div>
 
-      {(selectionResult?.kind === "ok" ||
-        selectionResult?.kind === "cross-block") && (
-        <SelectionActionMenu
-          rect={selectionResult.rect}
-          selection={
-            selectionResult.kind === "ok" ? selectionResult.selection : null
+      {memoSurface && (
+        <MemoPopover
+          mode={memoSurface.mode}
+          anchor={memoSurface.fallback}
+          selection={memoSurface.mode === "compose" ? memoSurface.selection : null}
+          annotation={
+            memoSurface.mode === "view" || memoSurface.mode === "edit"
+              ? memoSurface.annotation
+              : null
           }
-          crossBlock={selectionResult.kind === "cross-block"}
-          onAddMemo={handleAddMemo}
+          note={
+            memoSurface.mode === "compose" || memoSurface.mode === "edit"
+              ? memoSurface.note
+              : ""
+          }
+          saving={
+            memoSurface.mode === "compose" || memoSurface.mode === "edit"
+              ? memoSurface.saving
+              : false
+          }
+          error={
+            memoSurface.mode === "compose" || memoSurface.mode === "edit"
+              ? memoSurface.error
+              : null
+          }
+          onNoteChange={(note) =>
+            setMemoSurface((current) =>
+              current && (current.mode === "compose" || current.mode === "edit")
+                ? { ...current, note }
+                : current
+            )
+          }
+          onSave={() => {
+            if (memoSurface.mode === "compose") void handleSaveDraft();
+            if (memoSurface.mode === "edit") void handleSaveEdit();
+          }}
+          onCancel={closeMemoSurface}
+          onEdit={() => {
+            if (memoSurface.mode !== "view") return;
+            setMemoSurface({
+              mode: "edit",
+              annotation: memoSurface.annotation,
+              note: memoSurface.annotation.note,
+              error: null,
+              saving: false,
+              fallback: memoSurface.fallback,
+            });
+          }}
+          onDelete={() => {
+            if (memoSurface.mode === "view" || memoSurface.mode === "edit") {
+              void handleDeleteAnnotation(memoSurface.annotation);
+            }
+          }}
         />
       )}
 

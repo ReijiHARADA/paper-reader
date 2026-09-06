@@ -19,7 +19,7 @@ type ParagraphProps = {
   onBlockUpdated?: (block: PaperBlock) => void;
   annotations?: Annotation[];
   flashAnnotationIds?: string[];
-  onHighlightClick?: (annotationIds: string[]) => void;
+  onHighlightClick?: (annotationIds: string[], rect: DOMRect) => void;
   onOpenSourcePdf?: (block: PaperBlock) => void;
   referenceIndex?: Map<string, string>;
 };
@@ -201,11 +201,12 @@ export function Paragraph({
       return (
         <mark
           key={i}
+          data-annotation-mark=""
           className={`${styles.annotationMark} ${flashing ? styles.annotationFlash : ""}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onHighlightClick?.(seg.annotationIds);
+            onHighlightClick?.(seg.annotationIds, e.currentTarget.getBoundingClientRect());
           }}
         >
           {inner}

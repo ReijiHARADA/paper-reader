@@ -1,0 +1,132 @@
+.popover {
+  position: fixed;
+  z-index: 50;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px var(--color-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: memoIn 140ms ease-out;
+}
+
+@keyframes memoIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quote {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--color-bg-secondary);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.body {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.orphaned,
+.message,
+.error {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.orphaned,
+.error {
+  color: #c5221f;
+}
+
+.message {
+  color: var(--color-text-secondary);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.textarea:focus {
+  outline: 2px solid var(--color-accent-light);
+  border-color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ghost,
+.primary,
+.danger {
+  appearance: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ghost:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+}
+
+.primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.danger {
+  background: transparent;
+  color: #c5221f;
+}
+
+.danger:hover {
+  background: #fce8e6;
+}
+
+.ghost:disabled,
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
