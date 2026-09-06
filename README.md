@@ -184,7 +184,7 @@ paper-reader/
 
 文をまとめて `generate()` するバッチ（既定 `MADLAD_BATCH_SIZE=24`）と、複数段落の chunk 合流で、論文全体の翻訳は段落ごとより約 2 倍速くなります。測定は `translation-server/MPS_BATCH_OPTIMIZATION_REPORT.md` にあります。
 
-抽出上の段落はそのまま翻訳単位にせず、ページをまたぐ明確な継続を先に結合し、citation・統計値を保護したうえで意味的に完結した文へ分割して MADLAD に渡します。括弧内の author-year citation の semicolon、decimal、略語は境界にしません。`TRANSLATION_UNIT_DEBUG=1` でサーバーの入力 unit と保護済み入力を確認できます。用語集は MADLAD の入力には載せず、訳の後処理（残った英語用語の置換）と再翻訳時に使います。
+抽出上の段落はそのまま翻訳単位にせず、ページをまたぐ明確な継続を先に結合し、citation・統計値を保護したうえで意味的に完結した文へ分割して MADLAD に渡します。括弧内の author-year citation の semicolon、decimal、略語は境界にしません。`TRANSLATION_UNIT_DEBUG=1` で release app を起動すると、サイドカーの入力 unit・保護済み入力・モデル版数を `/tmp/paper-reader-translation-server.log` に出力して確認できます。用語集は MADLAD の入力には載せず、訳の後処理（残った英語用語の置換）と再翻訳時に使います。
 
 ## 注意
 

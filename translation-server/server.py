@@ -19,11 +19,15 @@ from engines import get_engine
 from engines.micro_batcher import get_scheduler
 
 
-# Tauri's sidecar process does not expose a user-facing console.  Discard the
-# verbose MADLAD progress output in the bundled app so a closed host pipe can
-# never turn an otherwise successful translation into BrokenPipeError / HTTP
-# 500. Development servers retain their normal diagnostic output.
-if os.environ.get("MADLAD_SERVER_SILENCE_OUTPUT") == "1":
+# Tauri's sidecar process does not expose a user-facing console. Discard the
+# normal progress stream, but preserve an opt-in file log for release-bundle
+# diagnostics. This avoids a closed host pipe while making debug runs auditable.
+debug_log = os.environ.get("MADLAD_SERVER_DEBUG_LOG")
+if debug_log:
+    stream = open(debug_log, "a", encoding="utf-8", buffering=1)
+    sys.stdout = stream
+    sys.stderr = stream
+elif os.environ.get("MADLAD_SERVER_SILENCE_OUTPUT") == "1":
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
     sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
@@ -92,7 +96,8 @@ class TranslationTask:
 async def lifespan(app: FastAPI):
     # Startup: load MADLAD once so the first /translate is not a 13s wait
     engine = get_engine()
-    print("[STARTUP] Preloading MADLAD on MPS (bfloat16)...")
+    print(f"[STARTUP] MADLAD model version: {engine.model_version}", flush=True)
+    print("[STARTUP] Preloading MADLAD on MPS (bfloat16)...", flush=True)
     engine.load_model()
     yield
     engine.unload_model()

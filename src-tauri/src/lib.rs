@@ -82,8 +82,19 @@ fn spawn_server(app: &tauri::AppHandle, state_arc: &Arc<Mutex<Option<CommandChil
         .env("PYTORCH_ENABLE_MPS_FALLBACK", "1")
         .env("MADLAD_SERVER_SILENCE_OUTPUT", "1")
         .env("MADLAD_SERVER_HOST", "127.0.0.1")
-        .env("MADLAD_SERVER_PORT", "8765")
-        .spawn();
+        .env("MADLAD_SERVER_PORT", "8765");
+
+    let debug_units = std::env::var("TRANSLATION_UNIT_DEBUG").unwrap_or_default() == "1";
+    let result = if debug_units {
+        let debug_log = "/tmp/paper-reader-translation-server.log";
+        let _ = std::fs::remove_file(debug_log);
+        result
+            .env("TRANSLATION_UNIT_DEBUG", "1")
+            .env("MADLAD_SERVER_DEBUG_LOG", debug_log)
+            .spawn()
+    } else {
+        result.spawn()
+    };
 
     match result {
         Ok((mut rx, child)) => {

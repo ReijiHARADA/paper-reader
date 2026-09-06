@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .base import TranslationResult
+from .citation_protect import protect_citations
 from .madlad_mps import MADLADEngine, get_engine
 
 
@@ -35,6 +36,7 @@ class MicroBatchScheduler:
         self._window_ms = max(0, int(os.environ.get("MADLAD_MICROBATCH_MS", "25")))
         self._enabled = os.environ.get("MADLAD_MICROBATCH", "1") != "0"
         self._debug = os.environ.get("MADLAD_BATCH_DEBUG", "0") == "1"
+        self._unit_debug = os.environ.get("TRANSLATION_UNIT_DEBUG", "0") == "1"
         self._cond = threading.Condition()
         self._flush_lock = threading.Lock()
         self._queue: list[_Pending] = []
@@ -238,6 +240,15 @@ class MicroBatchScheduler:
         spans: list[tuple[_Pending, list[str]]] = []
         for item in items:
             chunks = MADLADEngine._split_for_translation(item.translate_body)
+            if self._unit_debug:
+                print("[TRANSLATION_UNIT]", flush=True)
+                print(f"SOURCE: {item.translate_body}", flush=True)
+                for index, chunk in enumerate(chunks):
+                    protected, _, _ = protect_citations(chunk)
+                    print(
+                        f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} protected={protected!r}",
+                        flush=True,
+                    )
             spans.append((item, chunks))
             chunk_texts.extend(chunks)
 

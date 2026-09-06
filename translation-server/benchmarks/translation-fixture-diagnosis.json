@@ -1,0 +1,131 @@
+{
+  "fixture": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+  "model": "google/madlad400-3b-mt",
+  "model_version": "3b-mt-v5-semantic-v1",
+  "generation": {
+    "num_beams": 1,
+    "do_sample": false
+  },
+  "rows": [
+    {
+      "condition": "A_direct_MADLADEngine_translate",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": null,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は,SigureとKoseki,1998,Marquardtら,2011,Benkoら,2009によって提示されたが, 移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "model_version": "3b-mt-v5-semantic-v1"
+    },
+    {
+      "condition": "B_MicroBatchScheduler",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": null,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は,SigureとKoseki,1998,Marquardtら,2011,Benkoら,2009によって提示されたが, 移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "model_version": "3b-mt-v5-semantic-v1"
+    },
+    {
+      "condition": "C_no_scientific_or_citation_protection",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "max_new_tokens": 216,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。"
+    },
+    {
+      "condition": "D_production_scientific_citation_protection",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "max_new_tokens": 216,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は,SigureとKoseki,1998,Marquardtら,2011,Benkoら,2009によって提示されたが,移動領域においてはない。"
+    },
+    {
+      "condition": "E_atomic_author_year_citation_group",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by ZZREF1ZZ, however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by ZZREF1ZZ, however none are in the mobile domain.",
+      "raw_decode": "指特異的相互作用に関する最も近い関連の研究はＺＺＲＥＦ１ＺＺによって提示されたが，移動領域ではない。",
+      "input_tokens": 32,
+      "output_tokens": 44,
+      "max_new_tokens": 120,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は(Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009)によって提示されたが，移動領域ではない。"
+    },
+    {
+      "condition": "F_whole_sentence_one_chunk",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "max_new_tokens": 216,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は,SigureとKoseki,1998,Marquardtら,2011,Benkoら,2009によって提示されたが,移動領域においてはない。"
+    },
+    {
+      "condition": "G_safe_meaning_boundary_two_chunks",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009),",
+        "However none are in the mobile domain."
+      ],
+      "model_input": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009),",
+        "However none are in the mobile domain."
+      ],
+      "raw_decode": [
+        "指特異的相互作用に関する最も関連の深い研究は，次のようなものである（Ｓｉｇｕｒｅ＆Ｋｏｓｅｋｉ，１９９８；Ｍａｒｑｕａｒｄｔら，２０１１；Ｂｅｎｋｏら，２００９）。",
+        "しかし，移動領域ではない。"
+      ],
+      "postprocess_output": "指特異的相互作用に関する最も関連の深い研究は, 次のようなものである(Sigure&Koseki,1998;Marquardtら,2011;Benkoら,2009)。しかし, 移動領域ではない。",
+      "input_tokens": 67,
+      "output_tokens": 92,
+      "per_chunk": [
+        {
+          "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009),",
+          "raw_decode": "指特異的相互作用に関する最も関連の深い研究は，次のようなものである（Ｓｉｇｕｒｅ＆Ｋｏｓｅｋｉ，１９９８；Ｍａｒｑｕａｒｄｔら，２０１１；Ｂｅｎｋｏら，２００９）。",
+          "input_tokens": 56,
+          "output_tokens": 78,
+          "max_new_tokens": 192,
+          "postprocess_output": "指特異的相互作用に関する最も関連の深い研究は,次のようなものである(Sigure&Koseki,1998;Marquardtら,2011;Benkoら,2009)。"
+        },
+        {
+          "model_input": "However none are in the mobile domain.",
+          "raw_decode": "しかし，移動領域ではない。",
+          "input_tokens": 11,
+          "output_tokens": 14,
+          "max_new_tokens": 57,
+          "postprocess_output": "しかし,移動領域ではない。"
+        }
+      ]
+    },
+    {
+      "condition": "reproducibility_control_C_repeat",
+      "chunks": [
+        "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+      ],
+      "model_input": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain.",
+      "raw_decode": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。",
+      "input_tokens": 64,
+      "output_tokens": 86,
+      "max_new_tokens": 216,
+      "postprocess_output": "指特異的相互作用に関する最も近い関連の研究は，ＳｉｇｕｒｅとＫｏｓｅｋｉ，１９９８，Ｍａｒｑｕａｒｄｔら，２０１１，Ｂｅｎｋｏら，２００９によって提示されたが，移動領域においてはない。"
+    }
+  ]
+}
