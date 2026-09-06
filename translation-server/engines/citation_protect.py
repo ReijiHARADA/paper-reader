@@ -52,11 +52,7 @@ def _placeholder_pattern(index: int, nonce: int) -> re.Pattern[str]:
     return re.compile(re.escape(token), re.IGNORECASE)
 
 
-def protect_citations(text: str) -> tuple[str, list[str], int]:
-    """Replace citations and scientific facts with placeholders.
-
-    The API name remains for compatibility with the engine and existing tests.
-    """
+def _protected_matches(text: str) -> list[re.Match[str]]:
     matches = list(CITATION_RE.finditer(text)) + list(SCIENTIFIC_TOKEN_RE.finditer(text))
     matches.sort(key=lambda match: (match.start(), -(match.end() - match.start())))
     non_overlapping: list[re.Match[str]] = []
@@ -66,7 +62,27 @@ def protect_citations(text: str) -> tuple[str, list[str], int]:
             continue
         non_overlapping.append(match)
         end = match.end()
-    matches = non_overlapping
+    return non_overlapping
+
+
+def protected_span_mask(text: str) -> str:
+    """Mask protected spans without changing offsets for boundary scanning.
+
+    Scientific punctuation must not become a sentence boundary before the
+    corresponding token can be safely placeholder-protected for MADLAD.
+    """
+    chars = list(text)
+    for match in _protected_matches(text):
+        chars[match.start():match.end()] = "X" * (match.end() - match.start())
+    return "".join(chars)
+
+
+def protect_citations(text: str) -> tuple[str, list[str], int]:
+    """Replace citations and scientific facts with placeholders.
+
+    The API name remains for compatibility with the engine and existing tests.
+    """
+    matches = _protected_matches(text)
     if not matches:
         return text, [], 0
 

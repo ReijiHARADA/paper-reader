@@ -111,7 +111,7 @@ npm test
 npm run lint
 ```
 
-学術 PDF の抽出は CanonicalDocument が Source of Truth です。Import は `extractAcademicPdf` → projection → Paper/Section/PaperBlock です。Generic layer は font/spacing/indent/capitalization を含む複数 role evidence を出し、Resolver が heading・paragraph・equation・table を精度優先で決めます。統計量を含む本文は equation にせず、native text の整列から確信できた table region は通常段落として翻訳しません。catalog の `publisher` / `formatFamily` は評価用 Ground Truth であり、本番の format 判定には使いません。MADLAD 前後では citation・DOI・URL・統計量・p値・標本数・測定値を保護／照合し、欠落した翻訳は原文へフォールバックします。詳細は [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)。
+学術 PDF の抽出は CanonicalDocument が Source of Truth です。Import は `extractAcademicPdf` → projection → Paper/Section/PaperBlock です。Generic layer は font/spacing/indent/capitalization を含む複数 role evidence を出し、Resolver が heading・paragraph・equation・table を精度優先で決めます。統計量を含む本文は equation にせず、native text の整列から確信できた table region は通常段落として翻訳しません。catalog の `publisher` / `formatFamily` は評価用 Ground Truth であり、本番の format 判定には使いません。MADLAD 前後では citation・DOI・URL・統計量・p値・標本数・測定値を保護／照合し、保護後の punctuation-aware scanner が意味的な translation unit を作ります。欠落した翻訳は原文へフォールバックします。詳細は [ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md](./ACADEMIC_PDF_EXTRACTION_ARCHITECTURE.md)。
 
 レイアウト・キャプション・表・数式・脚注の抽出はインポート時に決まるため、既存の論文へ適用するには再インポートが必要です。
 
@@ -184,7 +184,7 @@ paper-reader/
 
 文をまとめて `generate()` するバッチ（既定 `MADLAD_BATCH_SIZE=24`）と、複数段落の chunk 合流で、論文全体の翻訳は段落ごとより約 2 倍速くなります。測定は `translation-server/MPS_BATCH_OPTIMIZATION_REPORT.md` にあります。
 
-翻訳単位は段落です。前後段落は MADLAD には渡していません。用語集は MADLAD の入力には載せせず、訳の後処理（残った英語用語の置換）と再翻訳時に使います。
+抽出上の段落はそのまま翻訳単位にせず、ページをまたぐ明確な継続を先に結合し、citation・統計値を保護したうえで意味的に完結した文へ分割して MADLAD に渡します。括弧内の author-year citation の semicolon、decimal、略語は境界にしません。`TRANSLATION_UNIT_DEBUG=1` でサーバーの入力 unit と保護済み入力を確認できます。用語集は MADLAD の入力には載せず、訳の後処理（残った英語用語の置換）と再翻訳時に使います。
 
 ## 注意
 

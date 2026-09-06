@@ -1160,13 +1160,20 @@ function mergeColumnContinuations(blocks: LayoutBlock[]): LayoutBlock[] {
       targetIdx--;
     }
     const target = targetIdx >= 0 ? result[targetIdx] : null;
+    const crossesPageBoundary =
+      target &&
+      target.pageEnd + 1 === block.pageStart &&
+      target.column === block.column &&
+      (target.lines[target.lines.length - 1]?.y ?? 0) >
+        (target.lines[target.lines.length - 1]?.pageHeight ?? Number.MAX_SAFE_INTEGER) * 0.68 &&
+      (block.lines[0]?.y ?? Number.MAX_SAFE_INTEGER) <
+        (block.lines[0]?.pageHeight ?? 0) * 0.32;
     if (
       target &&
       target.role === "paragraph" &&
       block.role === "paragraph" &&
-      target.column === "left" &&
-      block.column === "right" &&
-      target.pageEnd === block.pageStart &&
+      ((target.column === "left" && block.column === "right" && target.pageEnd === block.pageStart) ||
+        crossesPageBoundary) &&
       isSentenceContinuation(target.text, block.text)
     ) {
       target.text = joinHyphenated(target.text, block.text).replace(/\s+/g, " ").trim();

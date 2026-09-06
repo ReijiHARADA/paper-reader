@@ -43,6 +43,21 @@
       "id": "terms",
       "name": "固有名詞・専門用語を含む文章",
       "text": "This research was supported by STW VIDI grant number 016.128.303 of the Netherlands Organisation for Scientific Research (NWO), awarded to Elise van den Hoven. The prototype used a Sony Walkman metaphor together with MADLAD-400 for on-device translation."
+    },
+    {
+      "id": "author_year_semicolons",
+      "name": "author-year citationのsemicolon",
+      "text": "The closest related work on finger specific interaction has been presented by (Sigure & Koseki, 1998; Marquardt et al., 2011; Benko et al, 2009), however none are in the mobile domain."
+    },
+    {
+      "id": "author_year_second_case",
+      "name": "author-year citationの第2回帰例",
+      "text": "Unlike most touch screen research seeking to extend the input vocabulary, which does not distinguish between different fingers (e.g. Baudisch & Chu, 2009; Boring et al., 2012; Holleis et al., 2008), we focus on identifying the fingers and assigning different functions to them."
+    },
+    {
+      "id": "year_and_decimal",
+      "name": "year boundaryとdecimal",
+      "text": "Nearly one billion devices were sold in 2013. Thus, the value was 2.913 and p < 0.001."
     }
   ]
 }

@@ -14,6 +14,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from .base import TranslationEngine, TranslationResult, EngineStatus
 from .citation_protect import protect_citations, restore_citations
+from .segmenter import SEGMENTER_VERSION, split_for_translation
 
 
 class MADLADEngine(TranslationEngine):
@@ -25,7 +26,7 @@ class MADLADEngine(TranslationEngine):
     """
 
     MODEL_ID = "google/madlad400-3b-mt"
-    MODEL_VERSION = "3b-mt-v4"
+    MODEL_VERSION = f"3b-mt-v5-{SEGMENTER_VERSION}"
 
     def __init__(self, device: Optional[str] = None, dtype: Optional[torch.dtype] = None):
         """
@@ -272,6 +273,15 @@ class MADLADEngine(TranslationEngine):
                     translate_body = heading.group("rest")
 
                 chunks = self._split_for_translation(translate_body)
+                if os.getenv("TRANSLATION_UNIT_DEBUG") == "1":
+                    print("[TRANSLATION_UNIT]", flush=True)
+                    print(f"SOURCE: {translate_body}", flush=True)
+                    for index, chunk in enumerate(chunks):
+                        protected, _, _ = protect_citations(chunk)
+                        print(
+                            f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} protected={protected!r}",
+                            flush=True,
+                        )
                 print(
                     f"\n[TRANSLATE] Input: {len(text)} chars, {len(chunks)} chunk(s), "
                     f"{source_language} -> {target_language}",
@@ -353,44 +363,12 @@ class MADLADEngine(TranslationEngine):
 
     @staticmethod
     def _split_for_translation(text: str) -> list[str]:
-        """MADLAD-3B greedy decoding drifts on multi-clause academic sentences."""
-        compact = " ".join(text.split()).strip()
-        if not compact:
-            return [text]
-        parts = re.split(r'(?<=(?<!\d)[.!?])\s+(?=[A-Z"“(])', compact)
-        chunks: list[str] = []
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-            chunks.extend(MADLADEngine._split_clauses(part))
-        return chunks or [compact]
+        return split_for_translation(text)
 
     @staticmethod
     def _split_clauses(part: str) -> list[str]:
-        # Only split title-like "Short Title: subtitle". Do not split
-        # "extended with portable variations: for example the Walkman".
-        if re.search(r":\s+\S", part):
-            left, right = re.split(r":\s+", part, maxsplit=1)
-            left, right = left.strip(), right.strip()
-            continuation = re.match(
-                r"^(for example|e\.g\.|i\.e\.|namely|that is|including|see |cf\.)\b",
-                right,
-                re.I,
-            )
-            title_like = (
-                left
-                and right
-                and not continuation
-                and len(left) <= 80
-                and len(left.split()) <= 10
-                and not left.endswith((".", "!", "?"))
-            )
-            if title_like:
-                return [left + ":", right]
-        if len(part) > 140:
-            return [s.strip() for s in re.split(r"(?<=[;])\s+", part) if s.strip()]
-        return [part]
+        """Compatibility entry point for older callers."""
+        return split_for_translation(part)
 
     @staticmethod
     def _to_halfwidth_ascii(text: str) -> str:

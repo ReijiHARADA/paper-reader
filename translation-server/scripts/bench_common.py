@@ -9,13 +9,12 @@ import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from engines.segmenter import split_for_translation
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_PATH = ROOT / "benchmarks" / "corpus.json"
 MODEL_ID = "google/madlad400-3b-mt"
 
-# Copied from engines/madlad_mps.py. MPS bench asserts equality with production.
-_SENTENCE_SPLIT = re.compile(r'(?<=(?<!\d)[.!?])\s+(?=[A-Z"“(])')
 
 
 def load_corpus(path: Path = CORPUS_PATH) -> dict[str, Any]:
@@ -26,41 +25,6 @@ def max_new_tokens_for(input_tokens: int) -> int:
     return min(max(input_tokens * 3 + 24, 48), 256)
 
 
-def split_for_translation(text: str) -> list[str]:
-    compact = " ".join(text.split()).strip()
-    if not compact:
-        return [text]
-    chunks: list[str] = []
-    for part in re.split(_SENTENCE_SPLIT, compact):
-        part = part.strip()
-        if not part:
-            continue
-        chunks.extend(split_clauses(part))
-    return chunks or [compact]
-
-
-def split_clauses(part: str) -> list[str]:
-    if re.search(r":\s+\S", part):
-        left, right = re.split(r":\s+", part, maxsplit=1)
-        left, right = left.strip(), right.strip()
-        continuation = re.match(
-            r"^(for example|e\.g\.|i\.e\.|namely|that is|including|see |cf\.)\b",
-            right,
-            re.I,
-        )
-        title_like = (
-            left
-            and right
-            and not continuation
-            and len(left) <= 80
-            and len(left.split()) <= 10
-            and not left.endswith((".", "!", "?"))
-        )
-        if title_like:
-            return [left + ":", right]
-    if len(part) > 140:
-        return [s.strip() for s in re.split(r"(?<=[;])\s+", part) if s.strip()]
-    return [part]
 
 
 def to_halfwidth_ascii(text: str) -> str:

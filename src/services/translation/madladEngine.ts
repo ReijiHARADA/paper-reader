@@ -7,7 +7,7 @@
 import { isPlausibleJaTranslation } from "./quality";
 import type { TranslationEngine, TranslationResult, EngineStatus } from "./types";
 
-export const MADLAD_MODEL_VERSION = "3b-mt-v4";
+export const MADLAD_MODEL_VERSION = "3b-mt-v5-semantic-v1";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8765";
 
