@@ -109,6 +109,68 @@ export function applyGlossary(
 }
 
 /**
+ * Small source-grounded terminology repair set.
+ *
+ * These are established cross-paper research terms for which MADLAD can emit
+ * a fluent but unrelated Japanese homophone. A replacement is allowed only
+ * when the English source contains the corresponding term and the generated
+ * Japanese contains a documented erroneous rendering. This is terminology
+ * normalization, not an output-word blacklist: it cannot introduce a term
+ * that is absent from the source.
+ */
+const SOURCE_GROUNDED_TERMS: Array<{
+  source: RegExp;
+  replacements: Array<[RegExp, string]>;
+}> = [
+  {
+    source: /\bvignettes?\b/i,
+    replacements: [[/ビニール|ビニル|ビネット/g, "ヴィネット"]],
+  },
+  {
+    source: /\bvignette-based\b/i,
+    replacements: [[/ヴィネット画像(?:のみ)?を用いた/g, "ヴィネットに基づく"]],
+  },
+  {
+    source: /^(?:\d+(?:\.\d+)*\.?\s+)?related\s+works?\b/im,
+    replacements: [[/関連作品/g, "関連研究"]],
+  },
+  {
+    source: /\bhuman-like\b/i,
+    replacements: [[/人間的に記述できる方法/g, "人間らしいと表現できる方法"]],
+  },
+  {
+    source: /\badversarial\s+vignettes?\b/i,
+    replacements: [[/対立ヴィネット/g, "敵対的ヴィネット"]],
+  },
+  {
+    source: /\bconjunction\s+fallacy\b/i,
+    replacements: [[/連想誤謬|結合誤謬/g, "連言錯誤"]],
+  },
+  {
+    source: /\bbase[ -]?rate\s+fallacy\b/i,
+    replacements: [[/基準値誤謬|基準率誤謬/g, "ベースレート錯誤"]],
+  },
+  {
+    source: /\bmulti[ -]?armed\s+bandit\b/i,
+    replacements: [[/多武装の強盗(?:のタスク)?/g, "多腕バンディット課題"]],
+  },
+];
+
+export function normalizeSourceGroundedTerminology(
+  source: string,
+  translation: string
+): string {
+  let result = translation;
+  for (const term of SOURCE_GROUNDED_TERMS) {
+    if (!term.source.test(source)) continue;
+    for (const [alias, preferred] of term.replacements) {
+      result = result.replace(alias, preferred);
+    }
+  }
+  return result;
+}
+
+/**
  * Escape special regex characters.
  */
 function escapeRegex(str: string): string {

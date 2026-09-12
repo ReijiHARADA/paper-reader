@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   isPlausibleJaTranslation,
+  isDegenerateTranslation,
   shouldTranslateTitle,
   shouldTranslateParagraph,
   shouldTranslateHeading,
   looksLikeSubjectClassification,
   evaluateJaTranslation,
   extractScientificInvariants,
+  isExpectedNonProseParagraph,
+  unsafeParagraphStructureReason,
 } from "../services/translation/quality";
 import { resolveImportConfig } from "../services/import/helpers";
 import { analyzeStructure } from "../services/structureService";
@@ -28,7 +31,7 @@ describe("isPlausibleJaTranslation", () => {
   it("keeps a Japanese translation that retains grant identifiers from the source", () => {
     expect(
       isPlausibleJaTranslation(
-        "本研究は STW VIDI grant number 016.128.303 によって支援され、Elise van den Hoven に授与された。",
+        "本研究は NWO の STW VIDI grant number 016.128.303 によって支援され、Elise van den Hoven に授与された。",
         source
       )
     ).toBe(true);
@@ -36,6 +39,27 @@ describe("isPlausibleJaTranslation", () => {
 
   it("rejects an English echo of the source", () => {
     expect(isPlausibleJaTranslation(source, source)).toBe(false);
+  });
+
+  it("treats ASCII chi-square notation as an indivisible statistic", () => {
+    const source = "There was no difference, χ2(3)=0.37, p=0.83.";
+    const output = "差はなかった。p=0.83。";
+    expect(evaluateJaTranslation(output, source).reasons.join(" ")).toContain("χ2(3)=0.37");
+  });
+
+  it("rejects a fluent result that loses a bare rank statistic or figure panel", () => {
+    const source = "Selfishness changed significantly (Fig. 7b, Mann–Whitney U test, U=307, p=0.03).";
+    const dropped = "自己中心性は有意に変化した。p=0.03。";
+    const preserved = "自己中心性は有意に変化した（Fig. 7b、Mann–Whitney U test、U=307、p=0.03）。";
+    expect(extractScientificInvariants(source).map((item) => item.value)).toEqual(expect.arrayContaining(["Fig. 7b", "U=307", "p=0.03"]));
+    expect(isPlausibleJaTranslation(dropped, source)).toBe(false);
+    expect(isPlausibleJaTranslation(preserved, source)).toBe(true);
+  });
+
+  it("treats plural figure references as source facts", () => {
+    const source = "Figures 3, 4, and 5 show the response curves.";
+    expect(extractScientificInvariants(source).map((item) => item.value)).toContain("Figures 3");
+    expect(isPlausibleJaTranslation("応答曲線を示す。", source)).toBe(false);
   });
 
   it("rejects fluent Japanese that drops scientific facts", () => {
@@ -53,6 +77,29 @@ describe("isPlausibleJaTranslation", () => {
     expect(isPlausibleJaTranslation(output, source)).toBe(true);
   });
 
+  it("rejects a fluent translation that invents a measurement absent from the source", () => {
+    const source = "A moving-average filter with a window length of 60 seconds removes outliers.";
+    const output = "60秒の移動平均フィルタで外れ値を除去した。さらに100mmと10mmの測定を行った。";
+    const quality = evaluateJaTranslation(output, source);
+    expect(quality.reasons).toContain("unexpected scientific invariants: 100mm, 10mm");
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects an invented calendar year while retaining a source year", () => {
+    const source = "Before World War I, wristwatches were worn by women. The Walkman debuted in 1979.";
+    const output = "1914年に時計の歴史が発表された。ウォークマンは1979年に発売された。";
+    expect(extractScientificInvariants(source).map((item) => item.value)).toContain("1979");
+    expect(evaluateJaTranslation(output, source).reasons.join(" ")).toContain("1914");
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects a translation that drops a micro-watt power measurement", () => {
+    expect(isPlausibleJaTranslation(
+      "装置は11.3 mm幅で335 mgである。",
+      "The device is 11.3 mm wide, weighs 335 mg, and consumes 14.4 uW."
+    )).toBe(false);
+  });
+
   it("rejects fluent phrase-loop output without relying on a vocabulary blacklist", () => {
     const source = "Wearable devices can support personal and social practices when their design starts from existing rituals.";
     const output = "ウェブアプリケーションの役割を明らかにするため、ウェブアプリケーションの役割を明らかにするため、ウェブアプリケーションの役割を明らかにするための研究を行った。";
@@ -63,6 +110,72 @@ describe("isPlausibleJaTranslation", () => {
     const source = "The course ends with group participation in a real experiment.";
     const output = "実験の結果、参加者は課題を完了した。実験の結果は、実験の結果と一致し、実験の結果を評価した。";
     expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects literal tokenizer byte escapes inside otherwise Japanese output", () => {
+    const source = "A camera captures an image from beneath the chin.";
+    const output = "カメラは<0xE9><0xA0><0x9A>の下から画像を取得する。";
+    expect(isDegenerateTranslation(output)).toBe(true);
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects a translation that alters a mixed-case technical identifier", () => {
+    const source = "Regularized DeepIV improves instrumental variable estimation.";
+    const output = "正規化DipIVは操作変数推定を改善する。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+    expect(evaluateJaTranslation(output, source).reasons).toContain("scientific invariants missing: DeepIV");
+  });
+
+  it("does not treat one model name as preservation of another acronym", () => {
+    expect(isPlausibleJaTranslation(
+      "DeBERTaはエンコーダ専用モデルである。",
+      "BERT and DeBERTa are encoder-only models."
+    )).toBe(false);
+  });
+
+  it("rejects a fluent translation that silently drops a method acronym", () => {
+    const source = "RDIV improves MSE for NPIV regression.";
+    const output = "この方法は回帰の誤差を改善する。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+    expect(evaluateJaTranslation(output, source).invariantScore).toBeLessThan(0.5);
+  });
+
+  it("rejects a translation that drops a hyphenated system identifier", () => {
+    expect(
+      isPlausibleJaTranslation(
+        "人体を用いて複数の装着デバイスへ電力を届ける手法を開発した。",
+        "We developed Power-over-Skin, an approach using the human body itself to deliver power."
+      )
+    ).toBe(false);
+  });
+
+  it("rejects a translation that drops an explicit source negation", () => {
+    const source = "The individual does not consider x to be important.";
+    const output = "個人はxを重要と考える。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+    const quality = evaluateJaTranslation(output, source);
+    expect(quality.reasons).toContain("source negation missing");
+    expect(quality.score).toBeLessThan(0.8);
+  });
+
+  it("accepts an explicit negation preserved in Japanese", () => {
+    const source = "The individual does not consider x to be important.";
+    const output = "個人はxを重要とは考えない。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(true);
+  });
+
+  it("rejects an implausibly short translation of a long multi-sentence source", () => {
+    const source = `${"The study reports a separate experimental finding with its interpretation. ".repeat(10)}`;
+    const output = "本研究は実験結果を報告した。";
+    expect(source.length).toBeGreaterThan(500);
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+    expect(evaluateJaTranslation(output, source).reasons).toContain("long source was implausibly shortened");
+  });
+
+  it("keeps a complete long translation above the audit-derived length bound", () => {
+    const source = `${"The study reports a separate experimental finding with its interpretation. ".repeat(10)}`;
+    const output = "研究は複数の実験結果を報告した。各結果は独立して評価された。参加者の反応を詳細に記録した。分析では条件ごとの差を検討した。結果は仮説を部分的に支持した。追加の検証も実施された。解釈には限界が伴う。将来の研究課題を提示した。結論はデータに基づいている。評価結果は再現性と妥当性の観点から詳細に報告された。方法と分析手順は研究目的に照らして明確に説明された。";
+    expect(isPlausibleJaTranslation(output, source)).toBe(true);
   });
 });
 
@@ -127,6 +240,51 @@ describe("subject classification lines", () => {
 });
 
 describe("unsafe extracted translation input", () => {
+  it("explains structural preservation without flagging normal prose", () => {
+    expect(
+      unsafeParagraphStructureReason(
+        "Participants stayed consistent with their free choices when a rule was"
+      )
+    ).toContain("末尾");
+    expect(
+      unsafeParagraphStructureReason(
+        "data, and a sun-exposure patch with a screen demonstrate sensing and wireless communication."
+      )
+    ).toContain("先頭");
+    expect(
+      unsafeParagraphStructureReason(
+        "The paper examines a complete paragraph with enough ordinary content to translate safely."
+      )
+    ).toBeNull();
+  });
+
+  it("keeps broken words and short lower-case continuations out of MADLAD", () => {
+    const brokenWord =
+      "Importantly, we can have a rate O δn in relatively mild conditions while the previous Theo-";
+    const lowerCaseContinuation =
+      "function approximation and their method for tuning the regularization parameter. When the learning rate is manually set to";
+    expect(unsafeParagraphStructureReason(brokenWord)).toContain("語が途中");
+    expect(shouldTranslateParagraph(brokenWord)).toBe(false);
+    expect(unsafeParagraphStructureReason(lowerCaseContinuation)).toContain("先頭");
+    expect(shouldTranslateParagraph(lowerCaseContinuation)).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "e.g. the analysis begins with a valid discourse abbreviation and contains enough ordinary academic prose."
+      )
+    ).toBe(true);
+    expect(
+      shouldTranslateParagraph(
+        "To evaluate the method, we compare the complete results under the same controlled experimental conditions."
+      )
+    ).toBe(true);
+  });
+
+  it("does not present expected metadata skips as structural uncertainty", () => {
+    const email = "researcher@example.edu collaborator@example.edu editor@example.edu";
+    expect(isExpectedNonProseParagraph(email)).toBe(true);
+    expect(unsafeParagraphStructureReason(email)).not.toBeNull();
+  });
+
   it("keeps mixed permission text and incomplete continuations out of MADLAD", () => {
     expect(
       shouldTranslateParagraph(
@@ -143,12 +301,147 @@ describe("unsafe extracted translation input", () => {
         "The paper examines a complete paragraph with enough ordinary prose to translate safely."
       )
     ).toBe(true);
+    expect(
+      unsafeParagraphStructureReason(
+        "The battery life was tested using the MS621FE coin battery as"
+      )
+    ).toContain("末尾");
+    expect(
+      shouldTranslateParagraph(
+        "The battery life was tested using the MS621FE coin battery as"
+      )
+    ).toBe(false);
+    expect(
+      unsafeParagraphStructureReason(
+        'The device was rated as "very'
+      )
+    ).toContain("引用符");
+    expect(
+      shouldTranslateParagraph(
+        "Accuracy ranged from 40.3% to 78.6%, with an average of 54.4% and standard"
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "원호연, Hongik University Industrial Design Department Graduate School"
+      )
+    ).toBe(false);
+    expect(
+      unsafeParagraphStructureReason(
+        "Body temperature is an important vital sign. We present Thermal"
+      )
+    ).toContain("末尾");
+    expect(
+      shouldTranslateParagraph(
+        "Body temperature is an important vital sign. We present Thermal"
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "Thermal Earring: Low-power Wireless Earring for Longitudinal Earlobe Temperature Sensing • 195:3"
+      )
+    ).toBe(false);
+    expect(
+      unsafeParagraphStructureReason(
+        "We propose to target a specific solution that achieves the least norm, defined as:"
+      )
+    ).toContain("末尾");
+    expect(
+      shouldTranslateParagraph(
+        "(b) a family of max-depth CFGs that GPT can learn, see Appendix G"
+      )
+    ).toBe(false);
   });
 
   it("keeps a paragraph contaminated by a running arXiv header as original", () => {
     expect(
       shouldTranslateParagraph(
         "Consumer response is complex and arXiv:2404.02175v5 13 Mar 2025 provides no prose boundary here."
+      )
+    ).toBe(false);
+  });
+
+  it("keeps flattened diagram labels out of paragraph translation", () => {
+    expect(
+      shouldTranslateParagraph(
+        "Linda Cab Hospital Toma Test Wason also participated in anti-nuclear demonstrations."
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "The University of California research group reported a complete paragraph with sufficient prose for translation."
+      )
+    ).toBe(true);
+  });
+
+  it("keeps a lower-case comma continuation out of paragraph translation", () => {
+    expect(
+      shouldTranslateParagraph(
+        "data, and a sun-exposure patch with a screen demonstrate sensing and wireless communication."
+      )
+    ).toBe(false);
+  });
+
+  it("keeps prose contaminated by an inline numeric table cell out of translation", () => {
+    expect(shouldTranslateParagraph("Mean regret Your goal is to maximize received dol- 2 lars within six rounds.")).toBe(false);
+    expect(shouldTranslateParagraph("GPT-3, just like people, chose the second option in this controlled experiment.")).toBe(true);
+  });
+
+  it("keeps a scientific magnitude with a missing exponent out of translation", () => {
+    expect(shouldTranslateParagraph("There are at least 4 × 10 distinct sentential forms derivable from a symbol in this grammar.")).toBe(false);
+    expect(shouldTranslateParagraph("There are at least 4 × 10^6 distinct sentential forms derivable from a symbol in this grammar.")).toBe(true);
+  });
+
+  it("requires an inline superscript-style citation to survive", () => {
+    const source = "We introduced the “cab problem”16 (Cab, see SI Appendix) to participants in a controlled study.";
+    expect(isPlausibleJaTranslation("参加者に「タクシー問題」(Cab、SI付録を参照)を提示した。", source)).toBe(false);
+    expect(isPlausibleJaTranslation("参加者に「タクシー問題」16 (Cab、SI付録を参照)を提示した。", source)).toBe(true);
+  });
+
+  it("keeps a block beginning with a lower-case sentence tail out of translation", () => {
+    expect(shouldTranslateParagraph("data. This procedure has proved successful in previous offerings of this course, and the following complete sentences should be stitched with the preceding page before translation.".repeat(2))).toBe(false);
+  });
+
+  it("keeps a block ending in an incomplete determiner phrase out of translation", () => {
+    expect(shouldTranslateParagraph("The analysis compares every response carefully before looking at the entire")).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "Starting from the design philosophy of user-centered design, this paper analyzes the human factors characteristics"
+      )
+    ).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "Bluetooth chips offer a longer wireless range and compatibility with commercial phones, albeit with"
+      )
+    ).toBe(false);
+    expect(shouldTranslateParagraph("Available power density varies between")).toBe(false);
+    expect(shouldTranslateParagraph("Participants stayed consistent with their free choices when a rule was")).toBe(false);
+    expect(shouldTranslateParagraph("A complete-looking extraction sentence that is actually cut at the page boundary ".repeat(8))).toBe(false);
+    expect(shouldTranslateParagraph(`“${"A complete quoted interview statement without a final period ".repeat(8)}”`)).toBe(true);
+    expect(
+      shouldTranslateParagraph(
+        "• identity: expressing identity, social status and beliefs towards the world and reconfirming them towards oneself"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps a long lower-case column continuation out of translation", () => {
+    expect(shouldTranslateParagraph("substantially improves the ground coupling and unrealistically increases measured performance in the following experimental apparatus description.".repeat(2))).toBe(false);
+    expect(shouldTranslateParagraph("e.g. the following paragraph begins with a valid discourse abbreviation and contains enough ordinary academic prose to translate safely.")).toBe(true);
+  });
+
+  it("keeps author bylines with editorial acceptance dates out of paragraph translation", () => {
+    expect(
+      shouldTranslateParagraph(
+        "Jörg Gross, Franziska Emmerling & Alexander Sack Accepted: 27 December 2017"
+      )
+    ).toBe(false);
+  });
+
+  it("keeps unnumbered author-year bibliography entries as original text", () => {
+    expect(
+      shouldTranslateParagraph(
+        "WALLACE, J., DEARDEN, Andy and FISHER, T. (2007). The significant other: the value of jewellery within the conception, design and experience of body focussed digital devices. AI and society, 22 (1), 53-62."
       )
     ).toBe(false);
   });

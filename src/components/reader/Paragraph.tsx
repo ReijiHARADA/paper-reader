@@ -74,6 +74,10 @@ export function Paragraph({
   const isFailed = !skipTranslation && block.translationStatus === "failed" && !hasTranslation;
   const isWaiting = !hasTranslation && (isPending || isProcessing);
   const lowConfidence = isLowExtractionConfidence(block.extractionConfidence);
+  const translationInputWarning =
+    !hasTranslation && typeof block.metadata.translationInputWarning === "string"
+      ? block.metadata.translationInputWarning
+      : null;
 
   const handleToggle = () => {
     toggleOriginalExpanded(block.id);
@@ -255,6 +259,14 @@ export function Paragraph({
         </div>
       ) : (
         <>
+          {translationInputWarning && (
+            <div className={styles.sourceStructureWarning} role="note">
+              <AlertTriangle size={14} aria-hidden="true" />
+              <span>
+                {translationInputWarning}。推測翻訳を避けるため、原文を表示しています。
+              </span>
+            </div>
+          )}
           <p
             className={styles.translated}
             data-paper-block-id={block.id}

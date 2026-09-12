@@ -294,8 +294,18 @@ function clusterItemsIntoLines(
     let best = -1;
     let bestDist = Infinity;
     for (let i = 0; i < groups.length; i++) {
+      const minX = Math.min(...groups[i].map((g) => g.x));
+      const maxX = Math.max(...groups[i].map((g) => g.x + g.width));
+      const detachedMarginAnnotation =
+        item.width < 140 &&
+        maxX - minX > 220 &&
+        item.x + item.width < minX - Math.max(36, fontBase * 4);
       const dist = Math.abs(item.y - groupY[i]);
-      if (dist <= yThreshold && dist < bestDist) {
+      // A narrow publication/date annotation can share a baseline with a
+      // full-width body line in publisher PDFs. It is a separate marginal
+      // element, not a prefix of that prose. Keep this geometric rule narrow
+      // so ordinary words and table cells remain in their native line.
+      if (!detachedMarginAnnotation && dist <= yThreshold && dist < bestDist) {
         best = i;
         bestDist = dist;
       }
@@ -373,6 +383,19 @@ function detectHeaderFooterPatterns(pages: ExtractedPage[]): Set<string> {
   return patterns;
 }
 
+function isPublicationMetadata(text: string): boolean {
+  const match = layoutPlain(text).match(
+    /^(?:received|accepted|published(?:\s+online)?|available\s+online|online\s+publication)\s*:?\s*(.+)$/i
+  );
+  if (!match) return false;
+  const tokens = match[1].toLowerCase().match(/[a-z]+|\d{1,4}/g) ?? [];
+  return tokens.length > 0 && tokens.every((token) =>
+    token === "x" || token === "xx" || token === "xxx" || token === "xxxx" ||
+    /^\d{1,4}$/.test(token) ||
+    /^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)$/.test(token)
+  );
+}
+
 function isEdgeChrome(
   line: LayoutLine,
   layout: PageColumnLayout,
@@ -383,6 +406,7 @@ function isEdgeChrome(
   if (line.y < topBand) return true;
   if (line.y > layout.pageHeight - FOOTER_MARGIN) return true;
   if (/^\d{1,3}$/.test(line.text.trim())) return true;
+  if (isPublicationMetadata(line.text)) return true;
   if (patterns.has(normalizeChromeKey(line.text))) return true;
   if (isRepeatedHeaderFooter(line.text, patterns)) return true;
   if (
@@ -412,9 +436,14 @@ function cjkCount(text: string): number {
 }
 
 export function isFigureCaption(text: string): boolean {
-  return /^(?:figure|fig\.?|図)\s*\d+[a-z]?(?:\s*,\s*[a-z]\b)*(?:\s*[:.：–—-]|\s*$)/i.test(
-    layoutPlain(text)
-  );
+  const caption = layoutPlain(text);
+  if (/^(?:figure|fig\.?|図)\s*\d+[a-z]?(?:\s*,\s*[a-z]\b)*(?:\s*[:.：–—-]|\s*$)/i.test(caption)) {
+    return true;
+  }
+  // Older proceedings often use `Fig. 1, Caption title…` rather than a
+  // colon or full stop. Treat only an uppercase title-like continuation as a
+  // caption; a normal sentence such as `Figure 2, the body…` stays prose.
+  return /^(?:[Ff]igure|[Ff]ig\.?)\s*\d+[a-z]?\s*,\s*(?!(?:the|a|an|this|that|these|those|we|our|it|they|in|on|for)\b)[A-Z]/.test(caption);
 }
 
 export function isTableCaption(text: string): boolean {
@@ -437,8 +466,11 @@ function isFootnoteLine(
   if (!t) return false;
   if (line.fontSize > baseFont * 0.9 && line.fontSize > 9.2) return false;
   if (line.y < pageHeight * 0.7) return false;
-  if (!/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+\S/.test(t)) return false;
-  const afterMark = t.replace(/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s+/, "");
+  // Native PDF text occasionally joins the superscript marker to the first
+  // word (`1Please …`). Geometry and small type still identify it as a
+  // footnote; requiring extracted whitespace would leak it into body prose.
+  if (!/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s*\S/.test(t)) return false;
+  const afterMark = t.replace(/^(?:\*|†|‡|§|\d{1,2}|\[\d+\])\s*/, "");
   if (looksLikeSectionNumberedHeading(t) || looksLikeSectionNumberedHeading(afterMark)) {
     return false;
   }
@@ -528,6 +560,22 @@ function styleStartsSubheading(
   const boldTransition = lineUsesBoldFace(next) && !lineUsesBoldFace(previous);
   const fontTransition = next.fontSize >= previous.fontSize + Math.max(0.35, baseFont * 0.04);
   return (titleCase || uppercase) && (boldTransition || fontTransition);
+}
+
+function isRepeatedHeadingLead(heading: LayoutLine, body: LayoutLine): boolean {
+  const title = layoutPlain(heading.text);
+  const next = layoutPlain(body.text);
+  if (!title || !next || title.length > 90 || /[.!?。．]$/.test(title)) return false;
+  const words = title.split(/\s+/);
+  if (words.length < 2 || words.length > 10) return false;
+  // This handles body-size subsection labels where typography alone cannot
+  // distinguish a heading. Requiring title-shaped text plus an immediate
+  // lexical reintroduction in the following prose is much more precise than
+  // treating every short title-case line as a heading.
+  if (!/^[A-Z][A-Za-z]*(?:[\s:–—-]+(?:[A-Z][A-Za-z]*|[a-z]{2,}|[IVX]+))*$/.test(title)) return false;
+  const normalizedTitle = title.toLowerCase().replace(/[–—]/g, "-");
+  const normalizedNext = next.toLowerCase().replace(/[–—]/g, "-");
+  return new RegExp(`^(?:for\\s+(?:the\\s+)?)?${normalizedTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(normalizedNext);
 }
 
 function captionShouldContinue(currentText: string, next: LayoutLine, baseFont: number): boolean {
@@ -1071,6 +1119,26 @@ function groupLinesIntoBlocks(
       continue;
     }
 
+    if (
+      currentRole === "paragraph" &&
+      current.length === 1 &&
+      forcedRole === "paragraph" &&
+      isRepeatedHeadingLead(current[0], line)
+    ) {
+      blocks.push({
+        role: "heading",
+        text: joinLines(current),
+        lines: current,
+        pageStart: current[0].page,
+        pageEnd: current[0].page,
+        column: current[0].column,
+        bbox: blockBbox(current),
+      });
+      current = [line];
+      currentRole = "paragraph";
+      continue;
+    }
+
     const sameRole = forcedRole === currentRole;
     const authorKindOk =
       currentRole !== "author" ||
@@ -1111,9 +1179,12 @@ function groupLinesIntoBlocks(
 
     const footnoteContinue =
       currentRole === "footnote" &&
-      forcedRole === "footnote" &&
       line.page === current[0].page &&
-      line.y - current[current.length - 1].y < baseFont * 2.2;
+      line.column === current[0].column &&
+      line.y - current[current.length - 1].y < baseFont * 2.2 &&
+      // Only the first native-text line commonly retains the footnote marker;
+      // subsequent small-type lines are ordinary prose fragments.
+      (forcedRole === "footnote" || line.fontSize <= baseFont * 0.9);
 
     const headingContinue =
       currentRole === "heading" &&
@@ -1147,7 +1218,44 @@ function isSentenceContinuation(left: string, right: string): boolean {
   return /^[a-z(]/.test(b);
 }
 
+function normalizedRunningText(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+/**
+ * Headers are normally classified before blocks are formed, but a title that
+ * appears only on the title page and once as a running header has too little
+ * repetition for that earlier page-level detector.  Treat a repeated, short
+ * title-case block as transparent while looking for a paragraph continuation.
+ * This is deliberately narrower than treating every short paragraph as chrome.
+ */
+function isRepeatedRunningHeader(block: LayoutBlock, repeatedTexts: Set<string>): boolean {
+  const text = block.text.trim();
+  if (block.role !== "paragraph" || block.lines.length > 2 || text.length < 8 || text.length > 140) {
+    return false;
+  }
+  if (/[.!?;:]$/.test(text) || /\d{3,}/.test(text)) return false;
+  if (!repeatedTexts.has(normalizedRunningText(text))) return false;
+
+  const words = text.match(/[A-Za-z][A-Za-z'’-]*/g) ?? [];
+  return words.length >= 2 && words.every((word) => /^[A-Z]/.test(word) || /^(?:for|and|of|the|in|on|to|with)$/i.test(word));
+}
+
+function isUnclassifiedFootnote(block: LayoutBlock): boolean {
+  if (block.role !== "paragraph" || !/^\d+\s*\S/.test(block.text)) return false;
+  const largestFont = Math.max(...block.lines.map((line) => line.fontSize));
+  // Native extractors occasionally leave small numbered footnotes as
+  // paragraphs.  Restrict this to text materially smaller than body copy.
+  return largestFont > 0 && largestFont <= 7.5;
+}
+
 function mergeColumnContinuations(blocks: LayoutBlock[]): LayoutBlock[] {
+  const textCounts = new Map<string, number>();
+  for (const block of blocks) {
+    const text = normalizedRunningText(block.text);
+    if (text) textCounts.set(text, (textCounts.get(text) ?? 0) + 1);
+  }
+  const repeatedTexts = new Set([...textCounts].filter(([, count]) => count >= 2).map(([text]) => text));
   const result: LayoutBlock[] = [];
   for (const block of blocks) {
     let targetIdx = result.length - 1;
@@ -1155,7 +1263,15 @@ function mergeColumnContinuations(blocks: LayoutBlock[]): LayoutBlock[] {
       targetIdx >= 0 &&
       (result[targetIdx].role === "copyright" ||
         result[targetIdx].role === "header" ||
-        result[targetIdx].role === "footer")
+        result[targetIdx].role === "footer" ||
+        result[targetIdx].role === "footnote" ||
+        isUnclassifiedFootnote(result[targetIdx]) ||
+        isRepeatedRunningHeader(result[targetIdx], repeatedTexts) ||
+        // A figure/table caption can be physically placed between two lines
+        // of one paragraph. It must remain its own canonical block, but must
+        // not hide an unambiguously incomplete paragraph from its continuation.
+        result[targetIdx].role === "figure_caption" ||
+        result[targetIdx].role === "table_caption")
     ) {
       targetIdx--;
     }
@@ -1163,16 +1279,29 @@ function mergeColumnContinuations(blocks: LayoutBlock[]): LayoutBlock[] {
     const crossesPageBoundary =
       target &&
       target.pageEnd + 1 === block.pageStart &&
-      target.column === block.column &&
+      (target.column === block.column ||
+        // Reading order wraps from the right column of one page to the left
+        // column of the next page in ordinary two-column proceedings.
+        (target.column === "right" && block.column === "left") ||
+        // A full-width paragraph can continue in the first body column of
+        // the next page.  The next paragraph may begin below a page-top
+        // figure, so its y position alone is not a reliable boundary here.
+        (target.column === "single" && block.column === "left")) &&
       (target.lines[target.lines.length - 1]?.y ?? 0) >
         (target.lines[target.lines.length - 1]?.pageHeight ?? Number.MAX_SAFE_INTEGER) * 0.68 &&
-      (block.lines[0]?.y ?? Number.MAX_SAFE_INTEGER) <
-        (block.lines[0]?.pageHeight ?? 0) * 0.32;
+      ((target.column === "single" && block.column === "left") ||
+        (block.lines[0]?.y ?? Number.MAX_SAFE_INTEGER) <
+          (block.lines[0]?.pageHeight ?? 0) * 0.32);
     if (
       target &&
       target.role === "paragraph" &&
       block.role === "paragraph" &&
       ((target.column === "left" && block.column === "right" && target.pageEnd === block.pageStart) ||
+        // A full-width paragraph can continue below an intervening figure in
+        // the first physical column of the same page. The continuation test
+        // below still requires an unfinished source sentence and a lower-case
+        // next fragment, so this does not join independent body paragraphs.
+        (target.column === "single" && (block.column === "left" || block.column === "right") && target.pageEnd === block.pageStart) ||
         crossesPageBoundary) &&
       isSentenceContinuation(target.text, block.text)
     ) {

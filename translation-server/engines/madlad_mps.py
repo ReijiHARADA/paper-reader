@@ -14,7 +14,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from .base import TranslationEngine, TranslationResult, EngineStatus
 from .citation_protect import protect_citations, restore_citations
-from .segmenter import SEGMENTER_VERSION, split_for_translation
+from .segmenter import SEGMENTER_VERSION, segment_for_translation, split_for_translation
 
 
 class MADLADEngine(TranslationEngine):
@@ -27,6 +27,10 @@ class MADLADEngine(TranslationEngine):
 
     MODEL_ID = "google/madlad400-3b-mt"
     MODEL_VERSION = f"3b-mt-v5-{SEGMENTER_VERSION}"
+    # Greedy MADLAD can loop on a Japanese phrase for English parallel lists
+    # (for example, repeated "how to …" clauses). Four tokens still permits
+    # ordinary lexical reuse while stopping the observed decoder loop.
+    NO_REPEAT_NGRAM_SIZE = 4
 
     def __init__(self, device: Optional[str] = None, dtype: Optional[torch.dtype] = None):
         """
@@ -272,14 +276,16 @@ class MADLADEngine(TranslationEngine):
                     heading_num = heading.group("num")
                     translate_body = heading.group("rest")
 
-                chunks = self._split_for_translation(translate_body)
+                units = segment_for_translation(translate_body)
+                chunks = [unit.text for unit in units]
+                model_inputs = [unit.model_input for unit in units]
                 if os.getenv("TRANSLATION_UNIT_DEBUG") == "1":
                     print("[TRANSLATION_UNIT]", flush=True)
                     print(f"SOURCE: {translate_body}", flush=True)
-                    for index, chunk in enumerate(chunks):
-                        protected, _, _ = protect_citations(chunk)
+                    for index, (chunk, model_input) in enumerate(zip(chunks, model_inputs)):
+                        protected, _, _ = protect_citations(model_input)
                         print(
-                            f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} protected={protected!r}",
+                            f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} model_input={model_input!r} protected={protected!r}",
                             flush=True,
                         )
                 print(
@@ -289,13 +295,13 @@ class MADLADEngine(TranslationEngine):
                 )
 
                 pieces, in_toks, out_toks = self._translate_chunks(
-                    chunks, target_language
+                    chunks, target_language, model_inputs
                 )
                 input_tokens = sum(in_toks)
                 output_tokens = sum(out_toks)
 
                 translated_text = self._join_translated_chunks(
-                    chunks, pieces, target_language
+                    chunks, pieces, target_language, model_inputs
                 )
                 if heading_num:
                     translated_text = f"{heading_num}. {translated_text.lstrip()}"
@@ -395,7 +401,10 @@ class MADLADEngine(TranslationEngine):
 
     @staticmethod
     def _join_translated_chunks(
-        chunks: list[str], pieces: list[str], target_language: str
+        chunks: list[str],
+        pieces: list[str],
+        target_language: str,
+        model_inputs: list[str] | None = None,
     ) -> str:
         if target_language != "ja":
             return " ".join(pieces).strip()
@@ -403,7 +412,16 @@ class MADLADEngine(TranslationEngine):
         out: list[str] = []
         for i, (chunk, piece) in enumerate(zip(chunks, pieces)):
             piece = piece.strip()
-            source_end = chunk.rstrip()[-1:] if chunk.rstrip() else ""
+            # A source slice may end in a comma while its independently
+            # translatable model input deliberately ends in a full stop (for
+            # example before a long `in which participants …` clause). Use
+            # that completed boundary when rejoining Japanese pieces.
+            boundary_source = (
+                model_inputs[i]
+                if model_inputs is not None and i < len(model_inputs)
+                else chunk
+            )
+            source_end = boundary_source.rstrip()[-1:] if boundary_source.rstrip() else ""
             ja_end = piece[-1:] if piece else ""
             if (
                 source_end in ".!?"
@@ -421,6 +439,9 @@ class MADLADEngine(TranslationEngine):
             if is_list_item:
                 # The model may omit the bullet token. It is source structure,
                 # so restore it deterministically instead of relying on decode.
+                # Conversely, when MADLAD preserves or substitutes a marker,
+                # drop it before restoring the one canonical marker.
+                piece = re.sub(r"^(?:[•‣▪∙・-]\s*)+", "", piece)
                 if out:
                     out.append("\n")
                 out.append("• ")
@@ -439,14 +460,17 @@ class MADLADEngine(TranslationEngine):
         return MADLADEngine._to_halfwidth_ascii(joined)
 
     def _translate_chunks(
-        self, chunks: list[str], target_language: str
+        self, chunks: list[str], target_language: str, model_inputs: list[str] | None = None
     ) -> tuple[list[str], list[int], list[int]]:
+        model_inputs = model_inputs or chunks
+        if len(model_inputs) != len(chunks):
+            raise ValueError("model inputs must align with source chunks")
         if self._batch_size <= 1 or len(chunks) <= 1:
             pieces: list[str] = []
             in_toks: list[int] = []
             out_toks: list[int] = []
-            for chunk in chunks:
-                piece, in_tok, out_tok = self._translate_chunk(chunk, target_language)
+            for chunk, model_input in zip(chunks, model_inputs):
+                piece, in_tok, out_tok = self._translate_chunk(chunk, target_language, model_input)
                 pieces.append(piece)
                 in_toks.append(in_tok)
                 out_toks.append(out_tok)
@@ -457,9 +481,10 @@ class MADLADEngine(TranslationEngine):
         out_toks = []
         for start in range(0, len(chunks), self._batch_size):
             group = chunks[start : start + self._batch_size]
+            group_inputs = model_inputs[start : start + self._batch_size]
             try:
                 group_pieces, group_in, group_out = self._translate_chunk_batch(
-                    group, target_language
+                    group, target_language, group_inputs
                 )
             except Exception as exc:
                 print(
@@ -470,9 +495,9 @@ class MADLADEngine(TranslationEngine):
                 group_pieces = []
                 group_in = []
                 group_out = []
-                for chunk in group:
+                for chunk, model_input in zip(group, group_inputs):
                     piece, one_in, one_out = self._translate_chunk(
-                        chunk, target_language
+                        chunk, target_language, model_input
                     )
                     group_pieces.append(piece)
                     group_in.append(one_in)
@@ -483,14 +508,18 @@ class MADLADEngine(TranslationEngine):
         return pieces, in_toks, out_toks
 
     def _translate_chunk_batch(
-        self, chunks: list[str], target_language: str
+        self, chunks: list[str], target_language: str, model_inputs: list[str] | None = None
     ) -> tuple[list[str], list[int], list[int]]:
+        model_inputs = model_inputs or chunks
         protected_chunks: list[str] = []
         cite_maps: list[tuple[list[str], int]] = []
-        for chunk in chunks:
-            protected, cites, nonce = protect_citations(chunk)
+        enumeration_prefixes: list[str] = []
+        for model_input in model_inputs:
+            prefix, translate_body = self._detach_enumeration_prefix(model_input)
+            protected, cites, nonce = protect_citations(translate_body)
             protected_chunks.append(protected)
             cite_maps.append((cites, nonce))
+            enumeration_prefixes.append(prefix)
 
         lang_token = f"<2{target_language}>"
         if self._tokenizer.convert_tokens_to_ids(lang_token) == self._tokenizer.unk_token_id:
@@ -522,6 +551,7 @@ class MADLADEngine(TranslationEngine):
                 decoder_start_token_id=decoder_start,
                 pad_token_id=pad_id,
                 eos_token_id=self._tokenizer.eos_token_id,
+                no_repeat_ngram_size=self.NO_REPEAT_NGRAM_SIZE,
             )
 
         pieces: list[str] = []
@@ -531,6 +561,8 @@ class MADLADEngine(TranslationEngine):
             piece = self._tokenizer.decode(seq, skip_special_tokens=True).strip()
             cites, nonce = cite_maps[i]
             piece = restore_citations(piece, cites, nonce)
+            if enumeration_prefixes[i]:
+                piece = f"{enumeration_prefixes[i]} {piece}".strip()
             if self._is_degenerate(piece, chunk, target_language):
                 print(f"[TRANSLATE] Rejected batch chunk: {piece[:120]!r}", flush=True)
                 raise ValueError("degenerate translation output")
@@ -546,9 +578,10 @@ class MADLADEngine(TranslationEngine):
         return pieces, in_toks, out_toks
 
     def _translate_chunk(
-        self, text: str, target_language: str
+        self, text: str, target_language: str, model_input: str | None = None
     ) -> tuple[str, int, int]:
-        protected, cites, nonce = protect_citations(text)
+        enumeration_prefix, translate_body = self._detach_enumeration_prefix(model_input or text)
+        protected, cites, nonce = protect_citations(translate_body)
         inputs = self._encode_translation_inputs(protected, target_language)
         input_tokens = inputs["input_ids"].shape[1]
         max_new_tokens = min(max(input_tokens * 3 + 24, 48), 256)
@@ -564,6 +597,7 @@ class MADLADEngine(TranslationEngine):
                 decoder_start_token_id=decoder_start,
                 pad_token_id=self._tokenizer.pad_token_id,
                 eos_token_id=self._tokenizer.eos_token_id,
+                no_repeat_ngram_size=self.NO_REPEAT_NGRAM_SIZE,
             )
 
         translated_text = self._tokenizer.decode(
@@ -571,11 +605,27 @@ class MADLADEngine(TranslationEngine):
             skip_special_tokens=True,
         ).strip()
         translated_text = restore_citations(translated_text, cites, nonce)
+        if enumeration_prefix:
+            translated_text = f"{enumeration_prefix} {translated_text}".strip()
         if self._is_degenerate(translated_text, text, target_language):
             print(f"[TRANSLATE] Rejected chunk: {translated_text[:120]!r}", flush=True)
             raise ValueError("degenerate translation output")
         print(f"[TRANSLATE] chunk {input_tokens}->{outputs.shape[1]}: {translated_text[:120]!r}", flush=True)
         return translated_text, input_tokens, int(outputs.shape[1])
+
+    @staticmethod
+    def _detach_enumeration_prefix(text: str) -> tuple[str, str]:
+        """Keep a leading inline-list ordinal out of greedy decoding.
+
+        The segmenter splits a flattened `(1) …; (2) …` list into units.  If
+        MADLAD sees the ordinal, it can autoregressively invent `(4)` through
+        `(13)`.  The ordinal is source structure, so send only its prose body
+        and restore the exact prefix after decoding.
+        """
+        match = re.match(r"^(\(\d{1,2}\))\s+(.+)$", text.strip())
+        if not match:
+            return "", text
+        return match.group(1), match.group(2)
 
     def _repair_madlad_embeddings(self) -> None:
         """Point encoder input embeddings at decoder.embed_tokens, not lm_head."""
@@ -640,7 +690,36 @@ class MADLADEngine(TranslationEngine):
                 r"\d{4}-\d{2}-\d{2}", source
             ):
                 return True
+            if MADLADEngine._is_implausibly_short_unit(output, source):
+                return True
         return False
+
+    @staticmethod
+    def _is_implausibly_short_unit(output: str, source: str) -> bool:
+        """Reject a sentence-sized decode that cannot represent its source.
+
+        Paragraph-level length checks hide an omitted unit when surrounding
+        sentences translate normally.  This only applies to a substantial
+        natural-language unit: equations, captions, identifiers, and short
+        labels remain outside the rule.  It intentionally chooses original
+        source over a fluent Japanese summary when a decoder drops most of a
+        complete research claim.
+        """
+        source_compact = "".join(source.split())
+        output_compact = "".join(output.split())
+        words = re.findall(r"[A-Za-z]{2,}", source)
+        # A complete research sentence with at least 18 English words should
+        # not collapse to a one-clause Japanese summary. The audited rLPFC
+        # result sentence was 114 compact characters and lost its entire
+        # ``even ...`` qualification at a 0.263 ratio; a later real-paper
+        # result sentence omitted its final contrast at 0.275. Checking at
+        # unit scope with this narrow 0.28 boundary preserves both cases
+        # lets the scheduler preserve the original instead of accepting that
+        # fluent omission. The threshold is intentionally limited to prose
+        # with both a meaningful word count and a non-trivial source length.
+        if len(source_compact) < 110 or len(words) < 18:
+            return False
+        return len(output_compact) / len(source_compact) < 0.28
 
     @staticmethod
     def _latin_ratio_beyond_source(output: str, source: str) -> float:

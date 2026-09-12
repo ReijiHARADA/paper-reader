@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { computeFileHash } from "./pdfService";
 import { classifyPdfOpenError } from "./pdfOpenError";
 import { extractAcademicPdf } from "./pdfExtraction/pipeline/extractAcademicPdf";
-import { applyGlossary } from "./llm/glossaryService";
+import { applyGlossary, normalizeSourceGroundedTerminology } from "./llm/glossaryService";
 import { assignBlockTranslation, reapplyGlossary } from "./glossary/apply";
 import {
   savePaper,
@@ -306,7 +306,10 @@ export async function importPDFV2(
         return;
       }
 
-      const translated = applyGlossary(task.result.text, glossaryEntries);
+      const translated = normalizeSourceGroundedTerminology(
+        task.text,
+        applyGlossary(task.result.text, glossaryEntries)
+      );
       const figureCaption = localizeNamedFigureCaption(task.text);
       const acceptedTranslation = isPlausibleJaTranslation(translated, task.text)
         ? translated
@@ -478,7 +481,13 @@ export async function importPDFV2(
         : null;
 
       if (cachedBlock) {
-        assignBlockTranslation(block, applyGlossary(cachedBlock, glossaryEntries));
+        assignBlockTranslation(
+          block,
+          normalizeSourceGroundedTerminology(
+            block.original,
+            applyGlossary(cachedBlock, glossaryEntries)
+          )
+        );
         await updateBlock(block);
         callbacks.onBlockTranslated?.(block);
         translatedCount++;

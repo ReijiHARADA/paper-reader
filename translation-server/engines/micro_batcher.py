@@ -15,6 +15,7 @@ from typing import Optional
 
 from .base import TranslationResult
 from .citation_protect import protect_citations
+from .segmenter import segment_for_translation
 from .madlad_mps import MADLADEngine, get_engine
 
 
@@ -220,9 +221,13 @@ class MicroBatchScheduler:
                     try:
                         group_results.append(self._translate_language_group([item])[0])
                     except Exception as item_error:
-                        group_results.append(None)
+                        # A single degenerate decode must not turn an entire
+                        # import batch into HTTP 500. Returning the source lets
+                        # the existing client quality gate preserve original
+                        # text for this item while other items still finish.
+                        group_results.append(self._original_result(item))
                         if not item.future.done():
-                            item.future.set_exception(item_error)
+                            item.future.set_result(group_results[-1])
             for item, result in zip(group, group_results):
                 by_id[id(item)] = result
         return [by_id[id(item)] for item in items]
@@ -236,49 +241,77 @@ class MicroBatchScheduler:
         engine = self._engine
         target_language = items[0].target_language
 
-        chunk_texts: list[str] = []
-        spans: list[tuple[_Pending, list[str]]] = []
+        spans: list[tuple[_Pending, list[str], list[str]]] = []
         for item in items:
+            units = segment_for_translation(item.translate_body)
+            semantic_chunks = [unit.text for unit in units]
+            # Retain the established engine splitter seam. Production receives
+            # the semantic source slices; a caller that deliberately replaces
+            # the splitter (benchmarks/tests) gets exactly its replacement and
+            # cannot accidentally inherit model-input rewrites.
             chunks = MADLADEngine._split_for_translation(item.translate_body)
+            item_model_inputs = (
+                [unit.model_input for unit in units]
+                if chunks == semantic_chunks
+                else chunks
+            )
             if self._unit_debug:
                 print("[TRANSLATION_UNIT]", flush=True)
                 print(f"SOURCE: {item.translate_body}", flush=True)
-                for index, chunk in enumerate(chunks):
-                    protected, _, _ = protect_citations(chunk)
+                for index, (chunk, model_input) in enumerate(zip(chunks, item_model_inputs)):
+                    protected, _, _ = protect_citations(model_input)
                     print(
-                        f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} protected={protected!r}",
+                        f"CHUNK[{index}] chars={len(chunk)} source={chunk!r} model_input={model_input!r} protected={protected!r}",
                         flush=True,
-                    )
-            spans.append((item, chunks))
-            chunk_texts.extend(chunks)
+            )
+            spans.append((item, chunks, item_model_inputs))
 
         with engine._lock:
-            pieces, in_toks, out_toks = engine._translate_chunks(
-                chunk_texts, target_language
-            )
+            translated_spans: list[tuple[_Pending, list[str], list[str], list[str], list[int], list[int]]] = []
+            for item, chunks, item_model_inputs in spans:
+                # Greedy MADLAD output is padding-sensitive. This also occurs
+                # between unequal sentence units in one paragraph, so preserve
+                # fidelity by generating every semantic unit independently.
+                # The scheduler still serializes MPS access; only decoder
+                # co-batching is disabled.
+                pieces: list[str] = []
+                in_toks: list[int] = []
+                out_toks: list[int] = []
+                for chunk, model_input in zip(chunks, item_model_inputs):
+                    if model_input == chunk:
+                        unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language)
+                    else:
+                        unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language, [model_input])
+                    pieces.extend(unit_pieces)
+                    in_toks.extend(unit_in)
+                    out_toks.extend(unit_out)
+                translated_spans.append(
+                    (item, chunks, item_model_inputs, pieces, in_toks, out_toks)
+                )
 
-        occupied = len(chunk_texts)
+        occupied = sum(len(chunks) for _, chunks, _ in spans)
         if self._debug:
             print(
                 f"[MICROBATCH] pair={items[0].source_language}->{target_language} "
                 f"requests={len(items)} chunks={occupied} "
                 f"batch_size={engine._batch_size} window_ms={self._window_ms} "
-                f"generate_groups={(occupied + engine._batch_size - 1) // max(engine._batch_size, 1)}",
+                f"request_isolated_generate_groups={sum((len(chunks) + engine._batch_size - 1) // max(engine._batch_size, 1) for _, chunks, _ in spans)}",
                 flush=True,
             )
 
         results: list[TranslationResult | None] = []
-        cursor = 0
-        for item, chunks in spans:
-            n = len(chunks)
-            part = pieces[cursor : cursor + n]
-            item_in = sum(in_toks[cursor : cursor + n])
-            item_out = sum(out_toks[cursor : cursor + n])
-            cursor += n
+        for item, chunks, item_model_inputs, part, in_toks, out_toks in translated_spans:
+            item_in = sum(in_toks)
+            item_out = sum(out_toks)
             try:
-                translated = MADLADEngine._join_translated_chunks(
-                    chunks, part, item.target_language
-                )
+                if item_model_inputs == chunks:
+                    translated = MADLADEngine._join_translated_chunks(
+                        chunks, part, item.target_language
+                    )
+                else:
+                    translated = MADLADEngine._join_translated_chunks(
+                        chunks, part, item.target_language, item_model_inputs
+                    )
                 if item.heading_num:
                     translated = f"{item.heading_num}. {translated.lstrip()}"
                 if engine._is_degenerate(translated, item.text, item.target_language):
@@ -300,10 +333,28 @@ class MicroBatchScheduler:
                 if not item.future.done():
                     item.future.set_result(result)
             except Exception as exc:
-                results.append(None)
+                # Quality failure is an expected safe fallback condition, not
+                # a transport/server failure. The caller will reject the
+                # source echo as a translation and retain the original.
+                fallback = self._original_result(item)
+                results.append(fallback)
                 if not item.future.done():
-                    item.future.set_exception(exc)
+                    item.future.set_result(fallback)
         return results
+
+    def _original_result(self, item: _Pending) -> TranslationResult:
+        return TranslationResult(
+            text=item.text,
+            source_language=item.source_language,
+            target_language=item.target_language,
+            model=self._engine.MODEL_ID,
+            model_version=self._engine.MODEL_VERSION,
+            input_chars=len(item.text),
+            output_chars=len(item.text),
+            input_tokens=0,
+            output_tokens=0,
+            translation_time_ms=0.0,
+        )
 
 
 _scheduler: Optional[MicroBatchScheduler] = None

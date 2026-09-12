@@ -19,7 +19,9 @@ import {
   pickPaperTitle,
   pickPublication,
   isReferencesHeading,
+  isExpectedNonProseParagraph,
   shouldTranslateParagraph,
+  unsafeParagraphStructureReason,
 } from "../../translation/quality";
 import { scoreLayoutBlock } from "../../extractionConfidence";
 import type { CanonicalDocument, CanonicalNode } from "../canonical/types";
@@ -414,6 +416,10 @@ export function projectCanonicalToPaper(input: {
     ) {
       const text = node.text ?? "";
       const isRef = node.role === "reference" || isReferenceText(text, currentKind);
+      const translationInputWarning =
+        isRef || isExpectedNonProseParagraph(text)
+          ? null
+          : unsafeParagraphStructureReason(text);
       pushBlock(node, layout, {
         sectionId: currentSectionId,
         type: isRef ? "reference" : "paragraph",
@@ -425,7 +431,13 @@ export function projectCanonicalToPaper(input: {
         translationStatus:
           isRef || !shouldTranslateParagraph(text) ? "skipped" : "pending",
         parentBlockId: null,
-        metadata: { column, role: node.role },
+        metadata: {
+          column,
+          role: node.role,
+          // Preserve the original and show this to the reader when a
+          // physical PDF fragment is unsafe to complete by translation.
+          translationInputWarning: translationInputWarning ?? undefined,
+        },
       });
     }
   }
@@ -463,4 +475,3 @@ export function projectCanonicalToPaper(input: {
 
   return { paper, sections, blocks: reconciled };
 }
-

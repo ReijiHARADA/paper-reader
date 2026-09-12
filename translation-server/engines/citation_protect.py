@@ -18,6 +18,40 @@ CITATION_RE = re.compile(
     r"\]"
 )
 
+# Native PDF extraction often concatenates a superscript bibliography marker
+# to the preceding quoted/word token: ``“cab problem”16 (Cab, see Appendix)``.
+# The following parenthesis is the high-precision context that distinguishes a
+# reference marker from ordinary identifiers such as X16 or a year.
+INLINE_FOOTNOTE_CITATION_RE = re.compile(
+    r"(?:(?<=[\"”’])|(?<=[A-Za-z]))\d{1,3}(?=\s*\()"
+)
+
+# Parenthetical author-year references are a single citation fact even when
+# they contain several authors separated by semicolons.  Keeping the entire
+# group atomic preserves years and names during decoding; the segmenter already
+# uses delimiter depth to ensure it never splits inside the same group.
+AUTHOR_YEAR_CITATION_RE = re.compile(
+    r"\("
+    r"(?=[^()]{0,360}\b(?:18|19|20)\d{2}[a-z]?\b)"
+    r"(?=[^()]{0,360}\b[A-Z][A-Za-z'’-]+)"
+    r"[^()]*"
+    r"\)"
+)
+
+# A parenthetical that contains a figure reference or an explicit statistical
+# result is a compact evidence statement, not ordinary explanatory prose.
+# Keeping the *whole* parenthetical atomic retains the test name, separator
+# punctuation, figure panel, and values as one relationship. This is generic
+# to result reporting and avoids rebuilding a sentence from individually
+# restored placeholders such as `tDCSFig. 7bU=307`.
+SCIENTIFIC_PARENTHETICAL_RE = re.compile(
+    r"\("
+    r"(?=[^()]{0,240}(?:\bfig(?:ure)?s?\.?\s*\d+[a-z]?\b|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d|(?-i:\b[UWHV]\s*=)|(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\())"
+    r"[^()]{1,240}"
+    r"\)",
+    re.IGNORECASE,
+)
+
 # Ordered from most structured to least structured.  These tokens carry facts
 # rather than prose; translating them is both unnecessary and a frequent
 # source of fluent-looking scientific errors.
@@ -25,10 +59,29 @@ SCIENTIFIC_TOKEN_RE = re.compile(
     r"(?:"
     r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+"  # DOI
     r"|https?://[^\s)>\]}]+"  # URL
-    r"|(?:[χΧxX²]|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?"  # test statistic
-    r"|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+"  # p-value
+    r"|\b(?:fig(?:ure)?s?\.?\s*\d+[a-z]?)"  # figure/panel reference
+    r"|(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?"  # test statistic
+    # Rank/non-parametric tests commonly report a bare uppercase statistic
+    # (`U=307`, `W=...`, `H=...`, `V=...`) with no degrees-of-freedom
+    # parentheses. Restrict this to uppercase symbols so ordinary variable
+    # prose is not over-protected.
+    r"|(?-i:\b[UWHV]\s*=\s*[-+]?\d+(?:\.\d+)?)"
+    r"|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+(?:\.\d+)?"  # p-value
     r"|\bn\s*=\s*\d+"  # sample size
     r"|\b\d+(?:\.\d+)?\s*(?:mm|cm|km|ms|Hz|kHz|MHz|GHz|kg|mg|%)\b"  # measurement
+    # Technical/model identifiers such as DeepIV. A terminal run of capitals
+    # is a strong identifier signal; protecting every mixed-case product name
+    # can move it to the end of a Japanese sentence during greedy decoding.
+    # Other mixed-case names are still checked by the post-decode invariant.
+    # The enclosing expression is IGNORECASE for units/statistics, so turn it
+    # off only for this pattern: an actual lower-to-upper transition is what
+    # distinguishes a technical identifier from ordinary English prose.
+    r"|(?-i:\b[A-Za-z]*[a-z][A-Z]{2,}[A-Za-z0-9]*\b)"
+    # Hyphenated Title-Case system/method names (Power-over-Skin, Machine-to-
+    # Wearable) are identifiers, not ordinary prose. Preserve them exactly so
+    # the model cannot silently replace the named contribution with a generic
+    # description.
+    r"|(?-i:\b[A-Z][a-z]+(?:-[a-z]+)*-[A-Z][a-z]+\b)"
     r")",
     re.IGNORECASE,
 )
@@ -53,7 +106,13 @@ def _placeholder_pattern(index: int, nonce: int) -> re.Pattern[str]:
 
 
 def _protected_matches(text: str) -> list[re.Match[str]]:
-    matches = list(CITATION_RE.finditer(text)) + list(SCIENTIFIC_TOKEN_RE.finditer(text))
+    matches = (
+        list(CITATION_RE.finditer(text))
+        + list(INLINE_FOOTNOTE_CITATION_RE.finditer(text))
+        + list(AUTHOR_YEAR_CITATION_RE.finditer(text))
+        + list(SCIENTIFIC_PARENTHETICAL_RE.finditer(text))
+        + list(SCIENTIFIC_TOKEN_RE.finditer(text))
+    )
     matches.sort(key=lambda match: (match.start(), -(match.end() - match.start())))
     non_overlapping: list[re.Match[str]] = []
     end = -1
@@ -126,6 +185,21 @@ def restore_citations(text: str, citations: list[str], nonce: int = 0) -> str:
     for i, citation in enumerate(citations):
         pattern = _placeholder_pattern(i, nonce)
         if pattern.search(out):
+            # Native-PDF superscript references are attached to the preceding
+            # term (for example ``“hospital problem”17``).  Greedy decoding
+            # sometimes emits their placeholder after a Japanese full stop.
+            # Keep this source fact attached to the translated term rather
+            # than producing the malformed ``。17。`` / ``。17また`` sequence.
+            if citation.isdigit():
+                match = pattern.search(out)
+                assert match is not None
+                before, after = out[:match.start()], out[match.end():]
+                terminal = re.search(r"([。！？])\s*$", before)
+                if terminal:
+                    punctuation = terminal.group(1)
+                    if after.startswith(punctuation):
+                        after = after[len(punctuation):]
+                    out = before[:terminal.start()] + match.group(0) + punctuation + after
             out = pattern.sub(citation, out, count=1)
         elif citation not in out:
             missing.append(citation)
@@ -135,6 +209,14 @@ def restore_citations(text: str, citations: list[str], nonce: int = 0) -> str:
         else re.compile(rf"{re.escape(_PLACEHOLDER_PREFIX)}\d+{re.escape(_PLACEHOLDER_SUFFIX)}", re.I)
     )
     out = leftover.sub("", out)
-    if missing:
-        out = out.rstrip() + "".join(missing)
+    for citation in missing:
+        # If MADLAD drops an inline numeric-reference placeholder entirely,
+        # restore it before the Japanese terminal mark.  Appending it after
+        # the sentence creates a detached citation and makes the following
+        # joined unit look like ``17また``.
+        terminal = re.search(r"([。！？])\s*$", out) if citation.isdigit() else None
+        if terminal:
+            out = out[:terminal.start()] + citation + terminal.group(1) + out[terminal.end():]
+        else:
+            out = out.rstrip() + citation
     return out

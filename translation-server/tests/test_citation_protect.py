@@ -5,7 +5,9 @@ import unittest
 from pathlib import Path
 
 from engines.citation_protect import (
+    AUTHOR_YEAR_CITATION_RE,
     CITATION_RE,
+    INLINE_FOOTNOTE_CITATION_RE,
     protect_citations,
     restore_citations,
 )
@@ -92,6 +94,70 @@ class CitationProtectTests(unittest.TestCase):
         self.assertEqual(restore_citations(protected, cites, nonce), case["text"])
         self.assertIn("ZZCIT1ZZ", protected)
         self.assertNotIn("[8]", protected)
+
+    def test_protects_ascii_chi_square_statistic(self) -> None:
+        source = "There was no difference (chi square test, χ2(3)=0.37, p=0.83)."
+        protected, citations, nonce = protect_citations(source)
+        self.assertIn("χ2(3)=0.37", citations)
+        self.assertIn("p=0.83", citations)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_bare_rank_statistic_and_figure_panel_reference(self) -> None:
+        source = "Selfishness changed (Fig. 7b, Mann–Whitney U test, U=307, p=0.03)."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["(Fig. 7b, Mann–Whitney U test, U=307, p=0.03)"])
+        self.assertNotIn("Mann–Whitney", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_plural_figure_references(self) -> None:
+        source = "Figures 3, 4, and 5 show the response curves."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["Figures 3"])
+        self.assertNotIn("Figures 3", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_terminal_caps_technical_identifiers(self) -> None:
+        source = "We compare DeepIV with a wearable product."
+        protected, citations, nonce = protect_citations(source)
+        self.assertNotIn("DeepIV", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_hyphenated_title_case_system_identifiers(self) -> None:
+        source = "We developed Power-over-Skin for distributed wearable devices."
+        protected, citations, nonce = protect_citations(source)
+        self.assertNotIn("Power-over-Skin", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_author_year_group_as_one_atomic_span(self) -> None:
+        source = "Prior work (Sigure & Koseki, 1998; Marquardt et al., 2011) motivates Deep IV."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["(Sigure & Koseki, 1998; Marquardt et al., 2011)"])
+        self.assertNotIn("2011", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_author_year_pattern_does_not_capture_non_citation_parentheses(self) -> None:
+        self.assertIsNone(AUTHOR_YEAR_CITATION_RE.search("The value (2017 measurements) was stable."))
+
+    def test_protects_inline_footnote_after_quoted_term(self) -> None:
+        source = "We introduced the “cab problem”16 (Cab, see SI Appendix)."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["16"])
+        self.assertIsNotNone(INLINE_FOOTNOTE_CITATION_RE.search(source))
+        self.assertNotIn("16", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_restores_inline_footnote_before_japanese_sentence_end(self) -> None:
+        source = "We introduced the “cab problem”16 (Cab, see SI Appendix)."
+        protected, citations, nonce = protect_citations(source)
+        placeholder = protected.split("problem”", 1)[1].split(" ", 1)[0]
+        restored = restore_citations(f"問題を提示した。{placeholder}。", citations, nonce)
+        self.assertEqual(restored, "問題を提示した16。")
+
+    def test_restores_dropped_inline_footnote_before_japanese_sentence_end(self) -> None:
+        source = "We introduced the “cab problem”16 (Cab, see SI Appendix)."
+        _, citations, nonce = protect_citations(source)
+        restored = restore_citations("問題を提示した。", citations, nonce)
+        self.assertEqual(restored, "問題を提示した16。")
 
 
 if __name__ == "__main__":

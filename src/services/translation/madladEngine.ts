@@ -7,7 +7,10 @@
 import { isPlausibleJaTranslation } from "./quality";
 import type { TranslationEngine, TranslationResult, EngineStatus } from "./types";
 
-export const MADLAD_MODEL_VERSION = "3b-mt-v5-semantic-v1";
+// Bump whenever the server-side protection or semantic-unit pipeline changes.
+// It is part of the cache identity, so stale translations produced before the
+// current source-preservation rules are never silently reused.
+export const MADLAD_MODEL_VERSION = "3b-mt-v5-semantic-v36";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8765";
 
@@ -105,20 +108,29 @@ export class MADLADEngine implements TranslationEngine {
 
     const data = await response.json();
 
-    return data.results.map((r: Record<string, unknown>) => ({
-      text: r.text as string,
-      sourceLanguage: r.source_language as string,
-      targetLanguage: r.target_language as string,
-      model: r.model as string,
-      modelVersion: r.model_version as string,
-      inputChars: r.input_chars as number,
-      outputChars: r.output_chars as number,
-      inputTokens: (r.input_tokens as number) ?? undefined,
-      outputTokens: (r.output_tokens as number) ?? undefined,
-      translationTimeMs: r.translation_time_ms as number,
-      charsPerSec: r.chars_per_sec as number,
-      tokensPerSec: (r.tokens_per_sec as number) ?? undefined,
-    }));
+    return data.results.map((r: Record<string, unknown>, index: number) => {
+      const translatedText = r.text as string;
+      // Keep single and batch APIs semantically identical.  The server may
+      // return its source as a safe per-unit fallback; it must never be
+      // treated as a completed Japanese translation by a future batch caller.
+      if (targetLanguage === "ja" && !isPlausibleJaTranslation(translatedText, texts[index] ?? "")) {
+        throw new Error("Translation output looked degenerate and was discarded");
+      }
+      return {
+        text: translatedText,
+        sourceLanguage: r.source_language as string,
+        targetLanguage: r.target_language as string,
+        model: r.model as string,
+        modelVersion: r.model_version as string,
+        inputChars: r.input_chars as number,
+        outputChars: r.output_chars as number,
+        inputTokens: (r.input_tokens as number) ?? undefined,
+        outputTokens: (r.output_tokens as number) ?? undefined,
+        translationTimeMs: r.translation_time_ms as number,
+        charsPerSec: r.chars_per_sec as number,
+        tokensPerSec: (r.tokens_per_sec as number) ?? undefined,
+      };
+    });
   }
 
   async getStatus(): Promise<EngineStatus> {

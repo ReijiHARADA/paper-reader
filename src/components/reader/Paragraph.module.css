@@ -198,6 +198,25 @@
   line-height: 1.7;
 }
 
+.sourceStructureWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  margin: 0 0 var(--spacing-xs);
+  color: #92400e;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.sourceStructureWarning svg {
+  flex: 0 0 auto;
+  margin-top: 0.12em;
+}
+
+[data-theme="dark"] .sourceStructureWarning {
+  color: #fbbf24;
+}
+
 /* Highlight */
 .highlight {
   background-color: #fff59d;

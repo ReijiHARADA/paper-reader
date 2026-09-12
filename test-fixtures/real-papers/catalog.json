@@ -417,7 +417,14 @@
       "filename": "hci-empirical-methods.pdf",
       "downloadUrl": "https://arxiv.org/pdf/2404.13319",
       "seedPaths": [],
-      "checks": {}
+      "checks": {
+        "requireSameParagraph": [
+          [
+            "the other inputs the",
+            "data. This procedure has proved successful"
+          ]
+        ]
+      }
     },
     {
       "id": "cognitive-psychology-gpt3",
@@ -577,6 +584,99 @@
         ],
         "referencesHeading": true
       }
+    },
+    {
+      "id": "education-learning-analytics",
+      "title": "Educational data mining and learning analytics: An updated survey",
+      "doi": null,
+      "publisher": "arXiv",
+      "venue": "arXiv",
+      "formatFamily": "arxiv",
+      "templateVersion": null,
+      "disciplines": [
+        "education",
+        "learning analytics",
+        "computer science"
+      ],
+      "kinds": [
+        "one-column",
+        "tables",
+        "figures",
+        "citations"
+      ],
+      "filename": "education-learning-analytics.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2402.07956",
+      "seedPaths": [],
+      "checks": {
+        "mostlySingleColumn": true,
+        "referencesHeading": true
+      },
+      "sourceStatus": "verified-oa",
+      "sourceStatusNote": "arXiv metadata verified against title and authors C. Romero and S. Ventura."
+    },
+    {
+      "id": "neuroscience-rule-following",
+      "title": "Manipulation of Pro-Sociality and Rule-Following with Non-invasive Brain Stimulation",
+      "doi": "10.1038/s41598-018-19997-5",
+      "publisher": "Nature Portfolio",
+      "venue": "Scientific Reports 8, 1827 (2018)",
+      "formatFamily": "nature",
+      "templateVersion": null,
+      "disciplines": [
+        "neuroscience",
+        "cognitive psychology",
+        "economics"
+      ],
+      "kinds": [
+        "two-column",
+        "statistical-prose",
+        "figures",
+        "tables",
+        "citations"
+      ],
+      "filename": "neuroscience-rule-following.pdf",
+      "downloadUrl": "https://www.nature.com/articles/s41598-018-19997-5.pdf",
+      "seedPaths": [],
+      "checks": {
+        "expectMultiColumnOnPages": [
+          1
+        ],
+        "referencesHeading": true
+      },
+      "sourceStatus": "verified-oa",
+      "sourceStatusNote": "Scientific Reports article is CC BY; title, DOI, year, and authors verified from Maastricht University record."
+    },
+    {
+      "id": "economics-regularized-deepiv",
+      "title": "Regularized DeepIV with Model Selection",
+      "doi": null,
+      "publisher": "PMLR / arXiv",
+      "venue": "Proceedings of Machine Learning Research 196 (2024)",
+      "formatFamily": "pmlr",
+      "templateVersion": null,
+      "disciplines": [
+        "economics",
+        "causal inference",
+        "machine learning"
+      ],
+      "kinds": [
+        "two-column",
+        "equations",
+        "tables",
+        "figures",
+        "citations"
+      ],
+      "filename": "economics-regularized-deepiv.pdf",
+      "downloadUrl": "https://arxiv.org/pdf/2403.04236",
+      "seedPaths": [],
+      "checks": {
+        "expectMultiColumnOnPages": [
+          1
+        ],
+        "referencesHeading": true
+      },
+      "sourceStatus": "verified-oa",
+      "sourceStatusNote": "PMLR/arXiv metadata verified against the PDF title page."
     }
   ]
 }

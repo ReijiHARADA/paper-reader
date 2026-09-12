@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyGlossary } from "../services/llm/glossaryService";
+import { applyGlossary, normalizeSourceGroundedTerminology } from "../services/llm/glossaryService";
 import {
   expandCitationKeys,
   indexReferenceBlocks,
@@ -25,6 +25,59 @@ describe("applyGlossary", () => {
     expect(applyGlossary("身体性（embodiment）が重要である。", glossary)).toContain(
       "身体性（embodiment）"
     );
+  });
+
+  it("repairs a documented terminology homophone only when its source term is present", () => {
+    expect(
+      normalizeSourceGroundedTerminology(
+        "Vignette-based investigations compare canonical scenarios.",
+        "ビニールに基づく調査では、標準的なシナリオを比較する。"
+      )
+    ).toContain("ヴィネットに基づく");
+    expect(
+      normalizeSourceGroundedTerminology(
+        "The material is vinyl.",
+        "ビニール材料を用いた。"
+      )
+    ).toContain("ビニール材料");
+  });
+
+  it("normalizes established cognitive-psychology fallacy terms from source evidence", () => {
+    const source = "The conjunction fallacy differs from the base-rate fallacy.";
+    expect(
+      normalizeSourceGroundedTerminology(source, "連想誤謬と基準値誤謬を比較した。")
+    ).toBe("連言錯誤とベースレート錯誤を比較した。");
+  });
+
+  it("repairs a source-confirmed multi-armed-bandit homophone", () => {
+    expect(
+      normalizeSourceGroundedTerminology(
+        "The model outperforms humans in a multi-armed bandit task.",
+        "モデルは多武装の強盗のタスクで人間を凌駕する。"
+      )
+    ).toContain("多腕バンディット課題");
+  });
+
+  it("does not turn vignette-based tasks into image-only tasks", () => {
+    expect(
+      normalizeSourceGroundedTerminology(
+        "Vignette-based tasks can lead a model astray.",
+        "ヴィネット画像のみを用いたタスクはモデルを迷わせる。"
+      )
+    ).toContain("ヴィネットに基づくタスク");
+  });
+
+  it("normalizes an academic related-work section label", () => {
+    expect(
+      normalizeSourceGroundedTerminology("Related Works. Transformers can encode CFGs.", "関連作品。トランスフォーマはCFGを符号化できる。")
+    ).toContain("関連研究");
+  });
+
+  it("normalizes source-confirmed cognitive-psychology terminology", () => {
+    const source = "The response was human-like and we constructed adversarial vignettes.";
+    expect(
+      normalizeSourceGroundedTerminology(source, "人間的に記述できる方法で答え、対立ヴィネットを構築した。")
+    ).toBe("人間らしいと表現できる方法で答え、敵対的ヴィネットを構築した。");
   });
 });
 

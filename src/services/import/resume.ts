@@ -8,7 +8,7 @@ import {
   updateBlock,
 } from "../database";
 import { assignBlockTranslation } from "../glossary/apply";
-import { applyGlossary } from "../llm/glossaryService";
+import { applyGlossary, normalizeSourceGroundedTerminology } from "../llm/glossaryService";
 import { finalizedTranslationStatus } from "../paperStatus";
 import {
   MADLADEngine,
@@ -121,7 +121,10 @@ export async function resumeIncompleteTranslation(
         markDone();
         return;
       }
-      const translated = applyGlossary(task.result.text, glossaryEntries);
+      const translated = normalizeSourceGroundedTerminology(
+        task.text,
+        applyGlossary(task.result.text, glossaryEntries)
+      );
       const figureCaption = localizeNamedFigureCaption(task.text);
       const acceptedTranslation = isPlausibleJaTranslation(translated, task.text)
         ? translated

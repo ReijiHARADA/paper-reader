@@ -130,7 +130,21 @@ function tableLike(block: LayoutBlock): boolean {
   const shortItems = cellLines.flatMap((line) => line.items).filter((item) => item.text.trim().length <= 24).length;
   const itemCount = cellLines.flatMap((line) => line.items).length;
   const numeric = cellLines.flatMap((line) => line.items).filter((item) => /\d/.test(item.text)).length;
-  return itemCount >= 4 && shortItems / itemCount >= 0.7 && (numeric >= 2 || cellLines.length >= 2);
+  const itemGrid = itemCount >= 4 && shortItems / itemCount >= 0.7 && (numeric >= 2 || cellLines.length >= 2);
+  // Some tables have a long prose description in their right-hand cells.  A
+  // short-cell ratio alone then mislabels them as paragraphs, even though the
+  // native geometry clearly shows repeated cells and an indented description
+  // column.  Require several multi-item rows and a stable second x-position;
+  // ordinary wrapped prose neither has that repeated cell structure nor a
+  // distinct cell-column indent.
+  const xPositions = lines.map((line) => line.bbox.x);
+  const left = Math.min(...xPositions);
+  const indentedRows = lines.filter((line) => line.bbox.x - left >= 36).length;
+  const proseGrid =
+    cellLines.length >= 4 &&
+    cellLines.length / lines.length >= 0.45 &&
+    indentedRows >= 2;
+  return itemGrid || proseGrid;
 }
 
 function equationScore(block: LayoutBlock, layout: PageColumnLayout | undefined): number {
@@ -203,7 +217,10 @@ export function generateGenericCandidates(pages: ExtractedPage[]): GenericExtrac
     }
     const equation = equationScore(block, layout);
     if (equation > 0.12) scoreByRole.equation = equation;
-    if (tableLike(block)) scoreByRole.table = 0.82;
+    // A true geometry grid is stronger evidence than paragraph text shape.
+    // The resolver still requires this high score before it can override the
+    // conservative paragraph fallback.
+    if (tableLike(block)) scoreByRole.table = 0.96;
     const reason =
       block.role === "title"
         ? "largest font in first-page masthead"

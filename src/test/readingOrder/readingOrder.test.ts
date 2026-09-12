@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reconstructDocument, type LayoutBlock, isEquationLine, isFigureCaption, isTableCaption } from "../../services/pdfLayout";
+import type { ExtractedPage } from "../../services/pdfService";
 import { FIXTURES } from "./builders";
 
 function tokensInOrder(haystack: string, tokens: string[]): void {
@@ -47,6 +48,8 @@ describe("Japanese figure and table captions", () => {
     );
     expect(isFigureCaption("図1：先行研究で利用された映像の一例")).toBe(true);
     expect(isFigureCaption("Figure 2. A workshop layout.")).toBe(true);
+    expect(isFigureCaption("Fig. 1, The general areas for wearable objects")).toBe(true);
+    expect(isFigureCaption("Figure 3, Even simple motions change body shape")).toBe(true);
     expect(isFigureCaption("図 3 の1行目に示す応答")).toBe(false);
     expect(isTableCaption("表 1: 被験者の内訳")).toBe(true);
     expect(isTableCaption("Table 1. Participant demographics")).toBe(true);
@@ -85,6 +88,88 @@ describe("isEquationLine", () => {
 });
 
 describe("PDF reading order regression", () => {
+  it("stitches an unambiguously continued paragraph across adjacent pages", () => {
+    const pages: ExtractedPage[] = [
+      { pageNumber: 5, width: 612, height: 792, textItems: [{ text: "PAGE_END Examination of the distribution of targets showed errors. One", x: 54, y: 704, width: 500, height: 10, fontSize: 10, fontName: "Helvetica", page: 5 }] },
+      { pageNumber: 6, width: 612, height: 792, textItems: [{ text: "exception to this is the low miss rate under the controlled condition.", x: 54, y: 86, width: 500, height: 10, fontSize: 10, fontName: "Helvetica", page: 6 }] },
+    ];
+    const { blocks } = reconstructDocument(pages);
+    const stitched = blocks.find((block) => block.text.includes("PAGE_END"));
+    expect(stitched?.text).toContain("One exception to this");
+    expect(stitched?.pageStart).toBe(5);
+    expect(stitched?.pageEnd).toBe(6);
+  });
+
+  it("does not join an independent capitalized paragraph on the next page", () => {
+    const pages: ExtractedPage[] = [
+      { pageNumber: 5, width: 612, height: 792, textItems: [{ text: "PAGE_END The prior paragraph ends without a terminal mark", x: 54, y: 704, width: 500, height: 10, fontSize: 10, fontName: "Helvetica", page: 5 }] },
+      { pageNumber: 6, width: 612, height: 792, textItems: [{ text: "Independent evidence begins a new paragraph with a capital letter.", x: 54, y: 86, width: 500, height: 10, fontSize: 10, fontName: "Helvetica", page: 6 }] },
+    ];
+    const { blocks } = reconstructDocument(pages);
+    expect(blocks.filter((block) => block.role === "paragraph")).toHaveLength(2);
+    expect(joined(blocks)).not.toContain("mark Independent evidence");
+  });
+
+  it("keeps an inline publisher-date annotation out of a body line", () => {
+    const page: ExtractedPage = {
+      pageNumber: 1,
+      width: 595,
+      height: 782,
+      textItems: [
+        { text: "MARGIN_BODY_A Recent research suggests that", x: 155, y: 273, width: 378, height: 9, fontSize: 9, fontName: "Body", page: 1 },
+        { text: "Published: xx xx xxxx", x: 9, y: 277, width: 76, height: 8.5, fontSize: 8.5, fontName: "Meta", page: 1 },
+        { text: "MARGIN_BODY_B the experiment evaluates the proposed method without metadata in the prose.", x: 155, y: 284, width: 382, height: 9, fontSize: 9, fontName: "Body", page: 1 },
+      ],
+    };
+    const { blocks } = reconstructDocument([page]);
+    const text = joined(blocks);
+    expect(text).not.toContain("Published: xx xx xxxx");
+    expect(text).toContain("MARGIN_BODY_A");
+    expect(text).toContain("MARGIN_BODY_B");
+  });
+
+  it("keeps an attached numbered small-type footnote out of body prose", () => {
+    const textItems = [
+      { text: "Body paragraph with enough ordinary content to establish body type and layout.", x: 54, y: 560, width: 480, height: 10, fontSize: 10, fontName: "Helvetica", page: 1 },
+      { text: "1Please contact the corresponding author for supplementary study material.", x: 54, y: 710, width: 480, height: 7, fontSize: 7, fontName: "Helvetica", page: 1 },
+      { text: "Further footnote details remain in the same small type.", x: 54, y: 719, width: 480, height: 7, fontSize: 7, fontName: "Helvetica", page: 1 },
+    ];
+    const { blocks } = reconstructDocument([{ pageNumber: 1, width: 612, height: 792, textItems }]);
+    const note = blocks.find((block) => block.text.startsWith("1Please contact"));
+    expect(note?.role).toBe("footnote");
+    expect(blocks.some((block) => block.role === "paragraph" && block.text.startsWith("1Please contact"))).toBe(false);
+  });
+
+  it("splits a body-style heading that is repeated at the start of its following prose", () => {
+    const textItems = [
+      "Vignette-based investigations",
+      "For the vignette-based investigations, we collected canonical scenarios and recorded the model response.",
+      "The following sentence continues the ordinary body paragraph with enough words for stable layout classification.",
+    ].map((text, index) => ({
+      text,
+      x: 54,
+      y: 120 + index * 12,
+      width: 500,
+      height: 11,
+      fontSize: 10,
+      fontName: "Helvetica",
+      page: 2,
+    }));
+    const pages: ExtractedPage[] = [{ pageNumber: 2, width: 612, height: 792, textItems }];
+    const { blocks } = reconstructDocument(pages);
+    expect(blocks.find((block) => block.text === "Vignette-based investigations")?.role).toBe("heading");
+    expect(blocks.some((block) => block.role === "paragraph" && block.text.startsWith("For the vignette-based investigations"))).toBe(true);
+  });
+
+  it("does not split ordinary prose which merely repeats a phrase later in the sentence", () => {
+    const textItems = [
+      "The Vignette-based investigations include several scenarios that are compared in the experiment.",
+      "For the vignette-based investigations, participants recorded a response after each scenario.",
+    ].map((text, index) => ({ text, x: 54, y: 120 + index * 12, width: 500, height: 11, fontSize: 10, fontName: "Helvetica", page: 1 }));
+    const { blocks } = reconstructDocument([{ pageNumber: 1, width: 612, height: 792, textItems }]);
+    expect(blocks.filter((block) => block.role === "heading")).toHaveLength(0);
+  });
+
   it("single-column keeps linear order", () => {
     const { blocks } = reconstructDocument(FIXTURES["single-column"]());
     const text = joined(bodyBlocks(blocks));

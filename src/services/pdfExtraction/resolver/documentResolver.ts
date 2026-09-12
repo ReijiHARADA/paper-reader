@@ -30,7 +30,10 @@ function resolvedRole(candidate: RoleCandidate): { role: CanonicalNode["role"]; 
   if (role === "equation" && score < Math.max(0.72, paragraph + 0.18)) {
     return { role: "paragraph", confidence: paragraph };
   }
-  if (role === "table" && score < Math.max(0.78, paragraph + 0.2)) {
+  // Table evidence may override paragraph only when native geometry produced
+  // a very high-confidence grid.  This lets multi-cell table rows avoid
+  // MADLAD while retaining the precision-first fallback for weak cues.
+  if (role === "table" && score < 0.94 && score < Math.max(0.78, paragraph + 0.2)) {
     return { role: "paragraph", confidence: paragraph };
   }
   if (role === "heading" && score < Math.max(0.68, paragraph + 0.08)) {

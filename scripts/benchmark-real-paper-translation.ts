@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractFromPages } from "../src/services/pdfExtraction/pipeline/extractAcademicPdf.ts";
 import { evaluateJaTranslation, extractScientificInvariants, isPlausibleJaTranslation, shouldTranslateParagraph } from "../src/services/translation/quality.ts";
+import { normalizeSourceGroundedTerminology } from "../src/services/llm/glossaryService.ts";
 import type { PaperBlock } from "../src/types/paper.ts";
 import { extractPdfPages } from "../src/test/readingOrder/extractPdf.ts";
 
@@ -40,6 +41,7 @@ type AuditRow = {
   pageEnd: number;
   source: string;
   translation?: string;
+  sourceFallback?: boolean;
   modelVersion?: string;
   inputTokens?: number | null;
   outputTokens?: number | null;
@@ -85,31 +87,42 @@ function sampleBlocks(blocks: PaperBlock[], max: number): PaperBlock[] {
   });
   if (eligible.length <= max) return eligible;
   const result: PaperBlock[] = [];
-  // First, deliberately include risky shapes researchers need to trust.
+  const add = (block: PaperBlock | undefined) => {
+    if (block && !result.includes(block)) result.push(block);
+  };
+  // Section-like lexical anchors make the sample cover ordinary prose as well
+  // as high-risk layouts even when a PDF lacks clean Canonical sections.
+  const strata: Array<RegExp> = [
+    /^(?:abstract|summary)\b/i, /\b(?:introduction|background)\b/i,
+    /\b(?:related work|literature review)\b/i, /\b(?:method|methodology|participants|procedure)\b/i,
+    /\b(?:result|analysis|significant|p\s*[<=>]|confidence interval)\b/i,
+    /\b(?:discussion|limitation|conclusion|future work)\b/i,
+  ];
+  for (const pattern of strata) add(eligible.find((block) => pattern.test(compact(block.original ?? ""))));
   for (const block of eligible) {
-    if (structuralWarnings(block).length > 0 && !result.includes(block)) result.push(block);
-    if (result.length >= Math.ceil(max / 2)) break;
+    if (structuralWarnings(block).length > 0) add(block);
+    if (result.length >= Math.ceil(max * 0.65)) break;
   }
-  // Then take positions across the entire paper instead of only the abstract.
   for (let index = 0; result.length < max; index += 1) {
-    const position = Math.min(
-      eligible.length - 1,
-      Math.floor((index * (eligible.length - 1)) / Math.max(max - 1, 1))
-    );
-    if (!result.includes(eligible[position])) result.push(eligible[position]);
+    add(eligible[Math.min(eligible.length - 1, Math.floor(index * (eligible.length - 1) / Math.max(max - 1, 1)))]);
   }
-  return result;
+  return result.slice(0, max);
 }
 
 async function translate(texts: string[]): Promise<ServerTranslation[]> {
-  const response = await fetch(`${endpoint}/translate/batch`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ texts, source_language: "en", target_language: "ja" }),
-  });
-  if (!response.ok) throw new Error(`translation server ${response.status}: ${await response.text()}`);
-  const body = (await response.json()) as { results: ServerTranslation[] };
-  return body.results;
+  // The application submits independent requests to the scheduler; it is the
+  // scheduler, rather than this benchmark, which coalesces safe microbatches.
+  // Calling /translate/batch here bypassed the client-equivalent source echo
+  // fallback path and made audit rows disagree with the actual reader.
+  return Promise.all(texts.map(async (text) => {
+    const response = await fetch(`${endpoint}/translate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text, source_language: "en", target_language: "ja" }),
+    });
+    if (!response.ok) throw new Error(`translation server ${response.status}: ${await response.text()}`);
+    return (await response.json()) as ServerTranslation;
+  }));
 }
 
 function extractQuietly(paper: CatalogPaper, pages: Awaited<ReturnType<typeof extractPdfPages>>) {
@@ -142,7 +155,8 @@ function markdownReport(report: {
   papers: Array<{ paper: CatalogPaper; rows: AuditRow[]; error?: string }>;
 }): string {
   const completed = report.papers.flatMap((entry) => entry.rows).filter((row) => row.translation);
-  const failed = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.translation);
+  const fallbacks = report.papers.flatMap((entry) => entry.rows).filter((row) => row.sourceFallback);
+  const failed = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.translation && !row.sourceFallback);
   const lowQuality = completed.filter((row) => (row.quality?.score ?? 1) < 0.8);
   const rejected = completed.filter((row) => row.wouldAcceptTranslation === false);
   const blockedBeforeModel = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.wouldSubmitToModel);
@@ -153,7 +167,7 @@ function markdownReport(report: {
     `- Generated: ${report.createdAt}`,
     `- Endpoint: ${report.endpoint}`,
     `- Papers evaluated: ${report.papers.filter((entry) => !entry.error).length}/${report.papers.length}`,
-    `- Translation units: ${completed.length}; failed requests: ${failed.length}`,
+    `- Model responses: ${completed.length}; original fallbacks: ${fallbacks.length}; failed requests: ${failed.length}`,
     `- Score below 0.80: ${lowQuality.length}; rejected by the production quality gate: ${rejected.length}`,
     `- Blocked by the production input policy before model submission: ${blockedBeforeModel.length}`,
     `- Units needing structural review: ${warnings.length}`,
@@ -181,7 +195,7 @@ function markdownReport(report: {
         "",
         "**Japanese**",
         "",
-        row.translation ?? "[translation request failed]",
+        row.translation ?? (row.sourceFallback ? "[original fallback]" : "[translation request failed]"),
         ""
       );
     }
@@ -190,58 +204,96 @@ function markdownReport(report: {
 }
 
 async function main() {
+  console.log(`[audit] start endpoint=${endpoint} paper=${onlyPaper ?? "all"} limit=${perPaperLimit}`);
   const health = await fetch(`${endpoint}/health`);
   if (!health.ok) throw new Error(`MADLAD health check failed at ${endpoint}`);
   const selected = catalog.papers.filter((paper) => !onlyPaper || paper.id === onlyPaper);
+  console.log(`[audit] selected=${selected.length}`);
   if (onlyPaper && selected.length === 0) throw new Error(`Unknown catalog paper: ${onlyPaper}`);
   const papers: Array<{ paper: CatalogPaper; rows: AuditRow[]; error?: string }> = [];
+  const reportDir = path.join(root, catalog.pdfDir, "reports");
+  const reportName = onlyPaper ? `translation-audit-${onlyPaper}` : "translation-audit";
+  const saveCheckpoint = () => {
+    const report = { createdAt: new Date().toISOString(), endpoint, papers, complete: papers.length === selected.length };
+    fs.mkdirSync(reportDir, { recursive: true });
+    const jsonPath = path.join(reportDir, `${reportName}.json`);
+    fs.writeFileSync(`${jsonPath}.tmp`, `${JSON.stringify(report, null, 2)}\n`);
+    fs.renameSync(`${jsonPath}.tmp`, jsonPath);
+    fs.writeFileSync(path.join(reportDir, `${reportName}.md`), markdownReport(report));
+  };
 
   for (const paper of selected) {
     const pdfPath = path.join(root, catalog.pdfDir, paper.filename);
     if (!fs.existsSync(pdfPath)) {
       papers.push({ paper, rows: [], error: `PDF not cached: ${pdfPath}` });
+      saveCheckpoint();
       continue;
     }
     try {
       const pages = await extractPdfPages(pdfPath);
       const extracted = extractQuietly(paper, pages);
       const sampled = sampleBlocks(extracted.blocks, perPaperLimit);
-      const translated = await translate(sampled.map((block) => compact(block.original ?? "")));
+      // Mirror the import path: unsafe physical fragments are retained as
+      // source before MADLAD is contacted. Translating every sampled block
+      // made the audit itself manufacture outputs that production can never
+      // show, and incorrectly attributed those fragment translations to the
+      // model quality gate.
+      const modelInputs = sampled
+        .map((block, index) => ({
+          index,
+          source: compact(block.original ?? ""),
+        }))
+        .filter(({ source }) => shouldTranslateParagraph(source));
+      const translated = await translate(modelInputs.map((entry) => entry.source));
+      const resultBySampleIndex = new Map(
+        modelInputs.map((entry, index) => [entry.index, translated[index]])
+      );
       const rows = sampled.map((block, index): AuditRow => {
         const source = compact(block.original ?? "");
-        const result = translated[index];
+        const wouldSubmitToModel = shouldTranslateParagraph(source);
+        const result = resultBySampleIndex.get(index);
+        // Match the production path's deterministic, source-grounded
+        // terminology pass. Per-paper LLM glossaries remain intentionally
+        // excluded here because this audit must be reproducible offline.
+        const sourceFallback = !wouldSubmitToModel || result?.text === source;
+        const normalizedTranslation = result && !sourceFallback
+          ? normalizeSourceGroundedTerminology(source, result.text)
+          : undefined;
         return {
           blockId: block.id,
           role: block.type,
           pageStart: block.pageStart,
           pageEnd: block.pageEnd,
           source,
-          translation: result?.text,
+          translation: normalizedTranslation,
+          sourceFallback,
           modelVersion: result?.model_version,
           inputTokens: result?.input_tokens,
           outputTokens: result?.output_tokens,
           translationTimeMs: result?.translation_time_ms,
           sourceInvariants: extractScientificInvariants(source).map((item) => item.value),
-          quality: result ? evaluateJaTranslation(result.text, source) : undefined,
+          quality: normalizedTranslation ? evaluateJaTranslation(normalizedTranslation, source) : undefined,
           structuralWarnings: structuralWarnings(block),
-          wouldSubmitToModel: shouldTranslateParagraph(source),
-          wouldAcceptTranslation: result ? isPlausibleJaTranslation(result.text, source) : undefined,
+          wouldSubmitToModel,
+          wouldAcceptTranslation: sourceFallback ? false : normalizedTranslation ? isPlausibleJaTranslation(normalizedTranslation, source) : undefined,
         };
       });
       papers.push({ paper, rows });
-      console.log(`${paper.id}: ${rows.length} translation units`);
+      saveCheckpoint();
+      console.log(`${paper.id}: ${rows.length} translation units (checkpoint saved)`);
     } catch (error) {
       papers.push({ paper, rows: [], error: error instanceof Error ? error.message : String(error) });
+      saveCheckpoint();
       console.error(`${paper.id}:`, error);
     }
   }
-  const report = { createdAt: new Date().toISOString(), endpoint, papers };
-  const reportDir = path.join(root, catalog.pdfDir, "reports");
-  fs.mkdirSync(reportDir, { recursive: true });
-  const reportName = onlyPaper ? `translation-audit-${onlyPaper}` : "translation-audit";
-  fs.writeFileSync(path.join(reportDir, `${reportName}.json`), `${JSON.stringify(report, null, 2)}\n`);
-  fs.writeFileSync(path.join(reportDir, `${reportName}.md`), markdownReport(report));
+  saveCheckpoint();
   console.log(`wrote ${path.join(reportDir, `${reportName}.{json,md}`)}`);
 }
 
-void main();
+try {
+  await main();
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+}

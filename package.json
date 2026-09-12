@@ -11,12 +11,16 @@
     "test:watch": "vitest",
     "fetch:real-papers": "node scripts/fetch-real-papers.mjs",
     "bench:pdf-extraction": "npx tsx scripts/benchmark-pdf-extraction.ts",
-    "bench:real-paper-translation": "npx tsx scripts/benchmark-real-paper-translation.ts",
+    "bench:real-paper-translation": "npx --yes tsx scripts/benchmark-real-paper-translation.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "verify:browser": "node scripts/verify-browser.mjs"
+    "verify:browser": "node scripts/verify-browser.mjs",
+    "audit:prepare-review": "npx --yes tsx scripts/prepare-translation-manual-review.ts",
+    "audit:summarize-review": "npx --yes tsx scripts/summarize-translation-manual-review.ts",
+    "audit:run-pending": "node scripts/run-pending-translation-audit.mjs",
+    "verify:real-paper-source-policy": "npx --yes tsx scripts/verify-real-paper-source-policy.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

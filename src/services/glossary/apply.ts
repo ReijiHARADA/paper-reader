@@ -1,4 +1,4 @@
-import { applyGlossary } from "../llm/glossaryService";
+import { applyGlossary, normalizeSourceGroundedTerminology } from "../llm/glossaryService";
 import type { GlossaryEntry } from "../llm/types";
 import {
   getBlocksByPaper,
@@ -33,17 +33,29 @@ export async function reapplyGlossary(paperId: string): Promise<{
   }
 
   if (paper?.titleTranslated) {
-    paper.titleTranslated = applyGlossary(paper.titleTranslated, glossary);
+    paper.titleTranslated = normalizeSourceGroundedTerminology(
+      paper.titleOriginal ?? "",
+      applyGlossary(paper.titleTranslated, glossary)
+    );
     await savePaper(paper);
   }
   for (const section of sections) {
     if (!section.translatedTitle) continue;
-    section.translatedTitle = applyGlossary(section.translatedTitle, glossary);
+    section.translatedTitle = normalizeSourceGroundedTerminology(
+      section.originalTitle,
+      applyGlossary(section.translatedTitle, glossary)
+    );
   }
   if (sections.length) await saveSections(sections);
   for (const block of blocks) {
     if (!block.translated) continue;
-    assignBlockTranslation(block, applyGlossary(block.translated, glossary));
+    assignBlockTranslation(
+      block,
+      normalizeSourceGroundedTerminology(
+        block.original ?? "",
+        applyGlossary(block.translated, glossary)
+      )
+    );
   }
   if (blocks.some((block) => block.translated)) {
     await saveBlocks(blocks);

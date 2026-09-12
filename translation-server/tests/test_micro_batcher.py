@@ -60,7 +60,7 @@ def _first_piece(chunks: list[str], pieces: list[str], lang: str) -> str:
 
 
 class MicroBatcherTests(unittest.TestCase):
-    def test_same_language_pair_batches_together(self) -> None:
+    def test_same_language_pair_keeps_requests_isolated(self) -> None:
         engine = FakeEngine()
         sched = MicroBatchScheduler(engine)
         with (
@@ -78,9 +78,9 @@ class MicroBatcherTests(unittest.TestCase):
             [r.text for r in out],
             ["ja:Alpha sentence.", "ja:Beta sentence."],
         )
-        self.assertEqual(len(engine.calls), 1)
-        self.assertEqual(engine.calls[0][0], "ja")
-        self.assertEqual(engine.calls[0][1], ["Alpha sentence.", "Beta sentence."])
+        self.assertEqual(len(engine.calls), 2)
+        self.assertEqual([call[0] for call in engine.calls], ["ja", "ja"])
+        self.assertEqual([call[1] for call in engine.calls], [["Alpha sentence."], ["Beta sentence."]])
 
     def test_language_pairs_are_separated(self) -> None:
         engine = FakeEngine()
@@ -180,8 +180,9 @@ class MicroBatcherTests(unittest.TestCase):
                 _pending("ok paragraph", "en", "ja", 1),
             ]
             results = sched._flush_items(items)
-        self.assertIsNone(results[0])
-        self.assertIsNotNone(items[0].future.exception())
+        self.assertIsNotNone(results[0])
+        self.assertEqual(results[0].text, "FAIL:bad")
+        self.assertEqual(items[0].future.result().text, "FAIL:bad")
         self.assertIsNotNone(results[1])
         self.assertEqual(results[1].text, "ja:ok paragraph")
         self.assertEqual(items[1].future.result().text, "ja:ok paragraph")

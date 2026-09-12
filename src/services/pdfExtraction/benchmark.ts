@@ -148,7 +148,11 @@ export function evaluateBaselinePaper(input: {
     headingRecall: gold?.headings
       ? substringRecall(headings, gold.headings)
       : undefined,
-    headingHierarchyAccuracy: gold?.headingHierarchy
+    // Several fixtures deliberately provide only a heading-presence check.
+    // An empty hierarchy in partial ground truth means "not annotated", not
+    // "the document has no hierarchy"; treating resolver relations as false
+    // positives would corrupt the cross-paper benchmark average.
+    headingHierarchyAccuracy: gold?.headingHierarchy && gold.headingHierarchy.length > 0
       ? relationAccuracy(
           childRels.map((r) => ({
             from: extracted.canonical.nodes.find((n) => n.id === r.from)?.text ?? "",
