@@ -3,7 +3,13 @@ from __future__ import annotations
 import unittest
 
 from engines.madlad_mps import MADLADEngine
-from engines.segmenter import segment_for_translation, split_for_translation, validate_round_trip
+from engines.segmenter import (
+    model_inputs_for_translation,
+    rescue_units_for_translation,
+    segment_for_translation,
+    split_for_translation,
+    validate_round_trip,
+)
 
 
 class SegmenterTests(unittest.TestCase):
@@ -22,11 +28,47 @@ class SegmenterTests(unittest.TestCase):
         self.assertEqual(units, [source])
         self.assert_round_trip(source)
 
+    def test_model_input_repairs_lost_apostrophe_without_changing_source(self) -> None:
+        source = "“Its not scary like blood pressure, it feels like a costume or sports gear, activity oriented”"
+        units = split_for_translation(source)
+        inputs = model_inputs_for_translation(source)
+        self.assertEqual(units, [source])
+        self.assertEqual(inputs, ["“It's not scary like blood pressure, it feels like a costume or sports gear, activity oriented”"])
+        self.assert_round_trip(source)
+
+    def test_model_input_repairs_neither_nor_comma_without_changing_source(self) -> None:
+        source = "Neither cathodal, nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3)."
+        units = split_for_translation(source)
+        inputs = model_inputs_for_translation(source)
+        self.assertEqual(units, [source])
+        self.assertEqual(inputs, ["Neither cathodal nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3)."])
+        self.assert_round_trip(source)
+
+    def test_empty_source_can_still_be_segmented(self) -> None:
+        units = segment_for_translation("   ")
+        self.assertEqual(len(units), 1)
+        self.assertEqual(units[0].text, "   ")
+
     def test_year_is_a_sentence_boundary_but_decimal_is_not(self) -> None:
         source = "Nearly one billion devices were sold in 2013. Thus, the value was 2.913 and p < 0.001."
         units = split_for_translation(source)
         self.assertEqual(len(units), 2)
         self.assertIn("2.913", units[1])
+        self.assert_round_trip(source)
+
+    def test_experimental_single_letter_label_can_end_a_sentence(self) -> None:
+        source = "Participants judged allocations between a person A and a person B. Neither cathodal, nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3)."
+        units = split_for_translation(source)
+        inputs = model_inputs_for_translation(source)
+        self.assertEqual(len(units), 2)
+        self.assertEqual(units[1], "Neither cathodal, nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3).")
+        self.assertEqual(inputs[1], "Neither cathodal nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3).")
+        self.assert_round_trip(source)
+
+    def test_author_initial_still_stays_with_name(self) -> None:
+        source = "J. Smith reported the result. We then replicated it."
+        units = split_for_translation(source)
+        self.assertEqual(units, ["J. Smith reported the result.", "We then replicated it."])
         self.assert_round_trip(source)
 
 
@@ -187,6 +229,52 @@ class SegmenterTests(unittest.TestCase):
                 ["We posed a problem17.", "In this context, participants choose an option."],
             ),
             "問題を提示した17。参加者は選択肢を選ぶ。",
+        )
+
+    def test_rescue_found_that_coordination_keeps_source_round_trip(self) -> None:
+        source = (
+            "Among other things they found that an emotional relation with an – at first nondescript – "
+            "physical piece of jewellery could be established through interaction and that interactive "
+            "jewellery holds the quality to make implicit emotions related to a piece of jewellery can "
+            "be made explicit through interaction [29]."
+        )
+        units = rescue_units_for_translation(source)
+        self.assertEqual(len(units), 2)
+        self.assertTrue(validate_round_trip(source, [unit.text for unit in units]))
+        self.assertTrue(units[1].model_input.startswith("They found that interactive jewellery"))
+
+    def test_rescue_if_so_semicolon_keeps_source_round_trip(self) -> None:
+        source = (
+            "As viewers we must consider whether we believe there is a gold ball within the piece; "
+            "if so, do we perceive the piece to be of greater value even though the gold is hidden?"
+        )
+        units = rescue_units_for_translation(source)
+        self.assertEqual(len(units), 2)
+        self.assertTrue(validate_round_trip(source, [unit.text for unit in units]))
+        self.assertTrue(units[0].model_input.endswith("."))
+        self.assertTrue(units[1].model_input.startswith("If so"))
+
+    def test_rescue_where_property_clause_keeps_source_round_trip(self) -> None:
+        source = "We invested most of our efforts in optimizing our worn receivers, where size, weight, form factor and power efficiency are paramount."
+        units = rescue_units_for_translation(source)
+        self.assertEqual(len(units), 2)
+        self.assertTrue(validate_round_trip(source, [unit.text for unit in units]))
+        self.assertEqual(
+            units[1].model_input,
+            "In this context, size, weight, form factor and power efficiency are paramount.",
+        )
+
+    def test_rescue_appositive_region_keeps_source_round_trip(self) -> None:
+        source = (
+            "The Thermal Earring takes advantage of the unique position of earrings in proximity to the head, "
+            "a region with tight coupling to the body unlike watches and other wearables which are more loosely worn on extremities."
+        )
+        units = rescue_units_for_translation(source)
+        self.assertEqual(len(units), 2)
+        self.assertTrue(validate_round_trip(source, [unit.text for unit in units]))
+        self.assertEqual(
+            units[1].model_input,
+            "This region has tight coupling to the body unlike watches and other wearables which are more loosely worn on extremities.",
         )
 
 

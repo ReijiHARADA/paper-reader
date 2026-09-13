@@ -41,10 +41,37 @@ describe("isPlausibleJaTranslation", () => {
     expect(isPlausibleJaTranslation(source, source)).toBe(false);
   });
 
+  it("rejects fragmented Japanese decoder artifacts", () => {
+    const fragmented =
+      "これ は じ る デモン の こと で あ る 。 それ は かおり を 吹 く ため に かおり と な り こと を 吹 き 呼 ん で い る 。";
+    const normal =
+      "社会的受容性は時間と文化に依存するため、参加者の態度を理解するための自由記述データを収集した。";
+    expect(isDegenerateTranslation(fragmented)).toBe(true);
+    expect(isPlausibleJaTranslation(fragmented, "We collected open-ended responses to understand participants' attitudes toward the system.")).toBe(false);
+    expect(isDegenerateTranslation(normal)).toBe(false);
+  });
+
   it("treats ASCII chi-square notation as an indivisible statistic", () => {
     const source = "There was no difference, χ2(3)=0.37, p=0.83.";
     const output = "差はなかった。p=0.83。";
     expect(evaluateJaTranslation(output, source).reasons.join(" ")).toContain("χ2(3)=0.37");
+  });
+
+  it("rejects orphaned invariant-only sentences in a longer prose translation", () => {
+    const source =
+      "Fairness evaluations. After the main task, participants made fairness judgements for several hypothetical money allocations between a person A and a person B. Neither cathodal, nor anodal tDCS altered the fairness perception of participants (Fig. 8 and Table S3). In line with earlier findings, this suggests that brain stimulation led participants to make different decisions without changing the underlying evaluation process.";
+    const output =
+      "フェアネス評価。主な作業の後、参加者は仮定的な金銭配分に対して公平性判断を行った。tDCS(Fig. 8 and Table S3)。これは、脳刺激が基礎的な評価過程を変えることなく参加者を異なる決定に導くことを示唆する。";
+    expect(evaluateJaTranslation(output, source).reasons).toContain("orphaned source invariant sentence");
+  });
+
+  it("allows source facts embedded in Japanese prose", () => {
+    const source =
+      "The result was consistent with prior observations (Fig. 8 and Table S3), suggesting that the intervention did not change the underlying evaluation process.";
+    const output =
+      "結果は先行観察（Fig. 8 and Table S3）と一致し、この介入が基礎的な評価過程を変えなかったことを示唆する。";
+    expect(evaluateJaTranslation(output, source).reasons).not.toContain("orphaned source invariant sentence");
+    expect(isPlausibleJaTranslation(output, source)).toBe(true);
   });
 
   it("rejects a fluent result that loses a bare rank statistic or figure panel", () => {
@@ -60,6 +87,21 @@ describe("isPlausibleJaTranslation", () => {
     const source = "Figures 3, 4, and 5 show the response curves.";
     expect(extractScientificInvariants(source).map((item) => item.value)).toContain("Figures 3");
     expect(isPlausibleJaTranslation("応答曲線を示す。", source)).toBe(false);
+  });
+
+  it("treats parenthesized figure panels as source facts", () => {
+    const source = "The necklace case is hung around the neck, as illustrated in Figure 1(a).";
+    expect(extractScientificInvariants(source).map((item) => item.value)).toContain("Figure 1(a)");
+    expect(isPlausibleJaTranslation("ネックレスケースを首に掛ける。Figure 1。", source)).toBe(false);
+    expect(isPlausibleJaTranslation("ネックレスケースを首に掛ける。Figure 1(a)。", source)).toBe(true);
+  });
+
+  it("treats variable comparison conditions as source facts", () => {
+    const source = "The OLS comparison assumes y \u0338= 0 when x = 0.";
+    const values = extractScientificInvariants(source).map((item) => item.value);
+    expect(values).toEqual(expect.arrayContaining(["y \u0338= 0", "x = 0"]));
+    expect(isPlausibleJaTranslation("OLS比較を仮定した。x = 0。", source)).toBe(false);
+    expect(isPlausibleJaTranslation("OLS比較ではy != 0かつx = 0を仮定した。", source)).toBe(true);
   });
 
   it("rejects fluent Japanese that drops scientific facts", () => {
@@ -112,9 +154,30 @@ describe("isPlausibleJaTranslation", () => {
     expect(isPlausibleJaTranslation(output, source)).toBe(false);
   });
 
+  it("does not reject normal repeated terms in statistical result prose", () => {
+    const source = "Interaction with the Jogwheel located at the collarbone (0.022), the wrist (0.046), the torso (0.012), and the waist (0.027) looked less embarrassing when performed by a male. Interaction occurring at the waist looked less impolite (0.013) and less weird (0.007) when executed by a male. Interaction taking place on the pocket also appeared to bother participants less when performed by a male (0.017).";
+    const output = "男性の場合, 鎖骨, 手首, 胴体, 腰部に位置するジョグホイールとの相互作用は, 恥ずかしさが少なく見えた。(0.022)(0.046)(0.012)(0.027)。腰部での相互作用は, 男性が行うときは, 失礼さが少なく(0.013), 奇妙さが少なく(0.007)と見えた。また, ポケット上での相互作用は, 男性(0.017)が行うと, 参加者を不快にさせないように見えた。";
+    expect(isDegenerateTranslation(output)).toBe(false);
+    expect(isPlausibleJaTranslation(output, source)).toBe(true);
+  });
+
   it("rejects literal tokenizer byte escapes inside otherwise Japanese output", () => {
     const source = "A camera captures an image from beneath the chin.";
     const output = "カメラは<0xE9><0xA0><0x9A>の下から画像を取得する。";
+    expect(isDegenerateTranslation(output)).toBe(true);
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects leftover scientific placeholders even with Latin lookalike glyphs", () => {
+    const source = "The value is x = 0.";
+    const output = "値はZZCΙT1ZZである。";
+    expect(isDegenerateTranslation(output)).toBe(true);
+    expect(isPlausibleJaTranslation(output, source)).toBe(false);
+  });
+
+  it("rejects leftover scientific placeholders with Greek zeta lookalikes", () => {
+    const source = "The values were (0.013) and (0.007).";
+    const output = "値は(0.013)で、クールではない(ΖZCIt2ZZ)となった。";
     expect(isDegenerateTranslation(output)).toBe(true);
     expect(isPlausibleJaTranslation(output, source)).toBe(false);
   });
@@ -416,6 +479,11 @@ describe("unsafe extracted translation input", () => {
     ).toBe(false);
     expect(shouldTranslateParagraph("Available power density varies between")).toBe(false);
     expect(shouldTranslateParagraph("Participants stayed consistent with their free choices when a rule was")).toBe(false);
+    expect(
+      shouldTranslateParagraph(
+        "This prototype included two applications, the phonebook application, as previously studied in the"
+      )
+    ).toBe(false);
     expect(shouldTranslateParagraph("A complete-looking extraction sentence that is actually cut at the page boundary ".repeat(8))).toBe(false);
     expect(shouldTranslateParagraph(`“${"A complete quoted interview statement without a final period ".repeat(8)}”`)).toBe(true);
     expect(

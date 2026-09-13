@@ -14,7 +14,12 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from .base import TranslationEngine, TranslationResult, EngineStatus
 from .citation_protect import protect_citations, restore_citations
-from .segmenter import SEGMENTER_VERSION, segment_for_translation, split_for_translation
+from .segmenter import (
+    SEGMENTER_VERSION,
+    rescue_units_for_translation,
+    segment_for_translation,
+    split_for_translation,
+)
 
 
 class MADLADEngine(TranslationEngine):
@@ -470,7 +475,9 @@ class MADLADEngine(TranslationEngine):
             in_toks: list[int] = []
             out_toks: list[int] = []
             for chunk, model_input in zip(chunks, model_inputs):
-                piece, in_tok, out_tok = self._translate_chunk(chunk, target_language, model_input)
+                piece, in_tok, out_tok = self._translate_chunk_with_rescue(
+                    chunk, target_language, model_input
+                )
                 pieces.append(piece)
                 in_toks.append(in_tok)
                 out_toks.append(out_tok)
@@ -496,7 +503,7 @@ class MADLADEngine(TranslationEngine):
                 group_in = []
                 group_out = []
                 for chunk, model_input in zip(group, group_inputs):
-                    piece, one_in, one_out = self._translate_chunk(
+                    piece, one_in, one_out = self._translate_chunk_with_rescue(
                         chunk, target_language, model_input
                     )
                     group_pieces.append(piece)
@@ -506,6 +513,52 @@ class MADLADEngine(TranslationEngine):
             in_toks.extend(group_in)
             out_toks.extend(group_out)
         return pieces, in_toks, out_toks
+
+    def _translate_chunk_with_rescue(
+        self, text: str, target_language: str, model_input: str | None = None
+    ) -> tuple[str, int, int]:
+        try:
+            return self._translate_chunk(text, target_language, model_input)
+        except Exception as original_error:
+            try:
+                print(
+                    "[TRANSLATE] retrying rejected chunk with beam search",
+                    flush=True,
+                )
+                return self._translate_chunk(
+                    text,
+                    target_language,
+                    model_input,
+                    num_beams=4,
+                    retry_label="beam",
+                )
+            except Exception:
+                pass
+            rescue_units = rescue_units_for_translation(model_input or text)
+            if len(rescue_units) <= 1:
+                raise original_error
+            print(
+                f"[TRANSLATE] retrying rejected chunk with {len(rescue_units)} rescue unit(s)",
+                flush=True,
+            )
+            rescue_chunks = [unit.text for unit in rescue_units]
+            rescue_inputs = [unit.model_input for unit in rescue_units]
+            pieces: list[str] = []
+            in_toks: list[int] = []
+            out_toks: list[int] = []
+            for rescue_chunk, rescue_input in zip(rescue_chunks, rescue_inputs):
+                piece, in_tok, out_tok = self._translate_chunk(
+                    rescue_chunk, target_language, rescue_input
+                )
+                pieces.append(piece)
+                in_toks.append(in_tok)
+                out_toks.append(out_tok)
+            translated = self._join_translated_chunks(
+                rescue_chunks, pieces, target_language, rescue_inputs
+            )
+            if self._is_degenerate(translated, text, target_language):
+                raise original_error
+            return translated, sum(in_toks), sum(out_toks)
 
     def _translate_chunk_batch(
         self, chunks: list[str], target_language: str, model_inputs: list[str] | None = None
@@ -578,7 +631,12 @@ class MADLADEngine(TranslationEngine):
         return pieces, in_toks, out_toks
 
     def _translate_chunk(
-        self, text: str, target_language: str, model_input: str | None = None
+        self,
+        text: str,
+        target_language: str,
+        model_input: str | None = None,
+        num_beams: int = 1,
+        retry_label: str = "",
     ) -> tuple[str, int, int]:
         enumeration_prefix, translate_body = self._detach_enumeration_prefix(model_input or text)
         protected, cites, nonce = protect_citations(translate_body)
@@ -592,12 +650,13 @@ class MADLADEngine(TranslationEngine):
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
                 max_new_tokens=max_new_tokens,
-                num_beams=1,
+                num_beams=num_beams,
                 do_sample=False,
                 decoder_start_token_id=decoder_start,
                 pad_token_id=self._tokenizer.pad_token_id,
                 eos_token_id=self._tokenizer.eos_token_id,
                 no_repeat_ngram_size=self.NO_REPEAT_NGRAM_SIZE,
+                early_stopping=True if num_beams > 1 else False,
             )
 
         translated_text = self._tokenizer.decode(
@@ -608,9 +667,11 @@ class MADLADEngine(TranslationEngine):
         if enumeration_prefix:
             translated_text = f"{enumeration_prefix} {translated_text}".strip()
         if self._is_degenerate(translated_text, text, target_language):
-            print(f"[TRANSLATE] Rejected chunk: {translated_text[:120]!r}", flush=True)
+            label = f" {retry_label}" if retry_label else ""
+            print(f"[TRANSLATE] Rejected{label} chunk: {translated_text[:120]!r}", flush=True)
             raise ValueError("degenerate translation output")
-        print(f"[TRANSLATE] chunk {input_tokens}->{outputs.shape[1]}: {translated_text[:120]!r}", flush=True)
+        label = f" {retry_label}" if retry_label else ""
+        print(f"[TRANSLATE]{label} chunk {input_tokens}->{outputs.shape[1]}: {translated_text[:120]!r}", flush=True)
         return translated_text, input_tokens, int(outputs.shape[1])
 
     @staticmethod

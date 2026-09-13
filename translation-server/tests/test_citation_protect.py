@@ -82,6 +82,12 @@ class CitationProtectTests(unittest.TestCase):
         self.assertNotIn("ZZCIT", restored)
         self.assertNotIn("ＺＺＣＩＴ", restored)
 
+    def test_restores_placeholders_with_latin_lookalike_i(self) -> None:
+        src = "The value is x = 0."
+        _, cites, nonce = protect_citations(src)
+        restored = restore_citations("値はZZCΙT1ZZである。", cites, nonce)
+        self.assertEqual(restored, "値はx = 0である。")
+
     def test_fixed_corpus_citation_case(self) -> None:
         corpus = json.loads(
             (Path(__file__).resolve().parents[1] / "benchmarks" / "corpus.json").read_text(
@@ -114,6 +120,27 @@ class CitationProtectTests(unittest.TestCase):
         protected, citations, nonce = protect_citations(source)
         self.assertEqual(citations, ["Figures 3"])
         self.assertNotIn("Figures 3", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_parenthesized_figure_panel_reference(self) -> None:
+        source = "The necklace case is hung around the neck, as illustrated in Figure 1(a)."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["Figure 1(a)"])
+        self.assertNotIn("Figure 1(a)", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_variable_comparison_parenthetical(self) -> None:
+        source = "OLS is used for comparison (where y \u0338= 0 when x = 0)."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["(where y \u0338= 0 when x = 0)"])
+        self.assertNotIn("y \u0338= 0", protected)
+        self.assertEqual(restore_citations(protected, citations, nonce), source)
+
+    def test_protects_parenthesized_decimal_result_values(self) -> None:
+        source = "Placement looked easier to access (0.006), normal (0.001), and cool (0.005) for one condition."
+        protected, citations, nonce = protect_citations(source)
+        self.assertEqual(citations, ["(0.006)", "(0.001)", "(0.005)"])
+        self.assertNotIn("(0.006)", protected)
         self.assertEqual(restore_citations(protected, citations, nonce), source)
 
     def test_protects_terminal_caps_technical_identifiers(self) -> None:

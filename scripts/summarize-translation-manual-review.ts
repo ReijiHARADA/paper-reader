@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-type Review = { disciplines?: string[]; formatFamily?: string; labels?: string[]; severity?: number; productionDecision?: "accept" | "pre-model-fallback" | "post-model-fallback"; reviewedAt?: string };
+type Review = { disciplines?: string[]; formatFamily?: string; sourceCategory?: string; labels?: string[]; severity?: number; productionDecision?: "accept" | "pre-model-fallback" | "post-model-fallback"; partialSourceFallback?: boolean; reviewedAt?: string };
 type Metrics = Record<string, number>;
 const root = path.join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const input = path.join(root, "test-data/real-papers/audit-manual-review.json");
@@ -29,6 +29,8 @@ function summarize(reviews: Review[]): Metrics {
     extraction_induced_error_rate: count((r) => bad(r) && ["source_fragment", "paragraph_merge", "paragraph_split", "chrome_contamination", "list_flattening", "table_contamination"].some((label) => has(r, label))) / total,
     unsafe_false_accept_rate: count((r) => r.productionDecision === "accept" && bad(r)) / Math.max(1, count((r) => r.productionDecision === "accept")),
     false_reject_rate: count((r) => r.productionDecision !== "accept" && (r.severity ?? 0) <= 1 && (has(r, "correct") || has(r, "minor_wording"))) / Math.max(1, fallback),
+    partial_source_fallback_rate: count((r) => r.productionDecision === "accept" && Boolean(r.partialSourceFallback)) / Math.max(1, count((r) => r.productionDecision === "accept")),
+    fully_translated_accept_rate: count((r) => r.productionDecision === "accept" && !r.partialSourceFallback) / total,
   };
 }
 function grouped(key: (review: Review) => string[]) {
@@ -36,6 +38,15 @@ function grouped(key: (review: Review) => string[]) {
   for (const review of reviewed) for (const value of key(review)) groups.set(value, [...(groups.get(value) ?? []), review]);
   return Object.fromEntries([...groups].sort().map(([name, rows]) => [name, summarize(rows)]));
 }
-const payload = { generatedAt: new Date().toISOString(), reviewQueue: all.length, reviewedBlocks: reviewed.length, overall: summarize(reviewed), byDiscipline: grouped((r) => r.disciplines?.length ? r.disciplines : ["unknown"]), byFormat: grouped((r) => [r.formatFamily ?? "unknown"]), note: "Rates are provisional until every queued block has manual review; automatic acceptance is not a correctness label." };
+const payload = {
+  generatedAt: new Date().toISOString(),
+  reviewQueue: all.length,
+  reviewedBlocks: reviewed.length,
+  overall: summarize(reviewed),
+  byDiscipline: grouped((r) => r.disciplines?.length ? r.disciplines : ["unknown"]),
+  byFormat: grouped((r) => [r.formatFamily ?? "unknown"]),
+  bySourceCategory: grouped((r) => [r.sourceCategory ?? "unknown"]),
+  note: "Rates are provisional until every queued block has manual review; automatic acceptance is not a correctness label.",
+};
 fs.writeFileSync(output, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(JSON.stringify(payload, null, 2));

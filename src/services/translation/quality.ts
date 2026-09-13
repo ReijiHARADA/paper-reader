@@ -11,8 +11,9 @@ const DATE_STAMP = /\d{4}-\d{2}-\d{2}/;
 // `<0xE9><0xA0><0x9A>`). They are not meaningful Japanese and a fluent-looking
 // surrounding sentence must not make the result acceptable.
 const BYTE_ESCAPE = /<0x[0-9a-f]{2}>/i;
+const LEFTOVER_PLACEHOLDER = /[zζΖ][zζΖ]c[iιΙіІ]t\d+(?:x\d+)?[zζΖ][zζΖ]/i;
 const SOURCE_NEGATION = /\b(?:(?:do|does|did|is|are|was|were|has|have|had)\s+not|cannot|can\s+not|never|without|lack(?:s|ed|ing)?|absence)\b/i;
-const JA_NEGATION = /(?:ない|なく|ず|無|非|不|未|欠|否)/;
+const JA_NEGATION = /(?:ない|なく|なかっ|ません|ず|ぬ|無|非|不|未|欠|否)/;
 
 /**
  * Greedy decoding occasionally repeats a fluent Japanese phrase many times.
@@ -31,7 +32,46 @@ function hasAbnormalPhraseRepetition(text: string): boolean {
     const phrase = compact.slice(index, index + 5);
     counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
   }
-  return [...counts.entries()].some(([phrase, count]) => count >= 3 && phrase.length * count / compact.length >= 0.07);
+  return [...counts.entries()].some(([phrase, count]) => count >= 3 && phrase.length * count / compact.length >= 0.16);
+}
+
+function hasFragmentedJapaneseSpacing(text: string): boolean {
+  const spacedJapaneseTokens = text.match(/(?:^|\s)[\u3040-\u30ff\u4e00-\u9fff]{1,2}(?=\s|$)/g) ?? [];
+  if (spacedJapaneseTokens.length < 14) return false;
+  const japaneseChars = (text.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) ?? []).length;
+  if (japaneseChars < 40) return false;
+  const compactLength = text.replace(/\s+/g, "").length;
+  const whitespaceCount = (text.match(/\s/g) ?? []).length;
+  // Normal Japanese prose may include spaces around citations or Latin terms,
+  // but it should not look like a stream of one-character SentencePiece
+  // fragments. This catches alternate-model decoder failures without naming
+  // any hallucinated word.
+  return spacedJapaneseTokens.length / Math.max(japaneseChars, 1) > 0.18
+    && whitespaceCount / Math.max(compactLength, 1) > 0.12;
+}
+
+function hasOrphanedInvariantSentence(output: string, source: string): boolean {
+  if (source.trim().length < 120) return false;
+  const sentences = output
+    .split(/(?<=[。！？!?])\s*/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  if (sentences.length < 2) return false;
+  return sentences.some((sentence) => {
+    const compact = sentence.replace(/\s+/g, "");
+    if (compact.length < 4 || compact.length > 80) return false;
+    const hasSourceFact = extractScientificInvariants(sentence).some((item) =>
+      ["citation", "figure", "statistic", "measurement", "year", "acronym"].includes(item.kind)
+    );
+    if (!hasSourceFact) return false;
+    const withoutAsciiFacts = compact
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/\([^)]*\)/g, "")
+      .replace(/[A-Za-z][A-Za-z0-9_.:/-]*/g, "")
+      .replace(/\d+(?:\.\d+)?/g, "")
+      .replace(/[、,;:：.。！？!?・（）()[\]\-–—+=<>≤≥≠\s]/g, "");
+    return !KANA.test(withoutAsciiFacts) && !KANJI.test(withoutAsciiFacts);
+  });
 }
 
 /** ACM CCS 1998-style classifier: H.5.2, H.5.m, I.2.10 */
@@ -54,7 +94,7 @@ const SCIENTIFIC_PATTERNS: Array<[ScientificInvariant["kind"], RegExp]> = [
   ["citation", /\[\d+(?:\s*[-–—]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–—]\s*\d+)?)*\]/g],
   // Figure/panel labels are source references. Keeping their original form is
   // safer than allowing a decoder to omit, renumber, or detach them.
-  ["figure", /\bfig(?:ure)?s?\.?\s*\d+[a-z]?\b/gi],
+  ["figure", /\bfig(?:ure)?s?\.?\s*\d+(?:[a-z]|\([a-z]\))?/gi],
   // Superscript-style references are often emitted by native PDF extraction
   // as a number adjacent to a quoted term or identifier: `problem”16 (`.
   // Treat the number as a citation only in that parenthesized-reference
@@ -65,7 +105,7 @@ const SCIENTIFIC_PATTERNS: Array<[ScientificInvariant["kind"], RegExp]> = [
   // Keep them distinct from ordinary numbers so a fluent output cannot turn
   // “before World War I” into an invented year such as 1914.
   ["year", /\b(?:1[5-9]\d{2}|20\d{2})\b/g],
-  ["statistic", /(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?|\b[UWHV]\s*=\s*[-+]?\d+(?:\.\d+)?|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+(?:\.\d+)?/g],
+  ["statistic", /(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?|\b[UWHV]\s*=\s*[-+]?\d+(?:\.\d+)?|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+(?:\.\d+)?|\b[A-Za-z]\s*(?:\u0338\s*=|!=|≠|=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?/g],
   ["measurement", /\b\d+(?:\.\d+)?\s*(?:mm|cm|m|km|ms|s|hz|khz|mhz|ghz|uw|mw|w|kg|mg|%|°c)\b/gi],
   // Preserve all-caps acronyms and mixed-case technical identifiers. The
   // latter covers model/system names such as DeepIV without treating normal
@@ -93,7 +133,7 @@ export function extractScientificInvariants(source: string): ScientificInvariant
 }
 
 function normalizeInvariant(value: string): string {
-  return value.toLowerCase().replace(/[\s\u00a0]/g, "").replace(/[−–—]/g, "-");
+  return value.toLowerCase().replace(/[\s\u00a0]/g, "").replace(/[−–—]/g, "-").replace(/\u0338=/g, "!=").replace(/≠/g, "!=");
 }
 
 function outputContainsInvariant(output: string, invariant: ScientificInvariant): boolean {
@@ -187,6 +227,7 @@ export function isDegenerateTranslation(text: string): boolean {
   const compact = text.replace(/\s+/g, "");
   if (!compact) return true;
   if (BYTE_ESCAPE.test(text)) return true;
+  if (LEFTOVER_PLACEHOLDER.test(toHalfwidthAscii(text))) return true;
   if (/(.)\1{7,}/u.test(compact)) return true;
   if (THAI.test(text) || HANGUL.test(text)) return true;
 
@@ -200,6 +241,7 @@ export function isDegenerateTranslation(text: string): boolean {
   const uniqueRatio = counts.size / compact.length;
   if (compact.length >= 40 && uniqueRatio < 0.08) return true;
   if (hasAbnormalPhraseRepetition(text)) return true;
+  if (hasFragmentedJapaneseSpacing(text)) return true;
 
   return false;
 }
@@ -222,6 +264,7 @@ export function evaluateJaTranslation(output: string, source: string): Translati
   if (isDegenerateTranslation(out)) reasons.push("degenerate output");
   if (DATE_STAMP.test(out) && !DATE_STAMP.test(source)) reasons.push("unexpected date");
   if (out === source.trim()) reasons.push("source echo");
+  if (hasOrphanedInvariantSentence(out, source)) reasons.push("orphaned source invariant sentence");
 
   const hasKana = KANA.test(out);
   const hasKanji = KANJI.test(out);
@@ -494,7 +537,7 @@ export function unsafeParagraphStructureReason(text: string): string | null {
   if (/^[a-z]/.test(t) && t.length >= 180 && !/^(?:e\.g\.|i\.e\.|et\s+al\.|vs\.|in\s+(?:particular|contrast|addition),)/i.test(t)) {
     return "段落の先頭が前段から続いている可能性があります";
   }
-  if (/\b(?:the|an?)\s+(?:entire|following|same|former|latter)\s*$/i.test(t) || /\b(?:albeit|although|though|because|while|whereas|with|without|including|concerning|between|than|to|of|for|at|in|on|from|by|as)\s*$/i.test(t) || /\b(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|will|would|should|may|might)\s*$/i.test(t) || /\b(?:and|or)\s+(?:standard|mean|median|confidence|statistical)\s*$/i.test(t)) {
+  if (/\b(?:the|an?)\s+(?:entire|following|same|former|latter)\s*$/i.test(t) || /\b(?:albeit|although|though|because|while|whereas|with|without|including|concerning|between|than|to|of|for|at|in|on|from|by|as)\s*$/i.test(t) || /\b(?:about|above|across|after|against|among|around|at|before|behind|below|beneath|beside|between|beyond|by|during|for|from|in|inside|into|near|of|on|onto|over|through|to|toward|under|with|within|without)\s+(?:the|a|an|this|that|these|those|its|their|our|his|her)\s*$/i.test(t) || /\b(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|will|would|should|may|might)\s*$/i.test(t) || /\b(?:and|or)\s+(?:standard|mean|median|confidence|statistical)\s*$/i.test(t)) {
     return "段落の末尾が欠けている可能性があります";
   }
   if (/\b[a-z]{2,}-\s+\d+(?:\.\d+)?\s+[a-z]{2,}\b/i.test(t)) {
@@ -569,6 +612,10 @@ export function shouldTranslateParagraph(text: string): boolean {
   // Likewise, these determiners/adjectives cannot end an English sentence on
   // their own. They identify a physical block cut before its final noun.
   if (/\b(?:the|an?)\s+(?:entire|following|same|former|latter)\s*$/i.test(t)) return false;
+  // A preposition followed only by a determiner is also an incomplete noun
+  // phrase (for example, a page break after `as previously studied in the`).
+  // Complete prose needs the missing head noun before it is safe to translate.
+  if (/\b(?:about|above|across|after|against|among|around|at|before|behind|below|beneath|beside|between|beyond|by|during|for|from|in|inside|into|near|of|on|onto|over|through|to|toward|under|with|within|without)\s+(?:the|a|an|this|that|these|those|its|their|our|his|her)\s*$/i.test(t)) return false;
   // Coordinators and prepositions at the physical block end require material
   // from the next column/page. Translating them independently asks the model
   // to invent that missing complement.

@@ -13,7 +13,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractFromPages } from "../src/services/pdfExtraction/pipeline/extractAcademicPdf.ts";
-import { evaluateJaTranslation, extractScientificInvariants, isPlausibleJaTranslation, shouldTranslateParagraph } from "../src/services/translation/quality.ts";
+import {
+  evaluateJaTranslation,
+  extractScientificInvariants,
+  isExpectedNonProseParagraph,
+  isPlausibleJaTranslation,
+  looksLikeBibliographyEntry,
+  shouldTranslateParagraph,
+  unsafeParagraphStructureReason,
+} from "../src/services/translation/quality.ts";
 import { normalizeSourceGroundedTerminology } from "../src/services/llm/glossaryService.ts";
 import type { PaperBlock } from "../src/types/paper.ts";
 import { extractPdfPages } from "../src/test/readingOrder/extractPdf.ts";
@@ -24,7 +32,18 @@ type CatalogPaper = {
   filename: string;
   disciplines?: string[];
   kinds?: string[];
+  formatFamily?: string;
 };
+
+type SourceCategory =
+  | "ordinary-body-prose"
+  | "list"
+  | "caption"
+  | "statistical-prose"
+  | "reference-chrome"
+  | "damaged-extraction";
+
+type FallbackStage = "none" | "pre-model" | "post-model";
 
 type ServerTranslation = {
   text: string;
@@ -42,6 +61,9 @@ type AuditRow = {
   source: string;
   translation?: string;
   sourceFallback?: boolean;
+  readerVisibleFallback?: boolean;
+  partialSourceFallback?: boolean;
+  partialSourceFallbackReason?: string;
   modelVersion?: string;
   inputTokens?: number | null;
   outputTokens?: number | null;
@@ -49,6 +71,9 @@ type AuditRow = {
   sourceInvariants: string[];
   quality?: ReturnType<typeof evaluateJaTranslation>;
   structuralWarnings: string[];
+  sourceCategory: SourceCategory;
+  fallbackStage: FallbackStage;
+  fallbackReason?: string;
   wouldSubmitToModel: boolean;
   wouldAcceptTranslation?: boolean;
 };
@@ -78,6 +103,92 @@ function structuralWarnings(block: PaperBlock): string[] {
   if (/\b(?:and|or|but|to|of|for|where|which|that)\s*$/i.test(text)) warnings.push("ends like continuation");
   if (/^(?:and|or|but|to|of|for|where|which|that|one|exception)\b/i.test(text)) warnings.push("starts like continuation");
   return warnings;
+}
+
+function sourceCategory(block: PaperBlock): SourceCategory {
+  const text = compact(block.original ?? "");
+  const warnings = structuralWarnings(block);
+  if (warnings.includes("caption-shaped text")) return "caption";
+  if (warnings.includes("scientific/statistical prose")) return "statistical-prose";
+  if (warnings.includes("list-item boundary")) return "list";
+  if (looksLikeBibliographyEntry(text) || isExpectedNonProseParagraph(text)) return "reference-chrome";
+  if (
+    warnings.includes("cross-page logical block")
+    || warnings.includes("starts like continuation")
+    || warnings.includes("ends like continuation")
+    || unsafeParagraphStructureReason(text)
+  ) {
+    return "damaged-extraction";
+  }
+  return "ordinary-body-prose";
+}
+
+function fallbackStage(wouldSubmitToModel: boolean, readerVisibleFallback: boolean): FallbackStage {
+  if (!readerVisibleFallback) return "none";
+  return wouldSubmitToModel ? "post-model" : "pre-model";
+}
+
+
+function normalizeForSourceOverlap(text: string): string {
+  return text
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function sourceSentencesForOverlap(source: string): string[] {
+  const normalized = compact(source);
+  const spans = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) ?? [normalized];
+  const candidates: string[] = [];
+  for (const span of spans) {
+    const text = span.trim();
+    if (!text) continue;
+    candidates.push(text);
+    // Partial-unit fallback can preserve a long rejected clause rather than a
+    // full sentence. Track top-level comma/semicolon separated source slices as
+    // well, but require substantial prose length before flagging them.
+    for (const part of text.split(/[,;:]\s+/)) {
+      const clause = part.trim();
+      if (clause && clause !== text) candidates.push(clause);
+    }
+  }
+  return candidates;
+}
+
+function detectPartialSourceFallback(source: string, translation: string | undefined): { partial: boolean; reason?: string } {
+  if (!translation) return { partial: false };
+  const normalizedTranslation = normalizeForSourceOverlap(translation);
+  if (!normalizedTranslation) return { partial: false };
+  for (const candidate of sourceSentencesForOverlap(source)) {
+    const normalizedCandidate = normalizeForSourceOverlap(candidate);
+    const wordCount = (normalizedCandidate.match(/[a-z][a-z'-]*/g) ?? []).length;
+    const letterCount = (normalizedCandidate.match(/[a-z]/g) ?? []).length;
+    if (normalizedCandidate.length < 48 || wordCount < 7 || letterCount < 35) continue;
+    if (/^(?:fig(?:ure)?|table)\s+\d+/i.test(candidate)) continue;
+    if (looksLikeBibliographyEntry(candidate) || isExpectedNonProseParagraph(candidate)) continue;
+    if (normalizedTranslation.includes(normalizedCandidate)) {
+      return {
+        partial: true,
+        reason: `translation contains unmodified source span (${wordCount} words, ${normalizedCandidate.length} chars)`,
+      };
+    }
+  }
+  return { partial: false };
+}
+
+function fallbackReason(source: string, result: ServerTranslation | undefined, quality: ReturnType<typeof evaluateJaTranslation> | undefined): string | undefined {
+  const structural = unsafeParagraphStructureReason(source);
+  if (!shouldTranslateParagraph(source)) {
+    if (structural) return structural;
+    if (looksLikeBibliographyEntry(source) || isExpectedNonProseParagraph(source)) return "expected non-prose paragraph";
+    return "input policy rejected paragraph";
+  }
+  if (result?.text === source) return "server returned source fallback";
+  if (quality?.reasons.length) return quality.reasons.join("; ");
+  return undefined;
 }
 
 function sampleBlocks(blocks: PaperBlock[], max: number): PaperBlock[] {
@@ -155,22 +266,37 @@ function markdownReport(report: {
   papers: Array<{ paper: CatalogPaper; rows: AuditRow[]; error?: string }>;
 }): string {
   const completed = report.papers.flatMap((entry) => entry.rows).filter((row) => row.translation);
-  const fallbacks = report.papers.flatMap((entry) => entry.rows).filter((row) => row.sourceFallback);
-  const failed = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.translation && !row.sourceFallback);
+  const fallbacks = report.papers.flatMap((entry) => entry.rows).filter((row) => row.readerVisibleFallback ?? row.sourceFallback);
+  const partialSourceFallbacks = completed.filter((row) => row.partialSourceFallback);
+  const fullyTranslatedAccepts = completed.filter((row) => row.wouldAcceptTranslation && !row.partialSourceFallback);
+  const failed = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.translation && !(row.readerVisibleFallback ?? row.sourceFallback));
   const lowQuality = completed.filter((row) => (row.quality?.score ?? 1) < 0.8);
   const rejected = completed.filter((row) => row.wouldAcceptTranslation === false);
   const blockedBeforeModel = report.papers.flatMap((entry) => entry.rows).filter((row) => !row.wouldSubmitToModel);
   const warnings = completed.filter((row) => row.structuralWarnings.length > 0);
+  const rows = report.papers.flatMap((entry) => entry.rows);
+  const categories = [...new Set(rows.map((row) => row.sourceCategory))].sort();
+  const categoryLines = categories.flatMap((category) => {
+    const scoped = rows.filter((row) => row.sourceCategory === category);
+    const visibleFallbacks = scoped.filter((row) => row.readerVisibleFallback ?? row.sourceFallback).length;
+    const partials = scoped.filter((row) => row.partialSourceFallback).length;
+    const fullyTranslated = scoped.filter((row) => row.fallbackStage === "none" && !row.partialSourceFallback).length;
+    return [
+      `- ${category}: ${scoped.length} rows; accepts ${scoped.filter((row) => row.fallbackStage === "none").length}; fully translated accepts ${fullyTranslated}; partial source fallbacks ${partials}; fallbacks ${visibleFallbacks} (${(visibleFallbacks / Math.max(1, scoped.length) * 100).toFixed(1)}%)`,
+    ];
+  });
   const lines = [
     "# Real-paper translation audit (local, uncommitted)",
     "",
     `- Generated: ${report.createdAt}`,
     `- Endpoint: ${report.endpoint}`,
     `- Papers evaluated: ${report.papers.filter((entry) => !entry.error).length}/${report.papers.length}`,
-    `- Model responses: ${completed.length}; original fallbacks: ${fallbacks.length}; failed requests: ${failed.length}`,
+    `- Model responses: ${completed.length}; original fallbacks: ${fallbacks.length}; partial source fallbacks inside accepted output: ${partialSourceFallbacks.length}; fully translated accepts: ${fullyTranslatedAccepts.length}; failed requests: ${failed.length}`,
     `- Score below 0.80: ${lowQuality.length}; rejected by the production quality gate: ${rejected.length}`,
     `- Blocked by the production input policy before model submission: ${blockedBeforeModel.length}`,
     `- Units needing structural review: ${warnings.length}`,
+    "- Source categories:",
+    ...categoryLines,
     "",
     "Automatic checks catch malformed output and preservation failures. They do **not** establish semantic equivalence; every row below is a source/translation review queue.",
     "",
@@ -187,6 +313,7 @@ function markdownReport(report: {
         `### ${row.blockId} · pages ${row.pageStart}${row.pageEnd !== row.pageStart ? `–${row.pageEnd}` : ""}`,
         "",
         `- Role: ${row.role}; quality: ${row.quality?.score ?? "request failed"}; production decision: ${row.wouldSubmitToModel ? (row.wouldAcceptTranslation ? "accept" : "original fallback after quality gate") : "original fallback before model"}; warnings: ${row.structuralWarnings.join(", ") || "none"}`,
+        `- Source category: ${row.sourceCategory}; fallback stage: ${row.fallbackStage}; fallback reason: ${row.fallbackReason ?? "none"}`,
         `- Invariants: ${row.sourceInvariants.join(", ") || "none"}`,
         "",
         "**Source**",
@@ -195,7 +322,7 @@ function markdownReport(report: {
         "",
         "**Japanese**",
         "",
-        row.translation ?? (row.sourceFallback ? "[original fallback]" : "[translation request failed]"),
+        row.translation ?? ((row.readerVisibleFallback ?? row.sourceFallback) ? "[original fallback]" : "[translation request failed]"),
         ""
       );
     }
@@ -259,6 +386,10 @@ async function main() {
         const normalizedTranslation = result && !sourceFallback
           ? normalizeSourceGroundedTerminology(source, result.text)
           : undefined;
+        const quality = normalizedTranslation ? evaluateJaTranslation(normalizedTranslation, source) : undefined;
+        const wouldAcceptTranslation = sourceFallback ? false : normalizedTranslation ? isPlausibleJaTranslation(normalizedTranslation, source) : undefined;
+        const readerVisibleFallback = !wouldAcceptTranslation;
+        const partialSourceFallback = detectPartialSourceFallback(source, normalizedTranslation);
         return {
           blockId: block.id,
           role: block.type,
@@ -267,15 +398,21 @@ async function main() {
           source,
           translation: normalizedTranslation,
           sourceFallback,
+          readerVisibleFallback,
+          partialSourceFallback: partialSourceFallback.partial,
+          partialSourceFallbackReason: partialSourceFallback.reason,
           modelVersion: result?.model_version,
           inputTokens: result?.input_tokens,
           outputTokens: result?.output_tokens,
           translationTimeMs: result?.translation_time_ms,
           sourceInvariants: extractScientificInvariants(source).map((item) => item.value),
-          quality: normalizedTranslation ? evaluateJaTranslation(normalizedTranslation, source) : undefined,
+          quality,
           structuralWarnings: structuralWarnings(block),
+          sourceCategory: sourceCategory(block),
+          fallbackStage: fallbackStage(wouldSubmitToModel, readerVisibleFallback),
+          fallbackReason: fallbackReason(source, result, quality),
           wouldSubmitToModel,
-          wouldAcceptTranslation: sourceFallback ? false : normalizedTranslation ? isPlausibleJaTranslation(normalizedTranslation, source) : undefined,
+          wouldAcceptTranslation,
         };
       });
       papers.push({ paper, rows });

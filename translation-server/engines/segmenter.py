@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from .citation_protect import protected_span_mask
 
-SEGMENTER_VERSION = "semantic-v36"
+SEGMENTER_VERSION = "semantic-v49"
 _ABBREVIATIONS = {"e.g.", "i.e.", "et al.", "fig.", "no.", "cf.", "dr.", "mr.", "ms.", "vs."}
 
 
@@ -30,6 +30,24 @@ def _compact(text: str) -> str:
     return " ".join(text.split()).strip()
 
 
+def _normalize_model_input(text: str) -> str:
+    """Repair high-confidence OCR/apostrophe losses only for model input.
+
+    The source slice must remain byte-for-byte reconstructable modulo
+    whitespace, but MADLAD is sensitive to malformed English such as interview
+    quotes beginning with ``Its not``.  Restrict repairs to unambiguous
+    pronoun contractions before negation so possessive ``its`` remains intact.
+    """
+    normalized = re.sub(r"\bIts\s+(?=not\b)", "It's ", text)
+    # PDF text and scholarly prose sometimes insert a comma into
+    # neither/nor coordination.  MADLAD has repeatedly dropped the whole
+    # negative predicate from inputs like ``Neither cathodal, nor anodal ...``.
+    # Removing only that optional comma preserves the logical form while
+    # presenting the standard English construction to the model.
+    normalized = re.sub(r"\bNeither\s+([^,.;:()]{1,80}),\s+nor\b", r"Neither \1 nor", normalized, flags=re.I)
+    return normalized
+
+
 def _is_decimal(text: str, index: int) -> bool:
     return index > 0 and index + 1 < len(text) and text[index - 1].isdigit() and text[index + 1].isdigit()
 
@@ -39,6 +57,12 @@ def _is_abbreviation(text: str, index: int) -> bool:
     # as ``mechanisms.`` look like the abbreviation ``ms.``, hiding a real
     # boundary and making the following sentence vulnerable to omission.
     prefix = text[: index + 1]
+    # Experimental labels such as ``person B. Neither ...`` are sentence
+    # endings, not author initials.  Treating the final label as an
+    # abbreviation merges the following sentence into the same model input;
+    # MADLAD then tends to omit the second claim.
+    if re.search(r"\b(?:person|participant|option|condition|group|box|target|stimulus|case|class|category)\s+[A-Z]\.$", prefix, re.I):
+        return False
     token = re.search(r"(?:^|\s)([A-Za-z]+(?:\.[A-Za-z]+)*\.)$", prefix)
     return bool(token and token.group(1).lower() in _ABBREVIATIONS) or bool(re.search(r"\b[A-Z]\.$", prefix))
 
@@ -289,6 +313,139 @@ def _complete_long_relative_clause(text: str) -> list[tuple[str, str]]:
     ]
 
 
+def _split_rescue_at(text: str, index: int, left_model: str, right_model: str) -> list[TranslationUnit]:
+    left = text[:index].strip()
+    right = text[index:].strip()
+    if not left or not right:
+        return []
+    return [
+        TranslationUnit(left, protected_span_mask(left), left_model),
+        TranslationUnit(right, protected_span_mask(right), right_model),
+    ]
+
+
+def _rescue_found_that_coordination(text: str) -> list[TranslationUnit]:
+    """Recover ``found that A and that B`` units after greedy omission.
+
+    Production segmentation keeps these sentences intact because the source is
+    grammatical.  If MADLAD later drops one coordinated finding, the retry can
+    make each finding explicit without changing the source slices that will be
+    rejoined.
+    """
+    if len(text) < 180:
+        return []
+    masked = protected_span_mask(text)
+    match = re.search(r"\bfound\s+that\b", masked, re.I)
+    if not match:
+        return []
+    split = re.search(r"\s+and\s+that\s+", masked[match.end():], re.I)
+    if not split:
+        return []
+    split_index = match.end() + split.start()
+    left = text[:split_index].strip()
+    right = text[split_index:].strip()
+    if len(left) < 80 or len(right) < 80:
+        return []
+    right_body = re.sub(r"^and\s+that\s+", "", right, flags=re.I).strip()
+    return _split_rescue_at(
+        text,
+        split_index,
+        left.rstrip(",;") + ".",
+        "They found that " + right_body,
+    )
+
+
+def _rescue_if_so_semicolon(text: str) -> list[TranslationUnit]:
+    """Split a question with a top-level ``; if so,`` continuation."""
+    masked = protected_span_mask(text)
+    match = re.search(r";\s+if\s+so,\s+", masked, re.I)
+    if not match:
+        return []
+    left = text[: match.start()].strip()
+    right = text[match.start() + 1 :].strip()
+    if len(left.split()) < 8 or len(right.split()) < 8:
+        return []
+    return _split_rescue_at(
+        text,
+        match.start() + 1,
+        left.rstrip(",;") + ".",
+        right[0].upper() + right[1:] if right else right,
+    )
+
+
+def _rescue_nonrestrictive_where_clause(text: str) -> list[TranslationUnit]:
+    """Make concise ``..., where property list ...`` clauses explicit.
+
+    These clauses are frequent in methods prose.  MADLAD often summarizes the
+    main clause and omits the property list; retrying the second slice as
+    ``In this context, ...`` keeps the fact-bearing clause available while the
+    exact source text remains reconstructable.
+    """
+    if len(text) < 100:
+        return []
+    match = re.search(r",\s+(where\s+[^.?!]+[.?!]?)$", text, re.I)
+    if not match:
+        return []
+    prefix = text[: match.start() + 1].strip()
+    clause = text[match.start() + 1 :].strip()
+    body = re.sub(r"^where\s+", "", clause, flags=re.I).strip()
+    if len(prefix.split()) < 8 or len(body.split()) < 6:
+        return []
+    # Favor fact-heavy property clauses; avoid rewriting arbitrary narrative.
+    if not re.search(r"\b(?:size|weight|form factor|power|efficiency|rate|temperature|accuracy|latency|performance|value|condition|participants?)\b", body, re.I):
+        return []
+    return _split_rescue_at(
+        text,
+        match.start() + 1,
+        prefix.rstrip(",") + ".",
+        "In this context, " + body,
+    )
+
+
+def _rescue_appositive_region_clause(text: str) -> list[TranslationUnit]:
+    """Split a long appositive ``..., a region ...`` fact clause."""
+    if len(text) < 180:
+        return []
+    match = re.search(r",\s+(a\s+region\s+[^.?!]+[.?!]?)$", text, re.I)
+    if not match:
+        return []
+    prefix = text[: match.start() + 1].strip()
+    clause = text[match.start() + 1 :].strip()
+    body = re.sub(r"^a\s+region\s+with\s+", "", clause, flags=re.I).strip()
+    if len(prefix.split()) < 10 or len(body.split()) < 8:
+        return []
+    return _split_rescue_at(
+        text,
+        match.start() + 1,
+        prefix.rstrip(",") + ".",
+        "This region has " + body,
+    )
+
+
+def rescue_units_for_translation(source: str) -> list[TranslationUnit]:
+    """Return retry-only units for a source chunk that decoded poorly.
+
+    The normal segmenter is precision-first.  This function is called only
+    after the model produced a degenerate or implausibly short translation for
+    an otherwise valid source unit.  It therefore uses slightly more aggressive
+    but still syntactically motivated splits to recover translation instead of
+    falling back to the entire paragraph.
+    """
+    compact = _compact(source)
+    if not compact:
+        return []
+    for splitter in (
+        _rescue_found_that_coordination,
+        _rescue_if_so_semicolon,
+        _rescue_nonrestrictive_where_clause,
+        _rescue_appositive_region_clause,
+    ):
+        units = splitter(compact)
+        if len(units) > 1 and validate_round_trip(compact, [unit.text for unit in units]):
+            return units
+    return []
+
+
 def segment_for_translation(source: str) -> list[TranslationUnit]:
     """Protect first, split only at top-level sentence punctuation, then restore.
 
@@ -297,7 +454,7 @@ def segment_for_translation(source: str) -> list[TranslationUnit]:
     """
     compact = _compact(source)
     if not compact:
-        return [TranslationUnit(source, source)]
+        return [TranslationUnit(source, protected_span_mask(source), _normalize_model_input(source))]
     # Protect before segmentation with an equal-length mask, so offsets still
     # slice the original text while citation/scientific punctuation cannot make
     # a boundary. Each resulting unit is then placeholder-protected immediately
@@ -327,10 +484,10 @@ def segment_for_translation(source: str) -> list[TranslationUnit]:
                     TranslationUnit(
                         source_slice,
                         protected_span_mask(source_slice),
-                        model_input,
+                        _normalize_model_input(model_input),
                     )
                 )
-    return units or [TranslationUnit(compact, protected_span_mask(compact), compact)]
+    return units or [TranslationUnit(compact, protected_span_mask(compact), _normalize_model_input(compact))]
 
 
 def split_for_translation(source: str) -> list[str]:

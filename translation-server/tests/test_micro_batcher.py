@@ -18,6 +18,7 @@ class FakeEngine:
         self._lock = threading.Lock()
         self.calls: list[tuple[str, list[str]]] = []
         self.fail_generate = False
+        self.fail_chunks: set[str] = set()
 
     def load_model(self) -> None:
         return None
@@ -31,6 +32,8 @@ class FakeEngine:
     ) -> tuple[list[str], list[int], list[int]]:
         if self.fail_generate:
             raise RuntimeError("generate failed")
+        if any(chunk in self.fail_chunks for chunk in chunks):
+            raise RuntimeError("unit failed")
         self.calls.append((target_language, list(chunks)))
         pieces = [f"{target_language}:{chunk}" for chunk in chunks]
         in_toks = [max(1, len(chunk.split())) for chunk in chunks]
@@ -186,6 +189,32 @@ class MicroBatcherTests(unittest.TestCase):
         self.assertIsNotNone(results[1])
         self.assertEqual(results[1].text, "ja:ok paragraph")
         self.assertEqual(items[1].future.result().text, "ja:ok paragraph")
+
+    def test_unit_failure_preserves_only_that_source_slice(self) -> None:
+        engine = FakeEngine()
+        engine.fail_chunks.add("bad sentence.")
+        sched = MicroBatchScheduler(engine)
+        with (
+            patch(
+                "engines.micro_batcher.MADLADEngine._split_for_translation",
+                staticmethod(lambda text: text.split("|")),
+            ),
+            patch(
+                "engines.micro_batcher.MADLADEngine._join_translated_chunks",
+                staticmethod(lambda chunks, pieces, lang: " ".join(pieces)),
+            ),
+        ):
+            out = sched.translate_many(
+                ["good sentence.|bad sentence.|another good sentence."],
+                "en",
+                "ja",
+            )
+        self.assertEqual(
+            out[0].text,
+            "ja:good sentence. bad sentence. ja:another good sentence.",
+        )
+        self.assertEqual(out[0].input_tokens, 5)
+        self.assertEqual(out[0].output_tokens, 5)
 
 
 if __name__ == "__main__":

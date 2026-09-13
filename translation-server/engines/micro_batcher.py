@@ -278,13 +278,29 @@ class MicroBatchScheduler:
                 in_toks: list[int] = []
                 out_toks: list[int] = []
                 for chunk, model_input in zip(chunks, item_model_inputs):
-                    if model_input == chunk:
-                        unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language)
-                    else:
-                        unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language, [model_input])
-                    pieces.extend(unit_pieces)
-                    in_toks.extend(unit_in)
-                    out_toks.extend(unit_out)
+                    try:
+                        if model_input == chunk:
+                            unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language)
+                        else:
+                            unit_pieces, unit_in, unit_out = engine._translate_chunks([chunk], target_language, [model_input])
+                        pieces.extend(unit_pieces)
+                        in_toks.extend(unit_in)
+                        out_toks.extend(unit_out)
+                    except Exception as unit_error:
+                        # A rejected semantic unit should not force a whole
+                        # multi-sentence paragraph back to English. Preserve
+                        # the exact source slice for that unit and keep the
+                        # successful translated neighbors. The client still
+                        # runs its whole-paragraph quality gate, so unsafe
+                        # mixed output can be rejected, but a single hard
+                        # sentence no longer erases every safe sentence.
+                        print(
+                            f"[MICROBATCH] unit fallback: {unit_error}",
+                            flush=True,
+                        )
+                        pieces.append(chunk)
+                        in_toks.append(0)
+                        out_toks.append(0)
                 translated_spans.append(
                     (item, chunks, item_model_inputs, pieces, in_toks, out_toks)
                 )

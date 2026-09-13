@@ -46,7 +46,7 @@ AUTHOR_YEAR_CITATION_RE = re.compile(
 # restored placeholders such as `tDCSFig. 7bU=307`.
 SCIENTIFIC_PARENTHETICAL_RE = re.compile(
     r"\("
-    r"(?=[^()]{0,240}(?:\bfig(?:ure)?s?\.?\s*\d+[a-z]?\b|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d|(?-i:\b[UWHV]\s*=)|(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\())"
+    r"(?=[^()]{0,240}(?:\bfig(?:ure)?s?\.?\s*\d+(?:[a-z]|\([a-z]\))?|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d|(?-i:\b[UWHV]\s*=)|(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\(|\b[A-Za-z]\s*(?:\u0338\s*=|!=|≠|=|<|>|≤|≥)\s*[-+]?\d|\b0?\.\d+\b))"
     r"[^()]{1,240}"
     r"\)",
     re.IGNORECASE,
@@ -59,7 +59,7 @@ SCIENTIFIC_TOKEN_RE = re.compile(
     r"(?:"
     r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+"  # DOI
     r"|https?://[^\s)>\]}]+"  # URL
-    r"|\b(?:fig(?:ure)?s?\.?\s*\d+[a-z]?)"  # figure/panel reference
+    r"|\b(?:fig(?:ure)?s?\.?\s*\d+(?:[a-z]|\([a-z]\))?)"  # figure/panel reference
     r"|(?:[χΧxX](?:²|2)?|[FfTtZz])\s*\([^)]{1,16}\)\s*(?:=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?"  # test statistic
     # Rank/non-parametric tests commonly report a bare uppercase statistic
     # (`U=307`, `W=...`, `H=...`, `V=...`) with no degrees-of-freedom
@@ -67,7 +67,9 @@ SCIENTIFIC_TOKEN_RE = re.compile(
     # prose is not over-protected.
     r"|(?-i:\b[UWHV]\s*=\s*[-+]?\d+(?:\.\d+)?)"
     r"|\bp\s*(?:=|<|>|≤|≥)\s*\.?\d+(?:\.\d+)?"  # p-value
+    r"|\b[A-Za-z]\s*(?:\u0338\s*=|!=|≠|=|<|>|≤|≥)\s*[-+]?\d+(?:\.\d+)?"  # variable comparison
     r"|\bn\s*=\s*\d+"  # sample size
+    r"|\(\s*0?\.\d+(?:\s*,\s*0?\.\d+)*\s*\)"  # compact reported p-value/effect-size decimals
     r"|\b\d+(?:\.\d+)?\s*(?:mm|cm|km|ms|Hz|kHz|MHz|GHz|kg|mg|%)\b"  # measurement
     # Technical/model identifiers such as DeepIV. A terminal run of capitals
     # is a strong identifier signal; protecting every mixed-case product name
@@ -176,11 +178,22 @@ def _to_halfwidth(text: str) -> str:
     return "".join(out)
 
 
+def _normalize_placeholder_glyphs(text: str) -> str:
+    """Fold common Latin lookalikes only inside citation placeholders."""
+    text = _to_halfwidth(text)
+    return re.sub(
+        rf"{_PLACEHOLDER_PREFIX[0:3]}[IΙІ]T",
+        _PLACEHOLDER_PREFIX,
+        text,
+        flags=re.IGNORECASE,
+    )
+
+
 def restore_citations(text: str, citations: list[str], nonce: int = 0) -> str:
     """Put original citation strings back, preserving content and order."""
     if not citations:
         return _to_halfwidth(text)
-    out = _to_halfwidth(text)
+    out = _normalize_placeholder_glyphs(text)
     missing: list[str] = []
     for i, citation in enumerate(citations):
         pattern = _placeholder_pattern(i, nonce)

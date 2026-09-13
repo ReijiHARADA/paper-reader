@@ -46,6 +46,12 @@ for (const report of reports) for (const entry of report.papers) for (const row 
     source,
     translation: String(row.translation ?? ""),
     modelVersion: String(row.modelVersion ?? "unknown"),
+    sourceCategory: String(row.sourceCategory ?? "unknown"),
+    fallbackStage: String(row.fallbackStage ?? "unknown"),
+    fallbackReason: row.fallbackReason ? String(row.fallbackReason) : undefined,
+    readerVisibleFallback: Boolean(row.readerVisibleFallback ?? row.sourceFallback ?? false),
+    partialSourceFallback: Boolean(row.partialSourceFallback ?? false),
+    partialSourceFallbackReason: row.partialSourceFallbackReason ? String(row.partialSourceFallbackReason) : undefined,
     productionDecision: row.wouldSubmitToModel
       ? (row.wouldAcceptTranslation ? "accept" : "post-model-fallback")
       : "pre-model-fallback",
@@ -72,12 +78,16 @@ for (const report of reports) for (const entry of report.papers) for (const row 
   completedPaperIds.add(entry.paper.id);
 }
 const reviews = [...queue.values()].sort((a, b) => a.key.localeCompare(b.key));
+const archivedReviews = (old.reviews ?? [])
+  .filter((review) => review.reviewedAt && !queue.has(review.key))
+  .sort((a, b) => a.key.localeCompare(b.key));
 const completed = reviews.filter((review) => review.reviewedAt).length;
 const payload = {
   schemaVersion: 1,
   labelVocabulary: ["correct", "minor_wording", "terminology_error", "semantic_shift", "omission", "addition", "hallucination", "numeric_error", "citation_error", "repetition", "source_fragment", "paragraph_merge", "paragraph_split", "chrome_contamination", "list_flattening", "table_contamination"],
   causeVocabulary: ["PDF extraction", "reading order", "line grouping", "paragraph reconstruction", "Canonical resolver", "translation-unit segmentation", "MADLAD decode", "postprocess", "quality gate", "glossary/terminology"],
   reviews,
+  archivedReviews,
   summary: { total: reviews.length, completed, pending: reviews.length - completed },
 };
 fs.writeFileSync(reviewPath, `${JSON.stringify(payload, null, 2)}\n`);
@@ -88,11 +98,27 @@ const previousProgress = fs.existsSync(progressPath)
 const progress = {
   ...previousProgress,
   phase: "phase-2",
-  lastBenchmarkVersion: "3b-mt-v5-semantic-v34",
+  lastBenchmarkVersion: "3b-mt-v5-semantic-v49",
   completedPapers: [...completedPaperIds].sort(),
-  pendingPapers: [], reviewedBlocks: completed, pendingManualReview: reviews.length - completed,
-  unresolvedFailures: ["semantic review of automatic accepts", "expand OA corpus to 50+ verified PDFs", "page/column paragraph repair", "chrome separation"],
-  nextActions: ["add verified OA candidates with provenance", "run 12 section-stratified blocks per paper", "label every accepted block", "aggregate false accepts by discipline and format"],
+  pendingPapers: [], reviewedBlocks: completed, archivedReviewedBlocks: archivedReviews.length, pendingManualReview: reviews.length - completed,
+  unresolvedFailures: [
+    "manual semantic review of current accepts",
+    "measure partial source fallback inside accepted output before treating accept rate as fully translated rate",
+    "fallback rate must be driven below 5% for product-quality reading UX",
+    "unsafe false accepts dominated by semantic shift and omission without durable numeric/citation facts",
+    "expand OA corpus to 50+ verified PDFs",
+    "page/column paragraph repair",
+    "chrome separation",
+    "evaluate replacement or cascade translation models under local/free-use constraints",
+  ],
+  nextActions: [
+    "complete a v49 full benchmark, then measure partial source fallback inside accepted output",
+    "continue v41 manual comparison of accepted ordinary body prose before relaxing any gate",
+    "use semantic-coverage audit scores to prioritize likely omissions and semantic shifts",
+    "continue local/free EN-JA model comparison; do not enable cascade until manual review confirms semantic adequacy",
+    "design production-safe content coverage checks that do not inflate reader-visible fallback",
+    "add verified OA candidates with provenance",
+  ],
 };
 fs.writeFileSync(progressPath, `${JSON.stringify(progress, null, 2)}\n`);
 console.log(`review queue: ${completed}/${reviews.length} completed`);

@@ -154,6 +154,34 @@ const SOURCE_GROUNDED_TERMS: Array<{
     source: /\bmulti[ -]?armed\s+bandit\b/i,
     replacements: [[/多武装の強盗(?:のタスク)?/g, "多腕バンディット課題"]],
   },
+  {
+    source: /\bwearability\b/i,
+    replacements: [[/ウェスタビリティ|ウェストバンド/g, "装着性"]],
+  },
+  {
+    source: /\bwearable(?:s)?\b/i,
+    replacements: [[/ウェスタブル|ウェスタビリティ|ウェストバンド/g, "ウェアラブル"]],
+  },
+  {
+    source: /\bcounterbalanc(?:e|ed|ing)\b/i,
+    replacements: [[/対比/g, "カウンターバランス"]],
+  },
+  {
+    source: /\bearrings?\b/i,
+    replacements: [[/耳かき|耳輪/g, "イヤリング"]],
+  },
+  {
+    source: /\bless\s+embarrassing\b/i,
+    replacements: [[/より恥ずかし(?:く|い)/g, "恥ずかしさが少なく"]],
+  },
+  {
+    source: /\bless\s+impolite\b/i,
+    replacements: [[/より不礼(?:で|な|に)?/g, "失礼さが少なく"]],
+  },
+  {
+    source: /\bless\s+weird\b/i,
+    replacements: [[/より奇妙(?:で|な|に)?/g, "奇妙さが少なく"]],
+  },
 ];
 
 export function normalizeSourceGroundedTerminology(
