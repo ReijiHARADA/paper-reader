@@ -10,6 +10,7 @@ import {
   Star,
 } from "lucide-react";
 import type { WorkspaceNode } from "../../types/project";
+import { useAppStore } from "../../stores/appStore";
 import {
   INBOX_DROP_ID,
   usePaperDragStore,
@@ -41,6 +42,10 @@ export function AppSidebar({
   inboxCount,
 }: AppSidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarMode = useAppStore((state) => state.displaySettings.sidebarMode);
+  const collapseRootsOnly = useAppStore(
+    (state) => state.displaySettings.sidebarCollapseRootsOnly
+  );
   const draggingPaperId = usePaperDragStore((state) => state.draggingPaperId);
   const dropTargetId = usePaperDragStore((state) => state.dropTargetId);
   const pointerX = usePaperDragStore((state) => state.pointerX);
@@ -63,13 +68,22 @@ export function AppSidebar({
     );
   }, [draggingPaperId, pointerX, pointerY]);
 
+  const modeClass =
+    sidebarMode === "expanded"
+      ? styles.sidebarExpanded
+      : sidebarMode === "collapsed"
+        ? styles.sidebarCollapsed
+        : styles.sidebarAuto;
+
   return (
     <aside
       ref={sidebarRef}
-      className={`${styles.sidebar} ${pointerOverSidebar ? styles.sidebarDropReady : ""}`}
+      className={`${styles.sidebar} ${modeClass} ${pointerOverSidebar ? styles.sidebarDropReady : ""} ${collapseRootsOnly ? styles.sidebarRootsOnly : ""}`}
     >
       <label className={styles.search} title="ライブラリを検索 (⌘K)">
-        <Search size={16} className={styles.searchIcon} />
+        <span className={styles.iconSlot}>
+          <Search size={16} className={styles.searchIcon} />
+        </span>
         <input
           id="library-search"
           type="search"
@@ -81,45 +95,47 @@ export function AppSidebar({
       </label>
 
       <button type="button" className={styles.newProject} onClick={onNewWorkspace} title="新規フォルダ">
-        <Plus size={16} className={styles.icon} />
+        <span className={styles.iconSlot}>
+          <Plus size={16} />
+        </span>
         <span className={styles.label}>新規フォルダ</span>
       </button>
 
       <div className={styles.scroll}>
         <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>
-          <span className={styles.label}>ワークスペース</span>
-        </h2>
-        <WorkspaceTree
-          nodes={workspaceNodes}
-          activeNodeId={activeNodeId}
-          dropTargetId={dropTargetId}
-          draggingPaperId={draggingPaperId}
-          onDelete={onDeleteNode}
-          onNewChild={onNewChild}
-          onAddPaper={onAddPaperToWorkspace}
-        />
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>
-          <span className={styles.label}>Library</span>
-        </h2>
-        <nav className={styles.nav}>
-          <LibItem to="/" end icon={<Library size={16} />} label="すべての論文" />
-          <LibItem
-            to="/inbox"
-            icon={<Inbox size={16} />}
-            label="Inbox"
-            badge={inboxCount > 0 ? inboxCount : undefined}
-            inboxDrop
-            dropTarget={dropTargetId === INBOX_DROP_ID}
-            preventNav={Boolean(draggingPaperId)}
+          <h2 className={styles.sectionTitle}>
+            <span className={styles.label}>ワークスペース</span>
+          </h2>
+          <WorkspaceTree
+            nodes={workspaceNodes}
+            activeNodeId={activeNodeId}
+            dropTargetId={dropTargetId}
+            draggingPaperId={draggingPaperId}
+            onDelete={onDeleteNode}
+            onNewChild={onNewChild}
+            onAddPaper={onAddPaperToWorkspace}
           />
-          <LibItem to="/favorites" icon={<Star size={16} />} label="お気に入り" />
-          <LibItem to="/recent" icon={<Clock size={16} />} label="最近読んだ論文" />
-        </nav>
-      </section>
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <span className={styles.label}>ライブラリ</span>
+          </h2>
+          <nav className={styles.nav}>
+            <LibItem to="/" end icon={<Library size={16} />} label="すべての論文" />
+            <LibItem
+              to="/inbox"
+              icon={<Inbox size={16} />}
+              label="インボックス"
+              badge={inboxCount > 0 ? inboxCount : undefined}
+              inboxDrop
+              dropTarget={dropTargetId === INBOX_DROP_ID}
+              preventNav={Boolean(draggingPaperId)}
+            />
+            <LibItem to="/favorites" icon={<Star size={16} />} label="お気に入り" />
+            <LibItem to="/recent" icon={<Clock size={16} />} label="最近読んだ論文" />
+          </nav>
+        </section>
       </div>
 
       <div className={styles.footer}>
@@ -133,7 +149,7 @@ export function AppSidebar({
             if (draggingPaperId) event.preventDefault();
           }}
         >
-          <span className={styles.icon}>
+          <span className={styles.iconSlot}>
             <Settings size={16} />
           </span>
           <span className={styles.itemLabel}>設定</span>
@@ -175,7 +191,7 @@ function LibItem({
         if (preventNav) event.preventDefault();
       }}
     >
-      <span className={styles.icon}>{icon}</span>
+      <span className={styles.iconSlot}>{icon}</span>
       <span className={styles.itemLabel}>{label}</span>
       {badge !== undefined && <span className={styles.badge}>{badge}</span>}
     </NavLink>

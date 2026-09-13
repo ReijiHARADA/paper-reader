@@ -1,0 +1,67 @@
+.trail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.35;
+}
+
+.segmentWrap {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sep {
+  flex-shrink: 0;
+  margin: 0 0.35em;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+.ancestor {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.ancestor:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.md {
+  font-size: 1.25rem;
+}
+
+.md .sep {
+  font-size: 1.125rem;
+}
+
+.sm {
+  font-size: 0.9375rem;
+}
+
+.sm .ancestor {
+  font-weight: 400;
+}
+
+.sm .current {
+  font-weight: 500;
+}

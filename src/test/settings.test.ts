@@ -44,3 +44,11 @@ describe("mergeTranslationSettingsV2", () => {
     expect(mergeTranslationSettingsV2({ translationConcurrency: 4 }).translationConcurrency).toBe(4);
   });
 });
+
+describe("display settings defaults", () => {
+  it("defaults sidebar mode to auto hover expand", async () => {
+    const { useAppStore } = await import("../stores/appStore");
+    expect(useAppStore.getState().displaySettings.sidebarMode).toBe("auto");
+    expect(useAppStore.getState().displaySettings.sidebarCollapseRootsOnly).toBe(true);
+  });
+});

@@ -43,6 +43,25 @@ export function collectDescendantIds(nodes: WorkspaceNode[], id: string): string
   return result;
 }
 
+/** Root → … → node (inclusive). Empty when the id is missing. */
+export function workspaceAncestorPath(
+  nodes: WorkspaceNode[],
+  nodeId: string | null | undefined
+): WorkspaceNode[] {
+  if (!nodeId) return [];
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const chain: WorkspaceNode[] = [];
+  let current: WorkspaceNode | undefined = byId.get(nodeId);
+  const seen = new Set<string>();
+  while (current) {
+    if (seen.has(current.id)) break;
+    seen.add(current.id);
+    chain.push(current);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return chain.reverse();
+}
+
 export function wouldCreateCycle(nodes: WorkspaceNode[], nodeId: string, newParentId: string | null): boolean {
   return newParentId !== null && (newParentId === nodeId || collectDescendantIds(nodes, nodeId).includes(newParentId));
 }

@@ -5,134 +5,150 @@
   --sidebar-collapsed-w: 48px;
   --sidebar-expanded-w: 220px;
   --sidebar-icon-box: 32px;
+  --sidebar-motion: 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Shared “is open” selector pieces applied below */
 .sidebar {
+  --sidebar-open: 0;
   width: var(--sidebar-collapsed-w);
   flex-shrink: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: var(--spacing-md) var(--spacing-sm);
   background-color: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border-light);
   overflow: hidden;
-  transition: width var(--transition-normal);
-  /* ホバーで展開 */
-}
-
-.search,
-.newProject,
-.item {
   transition:
-    width var(--transition-normal),
-    min-width var(--transition-normal),
-    padding var(--transition-normal),
-    gap var(--transition-normal),
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    width var(--sidebar-motion),
+    gap var(--sidebar-motion);
 }
 
-.sidebar:is(:hover, :has([data-workspace-editing])) {
+/* Auto: hover / rename / drop expands */
+.sidebarAuto:is(:hover, :has([data-workspace-editing])),
+.sidebarExpanded,
+.sidebarDropReady,
+.sidebar:has([data-workspace-editing]) {
+  --sidebar-open: 1;
   width: var(--sidebar-expanded-w);
+  gap: 4px;
 }
 
-.sidebarDropReady {
-  width: var(--sidebar-expanded-w);
-}
+/* Collapsed mode ignores hover; drop + rename still open via rules above */
 
 /* ────────────────────────────────────────────────
-   ラベル類：通常は非表示・ホバー時にフェードイン
+   Labels: fade + clip (icons stay put)
 ──────────────────────────────────────────────── */
 .label,
 .itemLabel,
 .searchInput,
 .badge {
   opacity: 0;
+  max-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  width: 0;
-  min-width: 0;
-  flex: 0 0 0;
+  flex: 0 0 auto;
   padding: 0;
   margin: 0;
   border: none;
   pointer-events: none;
-  transition: opacity var(--transition-normal);
+  transition:
+    opacity var(--sidebar-motion),
+    max-width var(--sidebar-motion);
 }
 
-.sectionTitle,
-.empty {
-  opacity: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  pointer-events: none;
-  transition: opacity var(--transition-normal);
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .label,
-.sidebar:is(:hover, :has([data-workspace-editing])) .itemLabel,
-.sidebar:is(:hover, :has([data-workspace-editing])) .searchInput,
-.sidebar:is(:hover, :has([data-workspace-editing])) .sectionTitle,
-.sidebar:is(:hover, :has([data-workspace-editing])) .empty,
-.sidebar:is(:hover, :has([data-workspace-editing])) .badge,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .label,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .itemLabel,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .searchInput,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .badge,
+.sidebarExpanded .label,
+.sidebarExpanded .itemLabel,
+.sidebarExpanded .searchInput,
+.sidebarExpanded .badge,
 .sidebarDropReady .label,
 .sidebarDropReady .itemLabel,
 .sidebarDropReady .searchInput,
-.sidebarDropReady .sectionTitle,
-.sidebarDropReady .empty,
-.sidebarDropReady .badge {
+.sidebarDropReady .badge,
+.sidebar:has([data-workspace-editing]) .label,
+.sidebar:has([data-workspace-editing]) .itemLabel,
+.sidebar:has([data-workspace-editing]) .searchInput,
+.sidebar:has([data-workspace-editing]) .badge {
   opacity: 1;
+  max-width: 160px;
   pointer-events: auto;
 }
 
-.sidebar:is(:hover, :has([data-workspace-editing])) .label,
-.sidebar:is(:hover, :has([data-workspace-editing])) .itemLabel,
-.sidebar:is(:hover, :has([data-workspace-editing])) .searchInput,
-.sidebarDropReady .label,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .itemLabel,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .searchInput,
+.sidebarExpanded .itemLabel,
+.sidebarExpanded .searchInput,
 .sidebarDropReady .itemLabel,
-.sidebarDropReady .searchInput {
-  width: auto;
-  min-width: 0;
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .itemLabel,
-.sidebar:is(:hover, :has([data-workspace-editing])) .searchInput,
-.sidebarDropReady .itemLabel,
-.sidebarDropReady .searchInput {
+.sidebarDropReady .searchInput,
+.sidebar:has([data-workspace-editing]) .itemLabel,
+.sidebar:has([data-workspace-editing]) .searchInput {
   flex: 1 1 auto;
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .label,
-.sidebarDropReady .label {
-  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
 }
 
 /* ────────────────────────────────────────────────
-   検索フィールド
+   Rows: always full sidebar width; icon column fixed
 ──────────────────────────────────────────────── */
-.search {
+.search,
+.newProject,
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  height: var(--sidebar-icon-box);
+  padding: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition:
+    gap var(--sidebar-motion),
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .search,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .newProject,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .item,
+.sidebarExpanded .search,
+.sidebarExpanded .newProject,
+.sidebarExpanded .item,
+.sidebarDropReady .search,
+.sidebarDropReady .newProject,
+.sidebarDropReady .item,
+.sidebar:has([data-workspace-editing]) .search,
+.sidebar:has([data-workspace-editing]) .newProject,
+.sidebar:has([data-workspace-editing]) .item {
+  gap: var(--spacing-sm);
+}
+
+.iconSlot,
+.icon {
+  flex-shrink: 0;
+  width: var(--sidebar-icon-box);
+  height: var(--sidebar-icon-box);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
+}
+
+/* ────────────────────────────────────────────────
+   Search
+──────────────────────────────────────────────── */
+.search {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 0;
   color: var(--color-text-tertiary);
-  width: var(--sidebar-icon-box);
-  height: var(--sidebar-icon-box);
-  flex-shrink: 0;
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .search,
-.sidebarDropReady .search {
-  width: 100%;
-  justify-content: flex-start;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-sm);
 }
 
 .searchIcon {
@@ -158,31 +174,16 @@
 }
 
 /* ────────────────────────────────────────────────
-   New Project ボタン
+   New folder
 ──────────────────────────────────────────────── */
 .newProject {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  width: var(--sidebar-icon-box);
-  height: var(--sidebar-icon-box);
   border: 1px dashed var(--color-border);
   background: var(--color-bg);
   color: var(--color-text);
   border-radius: var(--radius-md);
-  padding: 0;
   font-size: 0.875rem;
   font-weight: 500;
-  flex-shrink: 0;
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .newProject,
-.sidebarDropReady .newProject {
-  width: 100%;
-  justify-content: flex-start;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-sm);
+  cursor: pointer;
 }
 
 .newProject:hover {
@@ -201,31 +202,87 @@
 }
 
 /* ────────────────────────────────────────────────
-   Section
+   Section — pack titles away when collapsed
 ──────────────────────────────────────────────── */
 .section {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: 0;
+  transition: margin-top var(--sidebar-motion);
+}
+
+/* Collapsed: leave one icon-row gap between workspace and library groups */
+.section + .section {
+  margin-top: var(--sidebar-icon-box);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .section,
+.sidebarExpanded .section,
+.sidebarDropReady .section,
+.sidebar:has([data-workspace-editing]) .section {
+  margin-top: var(--spacing-sm);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .section + .section,
+.sidebarExpanded .section + .section,
+.sidebarDropReady .section + .section,
+.sidebar:has([data-workspace-editing]) .section + .section {
   margin-top: var(--spacing-sm);
 }
 
 .sectionTitle {
   font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--color-text-tertiary);
-  padding: 4px var(--spacing-sm);
-  height: 24px;
   display: flex;
   align-items: center;
+  height: 0;
+  padding: 0 var(--spacing-sm);
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    height var(--sidebar-motion),
+    opacity var(--sidebar-motion),
+    padding var(--sidebar-motion);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .sectionTitle,
+.sidebarExpanded .sectionTitle,
+.sidebarDropReady .sectionTitle,
+.sidebar:has([data-workspace-editing]) .sectionTitle {
+  height: 24px;
+  padding: 4px var(--spacing-sm);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .empty {
   font-size: 0.75rem;
   color: var(--color-text-tertiary);
+  height: 0;
+  padding: 0 var(--spacing-sm);
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    height var(--sidebar-motion),
+    opacity var(--sidebar-motion),
+    padding var(--sidebar-motion);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .empty,
+.sidebarExpanded .empty,
+.sidebarDropReady .empty,
+.sidebar:has([data-workspace-editing]) .empty {
+  height: 24px;
   padding: 4px var(--spacing-sm);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .nav {
@@ -235,31 +292,13 @@
 }
 
 /* ────────────────────────────────────────────────
-   Nav アイテム
+   Nav items
 ──────────────────────────────────────────────── */
 .item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0;
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   text-decoration: none;
-  width: var(--sidebar-icon-box);
-  height: var(--sidebar-icon-box);
-  min-width: var(--sidebar-icon-box);
-  flex-shrink: 0;
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .item,
-.sidebarDropReady .item {
-  width: 100%;
-  min-width: 0;
-  justify-content: flex-start;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-sm);
 }
 
 .item:hover {
@@ -281,28 +320,13 @@
   color: var(--color-accent);
 }
 
-.icon {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .itemLabel {
-  min-width: 0;
   text-overflow: ellipsis;
 }
 
 .projectRow {
   position: relative;
   isolation: isolate;
-  width: var(--sidebar-icon-box);
-}
-
-.sidebar:is(:hover, :has([data-workspace-editing])) .projectRow,
-.sidebarDropReady .projectRow {
   width: 100%;
 }
 
@@ -329,10 +353,13 @@
   color: var(--color-text-secondary);
   opacity: 0;
   pointer-events: none;
+  transition: opacity var(--sidebar-motion);
 }
 
-.sidebar:is(:hover, :has([data-workspace-editing])) .projectMenuButton,
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .projectMenuButton,
+.sidebarExpanded .projectMenuButton,
 .sidebarDropReady .projectMenuButton,
+.sidebar:has([data-workspace-editing]) .projectMenuButton,
 .projectMenuButtonOpen {
   opacity: 1;
   pointer-events: auto;
@@ -394,11 +421,14 @@
   text-align: center;
 }
 
-.sidebar:is(:hover, :has([data-workspace-editing])) .badge,
-.sidebarDropReady .badge {
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .badge,
+.sidebarExpanded .badge,
+.sidebarDropReady .badge,
+.sidebar:has([data-workspace-editing]) .badge {
   min-width: 1.25rem;
   flex: 0 0 auto;
   padding: 0 6px;
+  max-width: none;
 }
 
 .item.active .badge {
@@ -412,14 +442,33 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 0;
+  transition: gap var(--sidebar-motion);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .scroll,
+.sidebarExpanded .scroll,
+.sidebarDropReady .scroll,
+.sidebar:has([data-workspace-editing]) .scroll {
   gap: 4px;
 }
 
 .footer {
   flex-shrink: 0;
   margin-top: auto;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  transition:
+    padding-top var(--sidebar-motion),
+    border-color var(--sidebar-motion);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .footer,
+.sidebarExpanded .footer,
+.sidebarDropReady .footer,
+.sidebar:has([data-workspace-editing]) .footer {
   padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-border-light);
+  border-top-color: var(--color-border-light);
 }
 
 .footerButton {
@@ -436,15 +485,18 @@
   align-items: center;
   user-select: none;
   touch-action: none;
+  padding-left: 0;
+  transition: padding-left var(--sidebar-motion);
 }
-/* Raise the entire isolated row above subsequent tree rows while its menu is open. */
+
 .treeRowMenuOpen {
   z-index: 10;
 }
 
 .chevron {
-  display: none;
-  flex: 0 0 18px;
+  display: flex;
+  flex: 0 0 0;
+  width: 0;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -452,22 +504,93 @@
   background: transparent;
   color: var(--color-text-secondary);
   height: 28px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    flex-basis var(--sidebar-motion),
+    width var(--sidebar-motion),
+    opacity var(--sidebar-motion);
 }
-.sidebar:is(:hover, :has([data-workspace-editing])) .chevron, .sidebarDropReady .chevron { display: flex; }
-.sidebar:is(:hover, :has([data-workspace-editing])) .treeRow, .sidebarDropReady .treeRow {
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .chevron,
+.sidebarExpanded .chevron,
+.sidebarDropReady .chevron,
+.sidebar:has([data-workspace-editing]) .chevron {
+  flex: 0 0 18px;
+  width: 18px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .treeRow,
+.sidebarExpanded .treeRow,
+.sidebarDropReady .treeRow,
+.sidebar:has([data-workspace-editing]) .treeRow {
   padding-left: var(--tree-indent);
 }
-.sidebar:is(:hover, :has([data-workspace-editing])) .treeLabel, .sidebarDropReady .treeLabel {
+
+.treeLabel {
   flex: 1;
-  width: 0;
+  min-width: 0;
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .treeLabel,
+.sidebarExpanded .treeLabel,
+.sidebarDropReady .treeLabel,
+.sidebar:has([data-workspace-editing]) .treeLabel {
   padding-left: 2px;
   padding-right: 28px;
   cursor: grab;
 }
-.sidebar:is(:hover, :has([data-workspace-editing])) .treePaper, .sidebarDropReady .treePaper {
+
+.treePaper {
+  user-select: none;
+  touch-action: none;
+  padding-left: 0;
+  transition: padding-left var(--sidebar-motion);
+}
+
+.sidebarAuto:is(:hover, :has([data-workspace-editing])) .treePaper,
+.sidebarExpanded .treePaper,
+.sidebarDropReady .treePaper,
+.sidebar:has([data-workspace-editing]) .treePaper {
   padding-left: calc(var(--tree-indent) + 20px);
 }
-.treePaper { user-select: none; touch-action: none; }
+
+/*
+ * Roots-only (default): while the rail is icon-only, hide nested folders/papers
+ * so only top-level workspace items remain. Expanding the sidebar reveals them again.
+ */
+.treeNested {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows var(--sidebar-motion),
+    opacity var(--sidebar-motion);
+}
+
+.treeNested > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebarRootsOnly .treeNested {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebarRootsOnly.sidebarAuto:is(:hover, :has([data-workspace-editing])) .treeNested,
+.sidebarRootsOnly.sidebarExpanded .treeNested,
+.sidebarRootsOnly.sidebarDropReady .treeNested,
+.sidebarRootsOnly:has([data-workspace-editing]) .treeNested {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .dropinside { background: var(--color-accent-light); outline: 1px dashed var(--color-accent); outline-offset: -1px; }
 .dropbefore { box-shadow: inset 0 2px var(--color-accent); }
 .dropafter { box-shadow: inset 0 -2px var(--color-accent); }
@@ -476,7 +599,6 @@
 .paperInvalid:hover { outline: 1px dashed #c5221f; cursor: not-allowed; }
 .rootDrop { display: none; }
 .rootDropVisible { display: block; padding: 8px; font-size: 12px; color: var(--color-text-secondary); }
-
 
 .inlineName { flex: 1; min-width: 0; }
 .inlineName input {

@@ -3,7 +3,6 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  FileText,
   Loader2,
   Star,
 } from "lucide-react";
@@ -19,11 +18,7 @@ import {
   formatReadingProgress,
   readingProgressPercent,
 } from "../../domain/readingProgress";
-import {
-  displayPaperTitle,
-  usableTranslatedText,
-  isGarbageTitle,
-} from "../../services/translation/quality";
+import { displayPaperTitle } from "../../services/translation/quality";
 import { DraggablePaperArticle } from "./DraggablePaperArticle";
 import styles from "./PaperCard.module.css";
 
@@ -36,15 +31,15 @@ type PaperCardProps = {
 
 function getStatusIcon(readiness: ReturnType<typeof derivePaperReadiness>["readiness"]) {
   if (readiness === "preparing" || readiness === "translating") {
-    return <Loader2 size={16} className={styles.statusProcessing} />;
+    return <Loader2 size={14} className={styles.statusProcessing} />;
   }
   if (readiness === "readable") {
-    return <CheckCircle size={16} className={styles.statusReady} />;
+    return <CheckCircle size={14} className={styles.statusReady} />;
   }
   if (readiness === "needs_attention") {
-    return <AlertCircle size={16} className={styles.statusFailed} />;
+    return <AlertCircle size={14} className={styles.statusFailed} />;
   }
-  return <Clock size={16} className={styles.statusPending} />;
+  return <Clock size={14} className={styles.statusPending} />;
 }
 
 export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardProps) {
@@ -64,42 +59,28 @@ export function PaperCard({ paper, enabled = true, onOpen, actions }: PaperCardP
     <DraggablePaperArticle
       paperId={paper.id}
       label={displayPaperTitle(paper)}
-      className={styles.card}
+      className={styles.row}
       enabled={enabled}
       onOpen={onOpen}
     >
-      <div className={styles.icon}>
-        <FileText size={24} strokeWidth={1.5} />
-      </div>
       <div className={styles.info}>
         <div className={styles.titleRow}>
-          <h3 className={styles.title}>{displayPaperTitle(paper)}</h3>
           {paper.favorite && (
             <span className={styles.favoriteMark} title="お気に入り" aria-label="お気に入り">
-              <Star size={16} fill="currentColor" aria-hidden="true" />
+              <Star size={14} fill="currentColor" aria-hidden="true" />
             </span>
           )}
-        </div>
-        {usableTranslatedText(paper.titleTranslated, paper.titleOriginal) &&
-          paper.titleOriginal &&
-          !isGarbageTitle(paper.titleOriginal) && (
-            <p className={styles.originalTitle}>{paper.titleOriginal}</p>
-          )}
-        {paper.authors.length > 0 && (
-          <p className={styles.authors}>
-            {paper.authors.slice(0, 3).join(", ")}
-            {paper.authors.length > 3 && " ほか"}
-          </p>
-        )}
-        <div className={styles.meta}>
-          {progress && <span className={styles.date}>{progress}</span>}
-          <span className={styles.status}>
-            {getStatusIcon(view.readiness)}
-            {statusLabel}
-          </span>
+          <h3 className={styles.title}>{displayPaperTitle(paper)}</h3>
         </div>
       </div>
-      {actions}
+      <div className={styles.trailing}>
+        {progress && <span className={styles.date}>{progress}</span>}
+        <span className={styles.status}>
+          {getStatusIcon(view.readiness)}
+          <span className={styles.statusLabel}>{statusLabel}</span>
+        </span>
+        {actions}
+      </div>
     </DraggablePaperArticle>
   );
 }

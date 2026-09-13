@@ -14,4 +14,5 @@ Follow `UI_INTERACTION_PRINCIPLES.md`.
 - Modals are only for irreversible decisions.
 - New routes are only for real place changes (Library / Reader / Workspace / Settings).
 - Closing a temporary surface must restore scroll, outline, inspector, search, and the open paper.
+- Shared Element Transitions: when the same object changes place or size (e.g. figure zoom), morph continuously from the inline frame — do not cut to a new overlay.
 - Reuse existing components. Do not rebuild UI that already follows these rules.

@@ -18,6 +18,7 @@ import {
   type TranslationPriorityValue,
 } from "../translation";
 import { isPlausibleJaTranslation, localizeNamedFigureCaption, shouldTranslateTitle, titleTranslationComplete } from "../translation/quality";
+import { checkMADLADServer } from "../translation/madladEngine";
 import {
   finalizeJapaneseLayoutOnly,
   isJapaneseLayoutOnlyPaper,
@@ -92,9 +93,12 @@ export async function resumeIncompleteTranslation(
     }
 
     const cfg = resolveImportConfig(config);
+    // Leave pending work untouched so a later server-ready resume can pick it up.
+    const madlad = await checkMADLADServer(cfg.madladServerUrl);
+    if (!madlad.available) return;
     const translationEngine = new MADLADEngine(cfg.madladServerUrl);
     const queue = new TranslationQueue(translationEngine, {
-      concurrency: 8,
+      concurrency: cfg.translationConcurrency,
       retryFailed: false,
     });
     queue.start();

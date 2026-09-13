@@ -98,7 +98,7 @@ const previousProgress = fs.existsSync(progressPath)
 const progress = {
   ...previousProgress,
   phase: "phase-2",
-  lastBenchmarkVersion: "3b-mt-v5-semantic-v49",
+  lastBenchmarkVersion: "3b-mt-v5-semantic-v50",
   completedPapers: [...completedPaperIds].sort(),
   pendingPapers: [], reviewedBlocks: completed, archivedReviewedBlocks: archivedReviews.length, pendingManualReview: reviews.length - completed,
   unresolvedFailures: [

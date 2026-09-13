@@ -22,6 +22,16 @@
   object-fit: contain;
 }
 
+/* Keep layout while the shared-element clone is in flight */
+.sourceHidden .image {
+  opacity: 0;
+}
+
+.sourceHidden .zoomButton {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .missingImage {
   width: 100%;
   padding: 2.5rem 1rem;
@@ -97,67 +107,3 @@
   color: var(--color-text-tertiary);
 }
 
-/* Zoom Modal */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--spacing-xl);
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.modal {
-  max-width: 90vw;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.closeButton {
-  position: fixed;
-  top: var(--spacing-lg);
-  right: var(--spacing-lg);
-  padding: var(--spacing-sm);
-  border: none;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.closeButton:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.zoomedImage {
-  max-width: 100%;
-  max-height: calc(90vh - 80px);
-  object-fit: contain;
-  border-radius: var(--radius-sm);
-}
-
-.zoomedCaption {
-  margin-top: var(--spacing-md);
-  color: rgba(255, 255, 255, 0.9);
-  text-align: center;
-  font-size: 0.9375rem;
-  max-width: 600px;
-}

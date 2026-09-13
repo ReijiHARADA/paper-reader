@@ -1,11 +1,13 @@
 import { v4 as uuidv4 } from "uuid";
 import { useLibraryCache } from "../../stores/libraryCache";
-import { useImportJobStore } from "../../stores/importJobStore";
+import { useImportJobStore, type ImportJob } from "../../stores/importJobStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { showToast } from "../../stores/toastStore";
+import type { Paper, PaperBlock, Section } from "../../types/paper";
 import { upsertBlock, upsertSection } from "../../utils/mergePaperData";
 import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
-import { getSetting } from "../database";
+import { waitForServer } from "../../utils/serverReady";
+import { getAllPapers, getBlocksByPaper, getSectionsByPaper, getSetting } from "../database";
 import { addPaperToWorkspace } from "../projectService";
 import {
   checkMADLADAvailability,
@@ -13,9 +15,12 @@ import {
   type ImportConfig,
 } from "../importServiceV2";
 import { resumeIncompleteTranslation } from "./resume";
+import { referenceSectionIds, isRetryableTranslationFailure, shouldTranslateBlock, shouldTranslateSection } from "./policy";
+import { isPlausibleJaTranslation, shouldTranslateTitle, titleTranslationComplete } from "../translation/quality";
 
 const startedImportKeys = new Set<string>();
 const importFiles = new Map<string, File>();
+export const SERVER_UNAVAILABLE_MESSAGE = "翻訳サーバーに接続できません";
 
 const blockBatcher = createBlockUpdateBatcher((id, batch) => {
   useLibraryCache
@@ -25,6 +30,62 @@ const blockBatcher = createBlockUpdateBatcher((id, batch) => {
 
 function fileKeyOf(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function isServerUnavailableMessage(message: string | undefined): boolean {
+  return Boolean(message && message.includes(SERVER_UNAVAILABLE_MESSAGE));
+}
+
+function libraryTranslationCallbacks() {
+  return {
+    onBlockTranslated: (block: PaperBlock) => {
+      blockBatcher.push(block);
+    },
+    onPaperUpdated: (paper: Paper) => {
+      useLibraryCache.getState().addPaper(paper);
+      useLibraryCache.getState().updatePaper(paper.id, paper);
+    },
+    onSectionTranslated: (section: Section) => {
+      useLibraryCache
+        .getState()
+        .setSections(section.paperId, (prev) => upsertSection(prev, section));
+    },
+  };
+}
+
+export async function shouldResumePaperAfterServerReady(paper: Paper): Promise<boolean> {
+  if (paper.processingStatus === "translating" || paper.processingStatus === "queued" || paper.processingStatus === "glossary") {
+    return true;
+  }
+
+  const [sections, blocks] = await Promise.all([
+    getSectionsByPaper(paper.id),
+    getBlocksByPaper(paper.id),
+  ]);
+  const refSectionIds = referenceSectionIds(sections);
+  if (blocks.some((block) => isRetryableTranslationFailure(block, refSectionIds))) return true;
+  if (
+    paper.titleOriginal &&
+    shouldTranslateTitle(paper.titleOriginal) &&
+    (!paper.titleTranslated || !titleTranslationComplete(paper.titleOriginal, paper.titleTranslated))
+  ) {
+    return true;
+  }
+  if (
+    sections.some(
+      (section) =>
+        section.originalTitle &&
+        shouldTranslateSection(section) &&
+        (!section.translatedTitle || !isPlausibleJaTranslation(section.translatedTitle, section.originalTitle))
+    )
+  ) {
+    return true;
+  }
+  return blocks.some(
+    (block) =>
+      shouldTranslateBlock(block, refSectionIds) &&
+      (!block.translated || !isPlausibleJaTranslation(block.translated, block.original || ""))
+  );
 }
 
 async function attachToWorkspace(nodeId: string, paperId: string): Promise<void> {
@@ -38,17 +99,48 @@ async function attachToWorkspace(nodeId: string, paperId: string): Promise<void>
   }
 }
 
+/** Wait for MADLAD instead of failing the job while the sidecar is still booting. */
+async function ensureMadladReady(
+  jobId: string,
+  patch: (id: string, next: Partial<ImportJob>) => void
+): Promise<boolean> {
+  const first = await checkMADLADAvailability();
+  if (first.available) return true;
+
+  patch(jobId, {
+    stage: "reading",
+    message: "翻訳サーバーの起動を待っています...",
+    error: undefined,
+  });
+
+  try {
+    await waitForServer((attempt) => {
+      patch(jobId, {
+        stage: "reading",
+        message:
+          attempt > 5
+            ? `翻訳サーバーの起動を待っています…（${attempt}秒）`
+            : "翻訳サーバーの起動を待っています...",
+      });
+    }, 90);
+    const again = await checkMADLADAvailability();
+    return again.available;
+  } catch {
+    return false;
+  }
+}
+
 async function runImport(jobId: string, file: File, fileKey: string, workspaceNodeId?: string): Promise<void> {
   const patch = useImportJobStore.getState().patchJob;
-  const madlad = await checkMADLADAvailability();
-  if (!madlad.available) {
+  const ready = await ensureMadladReady(jobId, patch);
+  if (!ready) {
     patch(jobId, {
       stage: "failed",
-      error: "翻訳サーバーに接続できません",
-      message: "翻訳サーバーに接続できません",
+      error: SERVER_UNAVAILABLE_MESSAGE,
+      message: SERVER_UNAVAILABLE_MESSAGE,
     });
     startedImportKeys.delete(fileKey);
-    showToast({ kind: "error", message: "翻訳サーバーに接続できません" });
+    showToast({ kind: "error", message: SERVER_UNAVAILABLE_MESSAGE });
     return;
   }
 
@@ -201,18 +293,11 @@ export function dismissBackgroundImport(jobId: string): void {
 export async function retryPaperTranslation(paperId: string): Promise<boolean> {
   const madlad = await checkMADLADAvailability();
   if (!madlad.available) {
-    showToast({ kind: "error", message: "翻訳サーバーに接続できません" });
+    showToast({ kind: "error", message: SERVER_UNAVAILABLE_MESSAGE });
     return false;
   }
   try {
-    await resumeIncompleteTranslation(paperId, {
-      onBlockTranslated: (block) => blockBatcher.push(block),
-      onPaperUpdated: (paper) => useLibraryCache.getState().updatePaper(paper.id, paper),
-      onSectionTranslated: (section) =>
-        useLibraryCache.getState().setSections(section.paperId, (prev) =>
-          upsertSection(prev, section)
-        ),
-    });
+    await resumeIncompleteTranslation(paperId, libraryTranslationCallbacks());
     showToast({ kind: "success", message: "翻訳を再試行しました" });
     return true;
   } catch (error) {
@@ -220,4 +305,37 @@ export async function retryPaperTranslation(paperId: string): Promise<boolean> {
     showToast({ kind: "error", message: "翻訳の再試行に失敗しました" });
     return false;
   }
+}
+
+/**
+ * After the sidecar becomes reachable, retry imports that failed only because
+ * the server was down, and quietly resume incomplete saved translations.
+ */
+export function resumeAfterTranslationServerReady(): void {
+  const failedJobs = useImportJobStore
+    .getState()
+    .jobs.filter(
+      (job) =>
+        job.stage === "failed" &&
+        isServerUnavailableMessage(job.error ?? job.message) &&
+        importFiles.has(job.id)
+    );
+  for (const job of failedJobs) {
+    void retryBackgroundImport(job.id);
+  }
+
+  const settingsPromise = getSetting<ImportConfig>("translationSettingsV2");
+  const callbacks = libraryTranslationCallbacks();
+  void (async () => {
+    const settings = (await settingsPromise) || {};
+    const cached = useLibraryCache.getState().papers;
+    const saved = await getAllPapers();
+    const byId = new Map([...cached, ...saved].map((paper) => [paper.id, paper]));
+    for (const paper of byId.values()) {
+      if (!(await shouldResumePaperAfterServerReady(paper))) continue;
+      void resumeIncompleteTranslation(paper.id, callbacks, settings);
+    }
+  })().catch((error) => {
+    console.error("Failed to resume translations after server ready:", error);
+  });
 }

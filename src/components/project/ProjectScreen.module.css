@@ -20,6 +20,13 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-text);
+  margin: 0;
+  min-width: 0;
+}
+
+.headerText {
+  min-width: 0;
+  flex: 1;
 }
 
 .description {
@@ -59,7 +66,28 @@
   padding: var(--spacing-lg) var(--spacing-xl);
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-lg);
+  container-type: inline-size;
+  container-name: project-list;
+}
+
+.folderList {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--spacing-md);
+}
+
+/* Wide enough for two readable folder cards side by side. */
+@container project-list (min-width: 560px) {
+  .folderList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.paperList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 @keyframes spin {
@@ -86,8 +114,3 @@
 }
 
 .spin { animation: spin 1s linear infinite; }
-
-.folderDropTarget {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
-}

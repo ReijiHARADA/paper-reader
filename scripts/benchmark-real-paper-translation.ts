@@ -11,7 +11,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { extractFromPages } from "../src/services/pdfExtraction/pipeline/extractAcademicPdf.ts";
 import {
   evaluateJaTranslation,
@@ -158,7 +158,7 @@ function sourceSentencesForOverlap(source: string): string[] {
   return candidates;
 }
 
-function detectPartialSourceFallback(source: string, translation: string | undefined): { partial: boolean; reason?: string } {
+export function detectPartialSourceFallback(source: string, translation: string | undefined): { partial: boolean; reason?: string } {
   if (!translation) return { partial: false };
   const normalizedTranslation = normalizeForSourceOverlap(translation);
   if (!normalizedTranslation) return { partial: false };
@@ -428,9 +428,11 @@ async function main() {
   console.log(`wrote ${path.join(reportDir, `${reportName}.{json,md}`)}`);
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(error);
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
 }

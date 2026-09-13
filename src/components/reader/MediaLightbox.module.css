@@ -1,0 +1,94 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  background-color: rgba(0, 0, 0, 0.88);
+  overscroll-behavior: none;
+}
+
+.overlayEnter {
+  animation: lightboxBackdropIn 0.28s ease-out both;
+}
+
+.overlayOpen {
+  opacity: 1;
+}
+
+.overlayExit {
+  animation: lightboxBackdropOut 0.28s ease-in both;
+}
+
+@keyframes lightboxBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lightboxBackdropOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.closeButton {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: 1;
+  padding: var(--spacing-sm);
+  border: none;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.closeButton:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.image {
+  display: block;
+  max-width: none;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  transform-origin: center center;
+  will-change: transform, opacity;
+  user-select: none;
+}
+
+.caption {
+  margin-top: var(--spacing-md);
+  max-width: 600px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  font-size: 0.9375rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease-out 0.12s, transform 0.22s ease-out 0.12s;
+}
+
+.captionVisible {
+  opacity: 1;
+  transform: none;
+}

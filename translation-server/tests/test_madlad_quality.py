@@ -44,3 +44,23 @@ class MadladUnitQualityTests(unittest.TestCase):
         output = "実験では同一条件下で二群を比較し、研究の全参加者について観測された反応を報告する。"
         self.assertFalse(MADLADEngine._is_implausibly_short_unit(output, source))
         self.assertFalse(MADLADEngine._is_degenerate(output, source, "ja"))
+
+    def test_allows_compact_translation_when_only_reporting_frame_is_omitted(self) -> None:
+        source = (
+            "Among other things they found that an emotional relation with an – at first nondescript – "
+            "physical piece of jewellery could be established through interaction."
+        )
+        output = "また、宝石との感情的関係は、相互作用を通して確立されることが分かった。"
+        self.assertFalse(MADLADEngine._is_implausibly_short_unit(output, source))
+        self.assertFalse(MADLADEngine._is_degenerate(output, source, "ja"))
+
+    def test_still_rejects_coordinated_claim_when_one_finding_is_omitted(self) -> None:
+        source = (
+            "Among other things they found that an emotional relation with an – at first nondescript – "
+            "physical piece of jewellery could be established through interaction and that interactive "
+            "jewellery holds the quality to make implicit emotions related to a piece of jewellery can "
+            "be made explicit through interaction [29]."
+        )
+        output = "また、インタラクティブジュエリーは、ジュエリーに関連する内在的な感情をインタラクションを通して明示できる性質を持つことを示した。[29]"
+        self.assertTrue(MADLADEngine._is_implausibly_short_unit(output, source))
+        self.assertTrue(MADLADEngine._is_degenerate(output, source, "ja"))

@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Maximize2, X, Eye, EyeOff } from "lucide-react";
+import { useRef, useState } from "react";
+import { Maximize2, Eye, EyeOff } from "lucide-react";
 import type { PaperBlock, TableMetadata } from "../../types/paper";
 import styles from "./Figure.module.css";
 import { splitCaptionLabel } from "./caption";
+import { MediaLightbox } from "./MediaLightbox";
 
 type TableProps = {
   block: PaperBlock;
@@ -11,7 +12,9 @@ type TableProps = {
 
 export function Table({ metadata }: TableProps) {
   const [isZoomed, setIsZoomed] = useState(false);
+  const [surfaceActive, setSurfaceActive] = useState(false);
   const [showOriginalCaption, setShowOriginalCaption] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const hasTranslatedCaption =
     metadata.captionTranslated && metadata.captionOriginal;
@@ -22,9 +25,10 @@ export function Table({ metadata }: TableProps) {
   return (
     <>
       <figure className={styles.figure}>
-        <div className={styles.imageWrapper}>
+        <div className={`${styles.imageWrapper} ${surfaceActive ? styles.sourceHidden : ""}`}>
           {hasImage ? (
             <img
+              ref={imageRef}
               src={metadata.imageUrl}
               alt={caption}
               className={styles.image}
@@ -35,6 +39,7 @@ export function Table({ metadata }: TableProps) {
           )}
           {hasImage && (
             <button
+              type="button"
               className={styles.zoomButton}
               onClick={() => setIsZoomed(true)}
               title="拡大表示"
@@ -50,6 +55,7 @@ export function Table({ metadata }: TableProps) {
           )}
           {hasTranslatedCaption && (
             <button
+              type="button"
               className={styles.toggleOriginal}
               onClick={() => setShowOriginalCaption(!showOriginalCaption)}
               title={
@@ -65,22 +71,20 @@ export function Table({ metadata }: TableProps) {
         </figcaption>
       </figure>
 
-      {isZoomed && hasImage && (
-        <div className={styles.overlay} onClick={() => setIsZoomed(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <button
-              className={styles.closeButton}
-              onClick={() => setIsZoomed(false)}
-              title="閉じる"
-            >
-              <X size={24} />
-            </button>
-            <img src={metadata.imageUrl} alt={caption} className={styles.zoomedImage} />
-            <p className={styles.zoomedCaption}>
+      {hasImage && (
+        <MediaLightbox
+          open={isZoomed}
+          src={metadata.imageUrl!}
+          alt={caption || ""}
+          sourceRef={imageRef}
+          onClose={() => setIsZoomed(false)}
+          onSurfaceChange={setSurfaceActive}
+          caption={
+            <>
               <strong>{displayedCaption.label}:</strong> {displayedCaption.text}
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
     </>
   );

@@ -8,7 +8,7 @@ import { useImportJobStore, visibleImportJobs } from "../../stores/importJobStor
 import { usePaperDragStore } from "../../stores/paperDragStore";
 import { filterPapersByLibraryQuery } from "../../domain/librarySearch";
 import { derivePaperReadiness } from "../../domain/paperReadiness";
-import { collectDescendantIds, listChildWorkspaceNodes } from "../../data/workspace/tree";
+import { collectDescendantIds, listChildWorkspaceNodes, workspaceAncestorPath } from "../../data/workspace/tree";
 import { listPapersForWorkspace, removePaperFromWorkspace } from "../../services/projectService";
 import { tryStartPdfImport } from "../../services/pdfImport";
 import { dismissBackgroundImport, retryBackgroundImport } from "../../services/import/startBackgroundImport";
@@ -16,6 +16,7 @@ import { PaperCard } from "../library/PaperCard";
 import { PaperMenu } from "../library/PaperMenu";
 import { ImportJobCard } from "../library/ImportJobCard";
 import { WorkspaceFolderCard } from "./WorkspaceFolderCard";
+import { WorkspacePathTrail } from "../workspace/WorkspacePathTrail";
 import type { Paper } from "../../types/paper";
 import type { WorkspaceNode, WorkspacePaper } from "../../types/project";
 import styles from "./ProjectScreen.module.css";
@@ -77,6 +78,11 @@ export function ProjectScreen() {
     );
   }, [nodeId, searchQuery, workspaceNodes]);
 
+  const folderPath = useMemo(
+    () => workspaceAncestorPath(workspaceNodes, nodeId),
+    [workspaceNodes, nodeId]
+  );
+
   const file = useCallback(
     async (selected: File) => {
       if (nodeId) await tryStartPdfImport(selected, { workspaceNodeId: nodeId });
@@ -109,8 +115,14 @@ export function ProjectScreen() {
         }}
       />
       <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>{node?.name ?? "…"}</h1>
+        <div className={styles.headerText}>
+          {folderPath.length > 0 ? (
+            <h1 className={styles.title}>
+              <WorkspacePathTrail folders={folderPath} />
+            </h1>
+          ) : (
+            <h1 className={styles.title}>{node?.name ?? "…"}</h1>
+          )}
           {node?.description && <p className={styles.description}>{node.description}</p>}
         </div>
         <div className={styles.headerActions}>
@@ -139,51 +151,57 @@ export function ProjectScreen() {
         </div>
       ) : (
         <div className={styles.list}>
-          {jobs.map((job) => (
-            <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
-          ))}
-          {childFolders.map((folder) => (
-            <WorkspaceFolderCard
-              key={folder.id}
-              node={folder}
-              childFolderCount={listChildWorkspaceNodes(workspaceNodes, folder.id).length}
-              paperCount={subtreePaperCount(folder.id, workspaceNodes, memberships)}
-              dropTarget={dropTargetId === folder.id}
-              onOpen={() => {
-                if (draggingPaperId) return;
-                navigate(`/project/${folder.id}`);
-              }}
-            />
-          ))}
-          {merged.map((paper) => (
-            <PaperCard
-              key={paper.id}
-              paper={paper}
-              onOpen={() => {
-                const state = derivePaperReadiness({
-                  processingStatus: paper.processingStatus,
-                  blocks: blocks[paper.id],
-                });
-                if (state.canOpen) {
-                  setCurrentPaper(paper.id);
-                  navigate(`/reader/${paper.id}?workspace=${nodeId}`);
-                }
-              }}
-              actions={
-                <PaperMenu
-                  paper={paper}
-                  variant="workspace"
-                  onRemoveFromWorkspace={(paperId) => {
-                    if (nodeId) {
-                      void removePaperFromWorkspace(nodeId, paperId).then(() =>
-                        removeMembershipLocal(nodeId, paperId)
-                      );
-                    }
+          {childFolders.length > 0 && (
+            <div className={styles.folderList}>
+              {childFolders.map((folder) => (
+                <WorkspaceFolderCard
+                  key={folder.id}
+                  node={folder}
+                  childFolderCount={listChildWorkspaceNodes(workspaceNodes, folder.id).length}
+                  paperCount={subtreePaperCount(folder.id, workspaceNodes, memberships)}
+                  dropTarget={dropTargetId === folder.id}
+                  onOpen={() => {
+                    if (draggingPaperId) return;
+                    navigate(`/project/${folder.id}`);
                   }}
                 />
-              }
-            />
-          ))}
+              ))}
+            </div>
+          )}
+          <div className={styles.paperList}>
+            {jobs.map((job) => (
+              <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
+            ))}
+            {merged.map((paper) => (
+              <PaperCard
+                key={paper.id}
+                paper={paper}
+                onOpen={() => {
+                  const state = derivePaperReadiness({
+                    processingStatus: paper.processingStatus,
+                    blocks: blocks[paper.id],
+                  });
+                  if (state.canOpen) {
+                    setCurrentPaper(paper.id);
+                    navigate(`/reader/${paper.id}?workspace=${nodeId}`);
+                  }
+                }}
+                actions={
+                  <PaperMenu
+                    paper={paper}
+                    variant="workspace"
+                    onRemoveFromWorkspace={(paperId) => {
+                      if (nodeId) {
+                        void removePaperFromWorkspace(nodeId, paperId).then(() =>
+                          removeMembershipLocal(nodeId, paperId)
+                        );
+                      }
+                    }}
+                  />
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -51,7 +51,7 @@ export function FavoritesScreen() {
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}><Star size={64} strokeWidth={1} /></div>
             <h2 className={styles.emptyTitle}>お気に入りがありません</h2>
-            <p className={styles.emptyDescription}>カードのメニューからお気に入りに追加できます</p>
+            <p className={styles.emptyDescription}>論文のメニューからお気に入りに追加できます</p>
           </div>
         ) : (
           <div className={styles.paperList}>

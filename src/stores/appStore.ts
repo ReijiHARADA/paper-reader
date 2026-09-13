@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 
 export type Theme = "light" | "dark" | "system";
 export type OriginalDisplayMode = "on-demand" | "always" | "when-untranslated";
+/** auto: hoverで開閉 / expanded: 常時展開 / collapsed: 常時アイコンのみ */
+export type SidebarMode = "auto" | "expanded" | "collapsed";
 
 export type DisplaySettings = {
   fontSize: number;
@@ -10,6 +12,12 @@ export type DisplaySettings = {
   contentWidth: number;
   theme: Theme;
   originalDisplay: OriginalDisplayMode;
+  sidebarMode: SidebarMode;
+  /**
+   * true (default): icon-rail ではワークスペースの最上位だけ表示し、入れ子は隠す。
+   * false: 以前どおり、フォルダが開いていれば折りたたみ中も入れ子アイコンを並べる。
+   */
+  sidebarCollapseRootsOnly: boolean;
 };
 
 type AppUiState = {
@@ -30,6 +38,8 @@ const defaultDisplaySettings: DisplaySettings = {
   contentWidth: 720,
   theme: "system",
   originalDisplay: "on-demand",
+  sidebarMode: "auto",
+  sidebarCollapseRootsOnly: true,
 };
 
 export const useAppStore = create<AppUiState>()(
@@ -66,9 +76,9 @@ export const useAppStore = create<AppUiState>()(
     }),
     {
       name: "paper-reader-storage",
-      version: 2,
+      version: 4,
       migrate: (persisted) => {
-        const value = persisted as { displaySettings?: DisplaySettings } | undefined;
+        const value = persisted as { displaySettings?: Partial<DisplaySettings> } | undefined;
         return {
           displaySettings: { ...defaultDisplaySettings, ...value?.displaySettings },
         };

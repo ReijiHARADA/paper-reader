@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertMoveAllowed, buildWorkspaceTree, listChildWorkspaceNodes, reorderSiblings, wouldCreateCycle } from "../../data/workspace/tree";
+import { assertMoveAllowed, buildWorkspaceTree, listChildWorkspaceNodes, reorderSiblings, wouldCreateCycle, workspaceAncestorPath } from "../../data/workspace/tree";
 import type { WorkspaceNode } from "../../data/types/workspace";
 const node = (id: string, parentId: string | null, order = 0): WorkspaceNode => ({ id, parentId, name: id, order, createdAt: "t", updatedAt: "t" });
 describe("workspace tree", () => {
@@ -11,5 +11,11 @@ describe("workspace tree", () => {
     expect(listChildWorkspaceNodes(nodes, "a").map((item) => item.id)).toEqual(["c", "b"]);
     expect(listChildWorkspaceNodes(nodes, "b").map((item) => item.id)).toEqual(["d"]);
     expect(listChildWorkspaceNodes(nodes, null).map((item) => item.id)).toEqual(["a"]);
+  });
+  it("builds the ancestor path from root to a nested folder", () => {
+    const nodes = [node("a", null), node("b", "a"), node("c", "b")];
+    expect(workspaceAncestorPath(nodes, "c").map((item) => item.id)).toEqual(["a", "b", "c"]);
+    expect(workspaceAncestorPath(nodes, "a").map((item) => item.id)).toEqual(["a"]);
+    expect(workspaceAncestorPath(nodes, "missing")).toEqual([]);
   });
 });

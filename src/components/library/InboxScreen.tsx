@@ -71,7 +71,7 @@ export function InboxScreen() {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <Inbox size={20} style={{ color: "var(--color-accent)" }} />
-          <h1 className={styles.title}>Inbox</h1>
+          <h1 className={styles.title}>インボックス</h1>
         </div>
         <div className={styles.headerRight}>
           <button
@@ -91,10 +91,10 @@ export function InboxScreen() {
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}><Upload size={64} strokeWidth={1} /></div>
             <h2 className={styles.emptyTitle}>
-              {searchQuery.trim() ? "一致する論文がありません" : "Inboxは空です"}
+              {searchQuery.trim() ? "一致する論文がありません" : "インボックスは空です"}
             </h2>
             <p className={styles.emptyDescription}>
-              どのプロジェクトにも属さない論文がここに入ります。右上の「論文を追加」か、PDF をこの画面にドロップしてください。メニューからプロジェクトに追加できます。
+              どのフォルダにも属さない論文がここに入ります。右上の「論文を追加」か、PDF をこの画面にドロップしてください。メニューからワークスペースのフォルダに追加できます。
             </p>
           </div>
         ) : (

@@ -13,7 +13,6 @@ import { PaperDeleteControls } from "./PaperDeleteControls";
 import { PaperCard } from "./PaperCard";
 import { PaperMenu } from "./PaperMenu";
 import { ImportJobCard } from "./ImportJobCard";
-import { ContinueReading } from "./ContinueReading";
 import { useDeletePaper } from "../../hooks/useDeletePaper";
 import styles from "./LibraryScreen.module.css";
 
@@ -101,43 +100,38 @@ export function LibraryScreen() {
             </p>
           </div>
         ) : (
-          <>
-            {!searchQuery.trim() && (
-              <ContinueReading papers={papers} onOpen={handleOpenPaper} />
-            )}
-            <div className={styles.paperList}>
-              {jobs.map((job) => (
-                <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
-              ))}
-              {visiblePapers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  enabled={pendingId !== paper.id}
-                  onOpen={() => handleOpenPaper(paper.id)}
-                  actions={
-                    pendingId === paper.id ? (
-                      <PaperDeleteControls
-                        paperId={paper.id}
-                        pendingId={pendingId}
-                        error={error}
-                        busy={busy}
-                        onRequest={requestDelete}
-                        onConfirm={confirmDelete}
-                        onCancel={cancelDelete}
-                      />
-                    ) : (
-                      <PaperMenu
-                        paper={paper}
-                        variant="library"
-                        onDeleteRequest={requestDelete}
-                      />
-                    )
-                  }
-                />
-              ))}
-            </div>
-          </>
+          <div className={styles.paperList}>
+            {jobs.map((job) => (
+              <ImportJobCard key={job.id} job={job} onRetry={(id) => void retryBackgroundImport(id)} onDismiss={dismissBackgroundImport} />
+            ))}
+            {visiblePapers.map((paper) => (
+              <PaperCard
+                key={paper.id}
+                paper={paper}
+                enabled={pendingId !== paper.id}
+                onOpen={() => handleOpenPaper(paper.id)}
+                actions={
+                  pendingId === paper.id ? (
+                    <PaperDeleteControls
+                      paperId={paper.id}
+                      pendingId={pendingId}
+                      error={error}
+                      busy={busy}
+                      onRequest={requestDelete}
+                      onConfirm={confirmDelete}
+                      onCancel={cancelDelete}
+                    />
+                  ) : (
+                    <PaperMenu
+                      paper={paper}
+                      variant="library"
+                      onDeleteRequest={requestDelete}
+                    />
+                  )
+                }
+              />
+            ))}
+          </div>
         )}
       </main>
     </div>

@@ -780,7 +780,23 @@ class MADLADEngine(TranslationEngine):
         # with both a meaningful word count and a non-trivial source length.
         if len(source_compact) < 110 or len(words) < 18:
             return False
-        return len(output_compact) / len(source_compact) < 0.28
+        ratio_source = source_compact
+        # Academic prose often wraps a complete claim in a reporting frame such
+        # as “Among other things they found that …”.  A rescue retry may produce
+        # a faithful translation of the claim while naturally omitting that
+        # discourse frame, which should not force an English source fallback.
+        # Do not discount the frame when the source still contains a coordinated
+        # `and that` claim: in that shape the same low ratio can mean one of two
+        # findings was omitted, which is unsafe to accept.
+        if not re.search(r"\band\s+that\b", source, re.I):
+            adjusted = re.sub(
+                r"^(?:among\s+other\s+things\s+)?(?:they|we|the\s+authors|researchers)\s+found\s+that\s+",
+                "",
+                source,
+                flags=re.I,
+            )
+            ratio_source = "".join(adjusted.split())
+        return len(output_compact) / max(1, len(ratio_source)) < 0.28
 
     @staticmethod
     def _latin_ratio_beyond_source(output: str, source: str) -> float:

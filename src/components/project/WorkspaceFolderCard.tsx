@@ -1,7 +1,6 @@
 import { Folder } from "lucide-react";
 import type { WorkspaceNode } from "../../types/project";
-import cardStyles from "../library/PaperCard.module.css";
-import styles from "./ProjectScreen.module.css";
+import styles from "./WorkspaceFolderCard.module.css";
 
 type WorkspaceFolderCardProps = {
   node: WorkspaceNode;
@@ -28,7 +27,7 @@ export function WorkspaceFolderCard({
 
   return (
     <article
-      className={`${cardStyles.card} ${dropTarget ? styles.folderDropTarget : ""}`}
+      className={`${styles.card} ${dropTarget ? styles.dropTarget : ""}`}
       data-project-drop-id={node.id}
       role="button"
       tabIndex={0}
@@ -40,17 +39,13 @@ export function WorkspaceFolderCard({
         }
       }}
     >
-      <div className={cardStyles.icon}>
-        <Folder size={24} strokeWidth={1.5} />
+      <div className={styles.icon}>
+        <Folder size={22} strokeWidth={1.5} />
       </div>
-      <div className={cardStyles.info}>
-        <div className={cardStyles.titleRow}>
-          <h3 className={cardStyles.title}>{node.name}</h3>
-        </div>
-        {node.description && <p className={cardStyles.originalTitle}>{node.description}</p>}
-        <div className={cardStyles.meta}>
-          <span className={cardStyles.date}>{meta}</span>
-        </div>
+      <div className={styles.info}>
+        <h3 className={styles.title}>{node.name}</h3>
+        {node.description && <p className={styles.description}>{node.description}</p>}
+        <p className={styles.meta}>{meta}</p>
       </div>
     </article>
   );

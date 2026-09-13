@@ -32,7 +32,7 @@ export function GlossaryPanel({ entries, onChange, onClose }: GlossaryPanelProps
   };
 
   return (
-    <aside className={styles.panel} aria-label="Glossary">
+    <aside className={styles.panel} aria-label="用語集">
       <header className={styles.header}>
         <h2 className={styles.title}>用語集</h2>
         <button type="button" className={styles.close} onClick={onClose}>
@@ -69,7 +69,7 @@ export function GlossaryPanel({ entries, onChange, onClose }: GlossaryPanelProps
       )}
       <div className={styles.add}>
         <input
-          placeholder="English term"
+          placeholder="英語の用語"
           value={draftTerm}
           onChange={(e) => setDraftTerm(e.target.value)}
         />

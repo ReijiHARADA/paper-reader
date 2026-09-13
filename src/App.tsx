@@ -11,14 +11,22 @@ import { ImportScreen } from "./components/import/ImportScreen";
 import { SettingsScreen } from "./components/settings/SettingsScreen";
 import { PdfFileDropLayer } from "./components/shell/PdfFileDropLayer";
 import { useAppStore } from "./stores/appStore";
-import { isTauriApp, waitForServer } from "./utils/serverReady";
+import { isTauriApp, markTranslationServerReady, waitForServer } from "./utils/serverReady";
 import { flushPersistence } from "./services/database";
+import { resumeAfterTranslationServerReady } from "./services/import/startBackgroundImport";
 
 function App() {
   const displaySettings = useAppStore((state) => state.displaySettings);
   const [serverReady, setServerReady] = useState(!isTauriApp());
   const [serverError, setServerError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!isTauriApp()) {
+      markTranslationServerReady();
+      resumeAfterTranslationServerReady();
+    }
+  }, []);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -87,10 +95,37 @@ function App() {
   // Tauri アプリとして起動した場合のみサーバー待機
   useEffect(() => {
     if (!isTauriApp()) return;
+    let cancelled = false;
+    let retryTimer: number | undefined;
+
+    const onReady = () => {
+      if (cancelled) return;
+      if (retryTimer !== undefined) {
+        window.clearInterval(retryTimer);
+        retryTimer = undefined;
+      }
+      setServerReady(true);
+      setServerError(false);
+      resumeAfterTranslationServerReady();
+    };
+
     setServerError(false);
     waitForServer((n) => setAttempt(n), 90) // 最大90秒待機
-      .then(() => setServerReady(true))
-      .catch(() => setServerError(true));
+      .then(onReady)
+      .catch(() => {
+        if (cancelled) return;
+        setServerError(true);
+        retryTimer = window.setInterval(() => {
+          waitForServer(undefined, 1, 1000).then(onReady).catch(() => {
+            // Keep the banner actionable while the sidecar/model is still loading.
+          });
+        }, 5000);
+      });
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) window.clearInterval(retryTimer);
+    };
   }, []);
 
   const handleRetry = () => {
@@ -98,7 +133,10 @@ function App() {
     setServerReady(false);
     setAttempt(0);
     waitForServer((n) => setAttempt(n), 90)
-      .then(() => setServerReady(true))
+      .then(() => {
+        setServerReady(true);
+        resumeAfterTranslationServerReady();
+      })
       .catch(() => setServerError(true));
   };
 

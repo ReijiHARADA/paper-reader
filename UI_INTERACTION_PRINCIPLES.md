@@ -29,6 +29,14 @@ Popover / Sheet / Overlay を閉じたあと、次を極力保持する。
 
 一時 UI を使ったことで読書位置を失わない。
 
+## Shared Element Transition
+
+同一の対象が場所や大きさを変えるとき、別レイヤーへ瞬時に切り替えてビューを切らない。元の位置・サイズから連続して拡大／縮小し、閉じるときも元の位置へ戻す。
+
+- 例: 図・表のインライン表示 → 拡大 overlay（`MediaLightbox`）
+- フェードインだけの置き換えや、突然フルスクリーンが現れる遷移は避ける
+- 新しい「同じものが動く」体験を足すときも、この連続性を優先する
+
 ## 判断順
 
 1. 局所的な操作か → Popover
@@ -44,9 +52,9 @@ Popover / Sheet / Overlay を閉じたあと、次を極力保持する。
 原則を満たしている UI は作り直さない。
 
 - Library 上の background import
-- Import 中カードから Paper card への移行
-- Export Dialog、図の lightbox、⌘F / ⌘K のスコープ分離
-- Workspace 追加のカードメニュー picker
+- Import 中の一時行から論文行への移行
+- Export Dialog、図・表の lightbox（Shared Element で拡大／縮小）、⌘F / ⌘K のスコープ分離
+- Workspace 追加のメニュー picker
 
 ## メモ
 

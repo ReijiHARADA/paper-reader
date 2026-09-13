@@ -894,3 +894,17 @@ The latest completed full-corpus benchmark is v48, not v49. v48 covered 21 catal
 v49 adds a placeholder-leak guard for mutated scientific placeholders such as `ΖZCIt2ZZ`. Its unit tests, TypeScript check, and Python translation-server tests passed, but the v49 full benchmark was interrupted at 17 completed paper checkpoints and the report has `complete: false`. Do not use the partial v49 report as the authoritative corpus rate; rerun v49 to completion before comparing metrics.
 
 The next audit step should add an explicit partial-source-fallback metric. v48's micro-batcher can preserve only failed translation units as exact English source inside an otherwise Japanese paragraph. That is safer than a hallucinated Japanese sentence, but it is not equivalent to a fully translated paragraph and should be measured separately before claiming product-readiness progress toward the 5% fallback target.
+
+## Server-ready resume fix
+
+A saved import/translation can now recover when the PDF was added before MADLAD was reachable. The ready hook scans persisted papers from the database, not only the in-memory library cache, and resumes papers that are still `translating`, `queued`, or `glossary`, plus `partial`/`failed`/`ready` papers that still have pending title, section, or retryable paragraph translation work. The app also keeps a low-frequency health poll after the initial 90-second sidecar wait fails, so a later successful server startup still fires the resume path without requiring the reader page to be opened. `resumeIncompleteTranslation()` now uses the configured `translationConcurrency` instead of hard-coding 8.
+
+Verification passed: `npx vitest run src/test/importResumeServerReady.test.ts src/test/quality.test.ts src/test/resumeTranslation.test.ts`, `npx tsc --noEmit --pretty false`, and `npm run lint` with existing warnings only. A manual app-level check is still recommended: add a PDF while the translation server is unavailable, let the server become ready, and confirm the saved paper resumes translation from the library/project view.
+
+## Handoff checkpoint: v50 stopped at user-requested paper checkpoint
+
+The v50 current-source server was started on `http://127.0.0.1:8766` because the running `.app` server on 8765 reported the old `3b-mt-v5-semantic-v1` bundle. v50 changes the unit-level compression guard so a rescue-translated single claim may omit a leading reporting frame such as `Among other things they found that` without being rejected solely for length. The rule does not apply while the source still contains a coordinated `and that` claim, preserving the previous safety behavior for one-claim omissions.
+
+Spot check: `interactive-jewellery b-828da077` changed from v49 `partialSourceFallback=true` with a 46-word English source span left inside accepted Japanese, to v50 `partialSourceFallback=false` with the rescued claims translated into Japanese. This improves readable output without counting hidden English source fallback as a full accept.
+
+The full v50 benchmark was then started and stopped at the user's request after a clean paper checkpoint. The incomplete report currently has 6 completed paper checkpoints, 62 rows, and 3 `partialSourceFallback` rows; `complete` is `false`, so it is not an authoritative whole-corpus rate. The v50 dev server and benchmark process were stopped. The user's `.app` translation-server process was left running because it belongs to the open app, not this benchmark run.

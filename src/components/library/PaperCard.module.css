@@ -1,43 +1,32 @@
-.card {
+/* Compact paper / import rows — not cards (folders keep their own card UI). */
+
+.row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg);
-  background-color: var(--color-bg);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
+  gap: var(--spacing-sm);
+  min-height: 40px;
+  padding: 6px 4px;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  border-radius: 0;
+  background: transparent;
   cursor: grab;
   user-select: none;
   touch-action: none;
-  transition: border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
 
-.card:active {
+.row:active {
   cursor: grabbing;
 }
 
-.card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 8px var(--color-shadow);
-}
-
-.card:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.icon {
-  flex-shrink: 0;
-  box-sizing: border-box;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.row:hover {
   background-color: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+}
+
+.row:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .info {
@@ -48,14 +37,14 @@
 .titleRow {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  margin: 0 0 var(--spacing-xs);
+  gap: 6px;
+  margin: 0;
   min-width: 0;
 }
 
 .title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 500;
   color: var(--color-text);
   margin: 0;
   overflow: hidden;
@@ -71,37 +60,35 @@
   color: var(--color-accent);
 }
 
-.originalTitle {
-  font-size: 0.8125rem;
-  color: var(--color-text-tertiary);
-  margin: 0 0 var(--spacing-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.authors {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--spacing-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+  max-width: 55%;
 }
 
 .meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--spacing-md);
-  font-size: 0.8125rem;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
 }
 
 .status {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: 4px;
   color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.statusLabel {
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .statusReady {
@@ -132,20 +119,21 @@
 
 .date {
   color: var(--color-text-tertiary);
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .menuRoot {
   position: relative;
   flex-shrink: 0;
-  align-self: flex-start;
 }
 
 .menuButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   background: transparent;
@@ -155,13 +143,13 @@
 }
 
 .menuButton:hover {
-  background-color: var(--color-bg-secondary);
+  background-color: var(--color-bg-tertiary, var(--color-bg));
   color: var(--color-text);
 }
 
 .menu {
   position: absolute;
-  top: 36px;
+  top: 32px;
   right: 0;
   z-index: 20;
   min-width: 220px;
@@ -215,12 +203,11 @@
 
 .actionButton {
   flex-shrink: 0;
-  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   background: transparent;
@@ -246,8 +233,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
-  min-width: 140px;
+  gap: 4px;
+  min-width: 120px;
 }
 
 .deleteConfirmText {
@@ -286,6 +273,16 @@
 .importActions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .statusLabel {
+    display: none;
+  }
+
+  .date {
+    display: none;
+  }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Search,
@@ -16,6 +16,7 @@ import { saveReadingPosition, getSectionsByPaper, getBlocksByPaper, getPaper, ge
 import { resumeIncompleteTranslation, shouldTranslateBlock } from "../../services/importServiceV2";
 import { createBlockUpdateBatcher } from "../../utils/batchBlockUpdates";
 import type { ImportConfig } from "../../services/importServiceV2";
+import { subscribeTranslationServerReady } from "../../utils/serverReady";
 import type { PaperBlock, Section } from "../../types/paper";
 import type { Annotation } from "../../types/annotation";
 import {
@@ -26,6 +27,8 @@ import {
 } from "../../utils/mergePaperData";
 import { displayPaperTitle, isReferencesHeading } from "../../services/translation/quality";
 import { useProjectStore } from "../../stores/projectStore";
+import { workspaceAncestorPath } from "../../data/workspace/tree";
+import { WorkspacePathTrail } from "../workspace/WorkspacePathTrail";
 import { translationManager, READER_PRIORITY_DEBOUNCE_MS } from "../../services/translation";
 import { openSourcePdf, sourcePdfExists } from "../../services/sourcePdf";
 import {
@@ -176,6 +179,11 @@ export function ReaderScreen() {
     if (links.length === 1) return workspaceNodes.find((node) => node.id === links[0].nodeId) ?? null;
     return null;
   }, [searchParams, workspaceNodes, memberships, paperId]);
+
+  const workspacePath = useMemo(
+    () => workspaceAncestorPath(workspaceNodes, activeWorkspace?.id),
+    [workspaceNodes, activeWorkspace?.id]
+  );
 
   const annotationWorkspaceNodeId = searchParams.get("workspace")
     ? activeWorkspace?.id ?? null
@@ -389,11 +397,9 @@ export function ReaderScreen() {
 
   useEffect(() => {
     if (!paperId || isLoading) return;
-    if (resumeStartedFor.current === paperId) return;
-    resumeStartedFor.current = paperId;
 
     let cancelled = false;
-    (async () => {
+    const runResume = async () => {
       const settings = await getSetting<ImportConfig>("translationSettingsV2");
       if (cancelled) return;
       await resumeIncompleteTranslation(
@@ -411,10 +417,22 @@ export function ReaderScreen() {
         },
         settings || {}
       );
-    })();
+    };
+
+    // First open: try immediately (no-ops if the sidecar is still down).
+    if (resumeStartedFor.current !== paperId) {
+      resumeStartedFor.current = paperId;
+      void runResume();
+    }
+
+    // When the sidecar becomes ready after a paper was opened early, resume again.
+    const unsubscribe = subscribeTranslationServerReady(() => {
+      if (!cancelled) void runResume();
+    });
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [paperId, isLoading, setBlocksInStore, updatePaper, setSectionsInStore]);
 
@@ -845,6 +863,10 @@ export function ReaderScreen() {
   }
 
   const handleBackClick = () => {
+    if (activeWorkspace) {
+      navigate(`/project/${activeWorkspace.id}`);
+      return;
+    }
     navigate("/");
   };
 
@@ -868,24 +890,20 @@ export function ReaderScreen() {
           <button
             className={styles.iconButton}
             onClick={handleBackClick}
-            title="ライブラリに戻る"
+            title={activeWorkspace ? "フォルダに戻る" : "ライブラリに戻る"}
           >
             <ArrowLeft size={20} />
           </button>
           <div className={styles.titleArea}>
-            {activeWorkspace && (
-              <Link
-                to={`/project/${activeWorkspace.id}`}
-                className={styles.breadcrumb}
-                title={activeWorkspace.name}
-              >
-                {activeWorkspace.name}
-              </Link>
+            {workspacePath.length > 0 ? (
+              <WorkspacePathTrail
+                folders={workspacePath}
+                leaf={{ label: displayPaperTitle(paper) }}
+                size="sm"
+              />
+            ) : (
+              <h1 className={styles.title}>{displayPaperTitle(paper)}</h1>
             )}
-            {activeWorkspace && <span className={styles.breadcrumbSep}>/</span>}
-            <h1 className={styles.title}>
-              {displayPaperTitle(paper)}
-            </h1>
           </div>
         </div>
         <div className={styles.headerRight}>

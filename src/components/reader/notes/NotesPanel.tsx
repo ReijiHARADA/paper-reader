@@ -20,7 +20,7 @@ export function NotesPanel({
   return (
     <aside className={styles.panel} aria-label="メモ一覧">
       <header className={styles.header}>
-        <h2 className={styles.title}>Notes</h2>
+        <h2 className={styles.title}>メモ</h2>
         <button type="button" className={styles.close} onClick={onClose}>
           閉じる
         </button>
